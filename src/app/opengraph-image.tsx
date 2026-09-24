@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Dodio – dovolená bez tabulek a e-mailů";
+export const alt = "Dodio – evidence absencí na pár kliků";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -47,7 +47,7 @@ export default function OpengraphImage() {
           <div style={{ fontSize: 44, fontWeight: 700, color: "#FFFFFF" }}>dodio</div>
         </div>
         <div style={{ fontSize: 60, fontWeight: 800, color: "#FFFFFF", maxWidth: 900, lineHeight: 1.1 }}>
-          Dovolená bez tabulek a e‑mailů.
+          Evidence absencí na pár kliků.
         </div>
         <div style={{ fontSize: 28, color: "#D7EEE6" }}>
           Správa dovolených a absencí pro malé a střední české firmy.

@@ -26,7 +26,7 @@ export function Integrations() {
             Postavené pro Česko
           </div>
           <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
-            Žádné překlady z němčiny. Česká pravidla od začátku.
+            Česká pravidla od začátku.
           </h2>
           <div className="flex flex-col gap-4 pt-2">
             {CZECH_POINTS.map((point) => (

@@ -22,11 +22,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dodio.cz"),
-  title: "Dodio – dovolená bez tabulek a e-mailů",
+  title: "Dodio – evidence absencí na pár kliků",
   description:
     "Dodio je správa dovolených a absencí pro malé a střední české firmy. Žádost za tři kliknutí, schválení ve Slacku nebo Teams a export pro mzdy.",
   openGraph: {
-    title: "Dodio – dovolená bez tabulek a e-mailů",
+    title: "Dodio – evidence absencí na pár kliků",
     description:
       "Správa dovolených a absencí pro malé a střední české firmy. Žádost za tři kliknutí, schválení ve Slacku nebo Teams a export pro mzdy.",
     url: "https://dodio.cz",

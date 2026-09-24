@@ -104,7 +104,7 @@ export function Hero() {
             Pro malé a střední české firmy
           </div>
           <h1 className="m-0 font-dodio-display text-[40px] font-extrabold leading-[44px] tracking-[-1px] text-dodio-ink lg:text-[68px] lg:leading-[72px] lg:tracking-[-2px]">
-            Dovolená bez tabulek a e‑mailů.
+            Evidence absencí na pár kliků.
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
             Žádost za tři kliknutí, schválení přímo ve Slacku nebo Teams a podklady pro mzdy jedním
