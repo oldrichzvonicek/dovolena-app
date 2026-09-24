@@ -4,12 +4,49 @@ Working prototype of the leave-management portal described in the spec:
 Dashboard, Team Calendar (Gantt-style), Manager Approvals, and Admin/Exports,
 plus stub pages for My Requests, My Team, and Company Settings.
 
+`/` is the **dodio.cz marketing landing page** (see below) — the app itself
+lives at `/dashboard`, `/calendar`, etc.
+
 ## Run it
 
 ```bash
 npm install
 npm run dev
 ```
+
+Then open http://localhost:3000 for the landing page, or http://localhost:3000/dashboard
+for the app prototype (requires `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local` — without them the app pages
+still run in dev, but `npm run build` fails to prerender them; the landing
+page and legal pages don't need Supabase at all).
+
+## Landing page (dodio.cz)
+
+The marketing site is `src/app/page.tsx` plus the section components in
+`src/components/marketing/`. It's built to the landing page spec: 10
+sections, Manrope/Inter via `next/font`, Dodio's own brand tokens, and a
+static build (`output` is the Next.js default — no server features used).
+
+- **Pricing is config-driven**: `src/lib/dodio-pricing.ts` is the only place
+  prices, user limits and the yearly discount live. Change a number there;
+  no component needs touching.
+- **Placeholder links**: `src/lib/dodio-links.ts` holds the registration/app
+  URLs, the demo destination and the contact email — all still bracketed
+  placeholders (`[URL REGISTRACE]` etc.) pending the answers in the spec's
+  "Otevřené body k doplnění". Same for the VAT note and the Slack/Teams
+  add-on price inside the pricing section, and the placeholder text on
+  `/obchodni-podminky` and `/ochrana-osobnich-udaju`.
+- **Brand tokens**: added to `tailwind.config.ts` under the `dodio-*`
+  namespace (`bg-dodio-teal`, `text-dodio-ink`, `rounded-dodio-lg`, …) so
+  they don't collide with the app prototype's own placeholder palette
+  (`ink`, `surface`, `teal`, etc. — an earlier, different color scheme).
+  Fonts work the same way: `font-dodio-display`/`font-dodio-sans` pull from
+  CSS variables set by `next/font` in the root layout, separate from the
+  app's own Fraunces/IBM Plex Sans.
+- **Deploying**: Vercel, per the spec. Set the Supabase env vars above so the
+  full `npm run build` succeeds (the app pages need them even though the
+  landing page doesn't), point `dodio.cz` (and `www` → apex redirect) at the
+  project, and fill in the placeholders above before launch.
 
 Then open http://localhost:3000 — it redirects to `/dashboard`.
 

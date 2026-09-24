@@ -3,12 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
 type Mode = "signin" | "signup";
 
 export default function LoginPage() {
+  // Scoped here (rather than the root layout) so the marketing site and
+  // legal pages can prerender without Supabase credentials configured.
+  return (
+    <AuthProvider>
+      <LoginForm />
+    </AuthProvider>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const supabase = createClient();
   const { refreshProfile } = useAuth();

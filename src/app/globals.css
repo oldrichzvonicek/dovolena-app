@@ -46,3 +46,17 @@ h3,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Smooth anchor scrolling (nav, footer links) — off for reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Visible keyboard focus everywhere, including the marketing site's own
+   buttons/links/details which don't otherwise get the app's focus styling. */
+:focus-visible {
+  outline: 2px solid #0f9d7c;
+  outline-offset: 2px;
+}

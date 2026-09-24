@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <clipPath id="dodio-favicon-clip">
+      <rect width="32" height="32" rx="8" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#dodio-favicon-clip)">
+    <rect width="32" height="32" fill="#0F9D7C" />
+    <circle cx="32" cy="0" r="13" fill="#F0997B" />
+  </g>
+</svg>
