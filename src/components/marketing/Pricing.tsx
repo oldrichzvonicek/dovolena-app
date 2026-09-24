@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Container } from "./Container";
-import { getPlanPricing, type BillingPeriod } from "@/lib/dodio-pricing";
+import { CheckIcon } from "./icons";
+import { getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/dodio-pricing";
 
 const INCLUDED = [
   "Žádosti a zůstatky pro každého",
@@ -12,6 +13,42 @@ const INCLUDED = [
   "Exporty pro mzdy (od tarifu Starter)",
   "Synchronizace s kalendářem (iCal)",
 ];
+
+// Every tier's own feature checklist. Starter/Pro/Enterprise all get the
+// same set — Free is the only one missing payroll exports and the
+// Slack/Teams add-on (per its card note: "Bez exportů pro mzdy a
+// Slacku/Teams").
+const BASE_FEATURES = [
+  "Žádosti a zůstatky pro každého",
+  "Týmový kalendář",
+  "Centrum schvalování",
+  "České svátky a typy absencí",
+  "Synchronizace s kalendářem (iCal)",
+  "GDPR ready",
+];
+
+const PLAN_FEATURES: Record<PlanId, Array<{ label: string; included: boolean }>> = {
+  free: [
+    ...BASE_FEATURES.map((label) => ({ label, included: true })),
+    { label: "Exporty pro mzdy", included: false },
+    { label: "Slack a Teams", included: false },
+  ],
+  starter: [
+    ...BASE_FEATURES.map((label) => ({ label, included: true })),
+    { label: "Exporty pro mzdy (CSV, XLSX, PDF)", included: true },
+    { label: "Slack a Teams (placený doplněk)", included: true },
+  ],
+  pro: [
+    ...BASE_FEATURES.map((label) => ({ label, included: true })),
+    { label: "Exporty pro mzdy (CSV, XLSX, PDF)", included: true },
+    { label: "Slack a Teams (placený doplněk)", included: true },
+  ],
+  enterprise: [
+    ...BASE_FEATURES.map((label) => ({ label, included: true })),
+    { label: "Exporty pro mzdy (CSV, XLSX, PDF)", included: true },
+    { label: "Slack a Teams (placený doplněk)", included: true },
+  ],
+};
 
 export function Pricing() {
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
@@ -98,6 +135,22 @@ export function Pricing() {
                 ) : (
                   plan.note
                 )}
+              </div>
+              <div className="flex flex-col gap-2 border-t border-dodio-border pt-4 text-[13px] leading-5 lg:text-sm">
+                {PLAN_FEATURES[plan.id].map((feature) => (
+                  <div key={feature.label} className="flex items-center gap-2.5">
+                    {feature.included ? (
+                      <CheckIcon />
+                    ) : (
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-dodio-ink-muted">
+                        –
+                      </span>
+                    )}
+                    <span className={feature.included ? "text-dodio-ink" : "text-dodio-ink-muted"}>
+                      {feature.label}
+                    </span>
+                  </div>
+                ))}
               </div>
               <a
                 href={plan.ctaHref}
