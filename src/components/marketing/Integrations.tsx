@@ -9,6 +9,7 @@ const CZECH_POINTS = [
   },
   { strong: "Exporty pro české mzdové systémy", rest: " – Pohoda, Pamica, VEMA." },
   { strong: "Cena v korunách", rest: " – paušál podle velikosti týmu, bez přepočítávání lidí." },
+  { strong: "GDPR ready", rest: "" },
 ];
 
 const INTEGRATION_GROUPS = [
