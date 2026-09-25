@@ -19,20 +19,20 @@ const icons = {
   ),
   sick: (
     <>
-      <rect x="26" y="8" width="12" height="34" rx="6" fill="#F0997B" />
-      <circle cx="32" cy="50" r="11" fill="#F0997B" />
+      <rect x="26" y="8" width="12" height="34" rx="6" fill="#A14E5A" />
+      <circle cx="32" cy="50" r="11" fill="#A14E5A" />
     </>
   ),
   "home-office": (
     <>
-      <polygon points="32,8 58,30 6,30" className="fill-ink" />
-      <rect x="16" y="28" width="32" height="28" rx="4" className="fill-ink" />
+      <polygon points="32,8 58,30 6,30" fill="#5B8DB8" />
+      <rect x="16" y="28" width="32" height="28" rx="4" fill="#5B8DB8" />
     </>
   ),
   doctor: (
     <>
-      <rect x="26" y="12" width="12" height="40" rx="4" fill="#0F9D7C" />
-      <rect x="12" y="26" width="40" height="12" rx="4" fill="#0F9D7C" />
+      <rect x="26" y="12" width="12" height="40" rx="4" fill="#F0997B" />
+      <rect x="12" y="26" width="40" height="12" rx="4" fill="#F0997B" />
     </>
   ),
   "unpaid-leave": (
@@ -45,10 +45,10 @@ const icons = {
   ),
   "comp-day": (
     <>
-      <circle cx="32" cy="32" r="22" fill="none" className="stroke-ink" strokeWidth="3" />
-      <line x1="32" y1="32" x2="32" y2="18" className="stroke-ink" strokeWidth="3" strokeLinecap="round" />
-      <line x1="32" y1="32" x2="44" y2="32" className="stroke-ink" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="32" cy="32" r="3" className="fill-ink" />
+      <circle cx="32" cy="32" r="22" fill="none" stroke="#C9A227" strokeWidth="3" />
+      <line x1="32" y1="32" x2="32" y2="18" stroke="#C9A227" strokeWidth="3" strokeLinecap="round" />
+      <line x1="32" y1="32" x2="44" y2="32" stroke="#C9A227" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="3" fill="#C9A227" />
     </>
   ),
 } as const;

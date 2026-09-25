@@ -63,6 +63,18 @@ export const sections: HelpSection[] = [
     ],
   },
   {
+    title: "Moje žádosti",
+    icon: ListChecks,
+    color: "violet",
+    items: [
+      "Záložky Všechny / Čekající / Schválené / Zamítnuté / Zrušené a filtr roku a typu. Na telefonu se žádosti zobrazí jako karty.",
+      "U každé žádosti je vidět počet dní (i půldny), kdo ji schválil a barevný stav.",
+      "U zamítnuté žádosti se zobrazí důvod a tlačítko „Upravit a poslat znovu“.",
+      "Čekající žádost jde upravit nebo zrušit. U schválené žádosti požádáte o zrušení — rozhodne schvalovatel.",
+      "Akce „Duplikovat“ a „Do kalendáře“ jsou v menu ⋯ u každé žádosti.",
+    ],
+  },
+  {
     title: "Týmový kalendář",
     icon: CalendarDays,
     color: "sky",
@@ -73,18 +85,6 @@ export const sections: HelpSection[] = [
       "Pohled Měsíc / 2 týdny / Týden (na telefonu se otevírá týden), filtr podle oddělení, typu a jména, volba „Seskupit podle oddělení“.",
       "Najetím (na telefonu klepnutím) na pruh se ukáže detail — kdo, typ absence, termín a zástup. Státní svátky mají vlastní barvu.",
       "Kalendář si můžete přihlásit do Google / Outlook / Apple přes odkaz iCal pod kalendářem; jednotlivou žádost jde stáhnout jako .ics v Moje žádosti.",
-    ],
-  },
-  {
-    title: "Moje žádosti",
-    icon: ListChecks,
-    color: "violet",
-    items: [
-      "Záložky Všechny / Čekající / Schválené / Zamítnuté / Zrušené a filtr roku a typu. Na telefonu se žádosti zobrazí jako karty.",
-      "U každé žádosti je vidět počet dní (i půldny), kdo ji schválil a barevný stav.",
-      "U zamítnuté žádosti se zobrazí důvod a tlačítko „Upravit a poslat znovu“.",
-      "Čekající žádost jde upravit nebo zrušit. U schválené žádosti požádáte o zrušení — rozhodne schvalovatel.",
-      "Akce „Duplikovat“ a „Do kalendáře“ jsou v menu ⋯ u každé žádosti.",
     ],
   },
   {
@@ -164,9 +164,25 @@ export const sections: HelpSection[] = [
 
 export const faqs: HelpFaq[] = [
   {
-    q: "Kdy si můžu vybrat jen půlden?",
-    section: "Žádost o absenci",
-    a: "Pouze u jednodenního termínu. Víkendy a svátky se automaticky neodečítají.",
+    q: "Jak se počítá můj zůstatek?",
+    a: "Roční nárok + dny převedené z loňska − už vyčerpané − schválené do budoucna. U každé karty na nástěnce najdete odkaz „Jak se to počítá?“ s rozpisem. Čekající žádosti se do zůstatku nepočítají.",
+    section: "Nástěnka",
+    top: true,
+  },
+  {
+    q: "Co se stane s nevyčerpanou dovolenou na konci roku?",
+    section: "Nástěnka",
+    a: "Část dní se převede do dalšího roku — kolik a do kdy je nastaveno ve firemních pravidlech (Provoz & kalendář). Převedené dny jsou na nástěnce vidět zvlášť a po datu propadnutí se odečtou.",
+  },
+  {
+    q: "Co znamená oranžový kroužek a štítek „Dochází“?",
+    a: "Zůstatek dané absence klesl pod 20 % nároku nebo pod 2 dny. Je to jen upozornění — žádost můžete dál podat.",
+    section: "Nástěnka",
+  },
+  {
+    q: "Proč mi Home Office nemění zůstatek dovolené?",
+    section: "Nástěnka",
+    a: "Home Office má vlastní roční limit dní (firemní výchozí, nebo individuální nastavený adminem) a nesnižuje kapacitu týmu ani se nepočítá jako konflikt.",
   },
   {
     q: "Proč mi systém nedovolí odeslat žádost o absenci?",
@@ -175,9 +191,71 @@ export const faqs: HelpFaq[] = [
     a: "Nejspíš naráží na firemní pravidlo — blokovaný termín, příliš krátký předstih, zpětné zadávání, čerpání do mínusu, nebo vybraný termín obsahuje jen víkend a svátky (0 pracovních dní). Pravidla nastavuje admin v Nastavení firmy → Provoz & kalendář.",
   },
   {
+    q: "Kdo schvaluje moje žádosti?",
+    a: "Váš nadřízený, vedoucí nebo zástupce vašeho oddělení (případně jejich stálý zástup) a admin. Když nemáte nadřízeného ani vedoucího oddělení, schválí žádost admin. Ostatní manažeři vaše žádosti nevidí ke schválení.",
+    section: "Žádost o absenci",
+    top: true,
+  },
+  {
+    q: "Kdy si můžu vybrat jen půlden?",
+    section: "Žádost o absenci",
+    a: "Pouze u jednodenního termínu. Víkendy a svátky se automaticky neodečítají.",
+  },
+  {
+    q: "Proč u své absence nemůžu vybrat hodiny?",
+    a: "Hodiny jde zadat jen u typů absence, u kterých je admin povolil, a jen pro jednodenní termín. U ostatních typů vyberte „Celý den“ nebo „Půlden“.",
+    section: "Žádost o absenci",
+  },
+  {
+    q: "Co když do termínu spadne víkend nebo státní svátek?",
+    a: "Víkendy a státní svátky se z počtu dní automaticky neodečítají. Žádost, která by měla 0 pracovních dní (např. jen víkend), nejde odeslat.",
+    section: "Žádost o absenci",
+  },
+  {
+    q: "Můžu zadat absenci zpětně?",
+    a: "Záleží na pravidlech vaší firmy: admin může zpětné zadávání zakázat nebo omezit na několik dní (Nastavení firmy → Provoz & kalendář). Když to pravidla nedovolují, formulář vám to při odeslání napíše.",
+    section: "Žádost o absenci",
+  },
+  {
+    q: "Jak nahlásím nemoc?",
+    a: "Vyberte typ Sick Day (případně jiný typ nemoci) a termín. Zdravotní údaje ani důvod neuvádíte a nikam se neukládají. Kolegové uvidí jen „Nepřítomen“, konkrétní typ vidí vy, váš nadřízený, admin, HR a účetní.",
+    section: "Žádost o absenci",
+    top: true,
+  },
+  {
+    q: "Musím do Dodia nahrát potvrzení od lékaře?",
+    a: "Ne. Dodio žádná potvrzení ani zdravotní údaje neeviduje. Jestli firma potvrzení vyžaduje, řešte to mimo aplikaci podle interních pravidel.",
+    section: "Žádost o absenci",
+  },
+  {
+    q: "Mám dvě žádosti na stejný den. Co se stane?",
+    a: "Formulář vás upozorní, že už v tomto termínu máte jinou žádost (schválenou nebo čekající). Žádost neblokuje, ale dny by se odečetly dvakrát, proto jednu z nich zrušte nebo upravte.",
+    section: "Žádost o absenci",
+  },
+  {
     q: "Jak poznám, že má o stejný termín zažádáno i kolega?",
     section: "Žádost o absenci",
     a: "Formulář žádosti zobrazí, kolik lidí z vašeho oddělení má ve stejném termínu už schválenou absenci. Home Office se nepočítá.",
+  },
+  {
+    q: "Kdo se předvyplní do pole „Zastupování“?",
+    section: "Žádost o absenci",
+    a: "Váš výchozí zástupce, kterého nastaví admin nebo manažer v Nastavení firmy nebo v Můj tým.",
+  },
+  {
+    q: "Proč mi někdo schválil žádost sám / bez čekání?",
+    section: "Žádost o absenci",
+    a: "Některé typy absence mají v nastavení automatické schválení (např. Home Office nebo krátká absence do daného počtu dní).",
+  },
+  {
+    q: "Co znamená stav „Čeká na schválení“?",
+    a: "Žádost odešla schvalovateli (vašemu nadřízenému, případně vedoucímu oddělení nebo adminovi). Dokud ji nerozhodne, žádost jde upravit nebo zrušit. O výsledku dostanete oznámení.",
+    section: "Moje žádosti",
+  },
+  {
+    q: "Moje žádost čeká na schválení už dlouho. Co mám dělat?",
+    a: "Po době nastavené ve firmě (Provoz & kalendář → připomínka schvalovatele) se žádost automaticky předá zástupci vedoucího oddělení, případně adminům. Stejně se předá, když je schvalovatel dnes nepřítomen. Pokud spěchá, napište schvalovateli přímo. Kdo vaše žádosti schvaluje, zjistíte v otázce „Kdo schvaluje moje žádosti?“.",
+    section: "Moje žádosti",
   },
   {
     q: "Jde už odeslanou žádost ještě upravit nebo zrušit?",
@@ -186,35 +264,18 @@ export const faqs: HelpFaq[] = [
     a: "Dokud čeká na schválení, ano — v Moje žádosti. Už schválenou žádost zrušíte přes „Požádat o zrušení“, které potvrdí schvalovatel.",
   },
   {
+    q: "Zadal(a) jsem špatný termín. Jak to opravím?",
+    a: "Dokud žádost čeká na schválení, upravíte ji nebo zrušíte v Moje žádosti. Už schválenou žádost zrušíte přes „Požádat o zrušení“ (rozhodne schvalovatel) a potom zadáte správný termín znovu. Šablonu s předvyplněnými údaji nabízí „Duplikovat“.",
+    section: "Moje žádosti",
+  },
+  {
     q: "Proč mi byla žádost zamítnuta?",
     section: "Moje žádosti",
     a: "U zamítnuté žádosti v Moje žádosti se zobrazí důvod od schvalovatele a tlačítko „Upravit a poslat znovu“.",
   },
   {
-    q: "Co se stane s nevyčerpanou dovolenou na konci roku?",
-    section: "Nástěnka",
-    top: true,
-    a: "Část dní se převede do dalšího roku — kolik a do kdy je nastaveno ve firemních pravidlech (Provoz & kalendář). Převedené dny jsou na nástěnce vidět zvlášť a po datu propadnutí se odečtou.",
-  },
-  {
-    q: "Proč mi Home Office nemění zůstatek dovolené?",
-    section: "Nástěnka",
-    a: "Home Office má vlastní roční limit dní (firemní výchozí, nebo individuální nastavený adminem) a nesnižuje kapacitu týmu ani se nepočítá jako konflikt.",
-  },
-  {
-    q: "Proč mi někdo schválil žádost sám / bez čekání?",
-    section: "Žádost o absenci",
-    a: "Některé typy absence mají v nastavení automatické schválení (např. Home Office nebo krátká absence do daného počtu dní).",
-  },
-  {
-    q: "Kdo se předvyplní do pole „Zastupování“?",
-    section: "Žádost o absenci",
-    a: "Váš výchozí zástupce, kterého nastaví admin nebo manažer v Nastavení firmy nebo v Můj tým.",
-  },
-  {
     q: "Koho vidím v Týmovém kalendáři?",
     section: "Týmový kalendář",
-    top: true,
     a: "Všechny aktivní kolegy z vaší firmy. Seznam zúžíte filtrem oddělení, typu absence nebo hledáním jména; můžete také zapnout seskupení podle oddělení.",
   },
   {
@@ -223,9 +284,32 @@ export const faqs: HelpFaq[] = [
     a: "Na svém řádku v Týmovém kalendáři přetáhněte myší požadovaný termín — rovnou se otevře formulář žádosti.",
   },
   {
+    q: "Proč u kolegy vidím jen „Nepřítomen“?",
+    a: "Některé typy absencí (výchozí je nemoc) jsou soukromé. Kolegové vidí jen to, že člověk chybí; důvod vidí on sám, jeho nadřízený a admin. Admin to nastavuje u typu absence.",
+    section: "Týmový kalendář",
+  },
+  {
     q: "Jak si přidám dovolenou do Google / Outlook kalendáře?",
     section: "Týmový kalendář",
     a: "U jednotlivé žádosti v Moje žádosti zvolte „Do kalendáře“ (.ics), nebo si v Týmovém kalendáři zkopírujte odkaz iCal a přihlaste se k odběru.",
+  },
+  {
+    q: "Jaké klávesové zkratky má kalendář?",
+    a: "Šipky ← → posouvají období, T se vrátí na dnešek a M, 2 a W přepínají mezi měsícem, dvěma týdny a týdnem.",
+    section: "Týmový kalendář",
+  },
+  {
+    q: "Nevidím žádost svého kolegy ke schválení.",
+    a: "Vidíte jen žádosti lidí, za které smíte rozhodovat: vašich podřízených, lidí z oddělení, kde jste vedoucí nebo zástupce, a lidí, za které máte stálý zástup. Nejčastěji chybí přiřazený nadřízený. Požádejte admina nebo HR, ať ho nastaví (Uživatelé → Upravit).",
+    section: "Ke schválení (manažer)",
+    top: true,
+    roles: ["manager","admin"],
+  },
+  {
+    q: "Na co mě systém upozorní při schvalování?",
+    section: "Ke schválení (manažer)",
+    a: "Na záporný zůstatek žadatele, překročení kapacity oddělení a konflikt s kolegou ze stejného oddělení, který už má v termínu schválenou absenci.",
+    roles: ["manager", "admin"],
   },
   {
     q: "Jak schválím nebo zamítnu víc žádostí najednou?",
@@ -235,10 +319,10 @@ export const faqs: HelpFaq[] = [
     roles: ["manager", "admin"],
   },
   {
-    q: "Na co mě systém upozorní při schvalování?",
+    q: "Jsem na dovolené. Kdo za mě schvaluje?",
+    a: "Požádejte admina nebo HR, ať vám nastaví zástup (Nastavení firmy → Uživatelé → Upravit). Když ho nemáte, žádosti po nastavené době přejdou na zástupce vedoucího oddělení a nakonec na adminy. Zástup schvaluje jen ty, kdo vám podléhají.",
     section: "Ke schválení (manažer)",
-    a: "Na záporný zůstatek žadatele, překročení kapacity oddělení a konflikt s kolegou ze stejného oddělení, který už má v termínu schválenou absenci.",
-    roles: ["manager", "admin"],
+    roles: ["manager","admin"],
   },
   {
     q: "Proč se mi zobrazují žádosti, které nejsou z mého týmu?",
@@ -260,15 +344,83 @@ export const faqs: HelpFaq[] = [
     roles: ["manager", "admin"],
   },
   {
+    q: "Chci zadat absenci za zaměstnance (např. nemoc oznámenou telefonem).",
+    a: "V Můj tým klikněte na „Zadat absenci za zaměstnance“ nebo na + u jeho řádku. Absence se založí rovnou schválená. Můžete ji zadat jen za své lidi, za ostatní ji zadá admin nebo HR.",
+    section: "Můj tým",
+    roles: ["manager","admin"],
+  },
+  {
+    q: "Proč nemůžu změnit nadřízeného nebo oddělení někomu ve firmě?",
+    a: "Manažer smí přeřazovat jen lidi, za které odpovídá. Ostatní přeřadí admin nebo HR (Nastavení firmy → Uživatelé → Upravit).",
+    section: "Můj tým",
+    roles: ["manager","admin"],
+  },
+  {
+    q: "Jak funguje upozornění na riziko vyhoření?",
+    section: "Můj tým",
+    a: "Na stránce Můj tým se zobrazí lidé, kteří si déle než 6 měsíců nevzali delší dovolenou (aspoň 3 dny v kuse) — stojí za to jim ji připomenout.",
+    roles: ["manager", "admin"],
+  },
+  {
+    q: "Jak funguje registrační odkaz a jak ho zneplatním?",
+    a: "V Nastavení firmy → Uživatelé je karta „Registrační odkaz“. Odkaz obsahuje tajný kód; když unikne, vypněte ho nebo klikněte na „Nový odkaz“ — starý přestane fungovat. Ve výchozím stavu musí admin nově zaregistrované lidi schválit v seznamu uživatelů.",
+    section: "Nastavení firmy (admin)",
+    top: true,
+    roles: ["admin"],
+  },
+  {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
     a: "V Nastavení firmy → Uživatelé klikněte na „Hromadný CSV import / export“ — založí se účty i oddělení najednou.",
     roles: ["admin"],
   },
   {
+    q: "Nový kolega se nemůže přihlásit. Co zkontrolovat?",
+    a: "1) Zaregistroval se přes odkaz a čeká na vaše schválení (Uživatelé → Schválit). 2) Nepotvrdil e-mail. 3) Je deaktivovaný. 4) Zkouší jiný e-mail, než na který ho zvete. Heslo si může sám obnovit přes „Zapomenuté heslo“.",
+    section: "Nastavení firmy (admin)",
+    top: true,
+    roles: ["admin"],
+  },
+  {
+    q: "Jak nastavím roli HR nebo Účetní?",
+    a: "V Nastavení firmy → Uživatelé u člověka klikněte na Upravit a vyberte „Doplňková role“. HR spravuje lidi (oddělení, nadřízený, datum nástupu, nároky, pozvánky), vidí všechny absence včetně nemoci, Analytiku, Exporty a Historii změn. Účetní jen čte absence a nároky pro mzdy (Exporty, Analytika). Ani jedna role nespravuje firmu, fakturaci ani role a neschvaluje žádosti.",
+    section: "Nastavení firmy (admin)",
+    roles: ["admin"],
+  },
+  {
     q: "Jak odebrat člověka, který odešel z firmy?",
     section: "Nastavení firmy (admin)",
     a: "Deaktivujte ho v Nastavení firmy → Uživatelé. Ztratí přístup a zmizí z kalendáře, ale jeho historie zůstane. Trvale smazat jde jen deaktivovaného uživatele.",
+    roles: ["admin"],
+  },
+  {
+    q: "Co se stane, když deaktivuji manažera?",
+    a: "Přijde o přístup. Jeho podřízení přejdou na jeho nadřízeného, vedoucí role v odděleních na zástupce a jeho čekající žádosti se automaticky zamítnou. Historie absencí zůstane. Poslední aktivní admin firmy deaktivovat nejde.",
+    section: "Nastavení firmy (admin)",
+    roles: ["admin"],
+  },
+  {
+    q: "Jak nastavím automatické schvalování nebo poměrné krácení nároku?",
+    section: "Nastavení firmy (admin)",
+    a: "V Nastavení firmy → Typy absencí u konkrétního typu: „Automaticky schválit do X dní“ a „Poměrně krátit u nových zaměstnanců“ (podle měsíce nástupu).",
+    roles: ["admin"],
+  },
+  {
+    q: "Změnil(a) jsem pravidla. Platí i pro už podané žádosti?",
+    a: "Ne. Nová pravidla (předstih, zpětné zadávání, mínus, blokované termíny) se uplatní až u nově zadávaných žádostí. Už podané a schválené žádosti zůstanou beze změny.",
+    section: "Nastavení firmy (admin)",
+    roles: ["admin"],
+  },
+  {
+    q: "Co je celozávodní dovolená?",
+    section: "Nastavení firmy (admin)",
+    a: "Admin ji nastaví v Nastavení firmy → Provoz & kalendář — jednotná absence, která se rovnou přiřadí celé firmě nebo vybraným oddělením (např. vánoční odstávka).",
+    roles: ["admin"],
+  },
+  {
+    q: "Jak propojím Dodio se Slackem nebo Teams?",
+    section: "Nastavení firmy (admin)",
+    a: "V Nastavení firmy → Integrace vyberte službu, vložte adresu příchozího webhooku a zaškrtněte události (nová žádost, rozhodnutí, žádost o zrušení, denní přehled). Tlačítkem „Zkušební zpráva“ si spojení ověříte. Adresa webhooku je tajná, vidí ji jen admin.",
     roles: ["admin"],
   },
   {
@@ -284,34 +436,9 @@ export const faqs: HelpFaq[] = [
     roles: ["admin"],
   },
   {
-    q: "Jak propojím Dodio se Slackem nebo Teams?",
+    q: "Kde zjistím, kolik uživatelů máme oproti tarifu?",
+    a: "V Nastavení firmy → Fakturace & tarify: aktuální tarif, počet uživatelů a limit. Při překročení limitu vás aplikace upozorní a doporučí vyšší tarif.",
     section: "Nastavení firmy (admin)",
-    top: true,
-    a: "V Nastavení firmy → Integrace vyberte službu, vložte adresu příchozího webhooku a zaškrtněte události (nová žádost, rozhodnutí, žádost o zrušení, denní přehled). Tlačítkem „Zkušební zpráva“ si spojení ověříte. Adresa webhooku je tajná, vidí ji jen admin.",
-    roles: ["admin"],
-  },
-  {
-    q: "Co je celozávodní dovolená?",
-    section: "Nastavení firmy (admin)",
-    a: "Admin ji nastaví v Nastavení firmy → Provoz & kalendář — jednotná absence, která se rovnou přiřadí celé firmě nebo vybraným oddělením (např. vánoční odstávka).",
-    roles: ["admin"],
-  },
-  {
-    q: "Jak nastavím automatické schvalování nebo poměrné krácení nároku?",
-    section: "Nastavení firmy (admin)",
-    a: "V Nastavení firmy → Typy absencí u konkrétního typu: „Automaticky schválit do X dní“ a „Poměrně krátit u nových zaměstnanců“ (podle měsíce nástupu).",
-    roles: ["admin"],
-  },
-  {
-    q: "Jak funguje upozornění na riziko vyhoření?",
-    section: "Můj tým",
-    a: "Na stránce Můj tým se zobrazí lidé, kteří si déle než 6 měsíců nevzali delší dovolenou (aspoň 3 dny v kuse) — stojí za to jim ji připomenout.",
-    roles: ["manager", "admin"],
-  },
-  {
-    q: "Jak pošlu hromadnou připomínku o nevyčerpané dovolené?",
-    section: "Analytika a Exporty (admin)",
-    a: "V Analytice je sekce „Nevyčerpaná dovolená ke konci roku“ — zaškrtněte lidi a klikněte na „Poslat připomínku“. Každému přijde upozornění v aplikaci.",
     roles: ["admin"],
   },
   {
@@ -321,28 +448,25 @@ export const faqs: HelpFaq[] = [
     roles: ["admin"],
   },
   {
-    q: "Co znamená oranžový kroužek a štítek „Dochází“?",
-    a: "Zůstatek dané absence klesl pod 20 % nároku nebo pod 2 dny. Je to jen upozornění — žádost můžete dál podat.",
-    section: "Nástěnka",
+    q: "Jak připravím podklady pro mzdovou účetní?",
+    a: "V Exporty zvolte měsíc a případně oddělení a stáhněte CSV, XLSX nebo ODS. Půldny se počítají jako 0,5 dne. Účetní může mít doplňkovou roli „Účetní“ a stahovat podklady sama, bez práv cokoli měnit.",
+    section: "Analytika a Exporty (admin)",
+    roles: ["admin"],
   },
   {
-    q: "Jak se počítá můj zůstatek?",
-    a: "Roční nárok + dny převedené z loňska − už vyčerpané − schválené do budoucna. U každé karty na nástěnce najdete odkaz „Jak se to počítá?“ s rozpisem. Čekající žádosti se do zůstatku nepočítají.",
-    section: "Nástěnka",
-  },
-  {
-    q: "Co znamená stav „Čeká na schválení“?",
-    a: "Žádost odešla schvalovateli (vašemu nadřízenému, případně vedoucímu oddělení nebo adminovi). Dokud ji nerozhodne, žádost jde upravit nebo zrušit. O výsledku dostanete oznámení.",
-    section: "Moje žádosti",
-  },
-  {
-    q: "Proč u kolegy vidím jen „Nepřítomen“?",
-    a: "Některé typy absencí (výchozí je nemoc) jsou soukromé. Kolegové vidí jen to, že člověk chybí; důvod vidí on sám, jeho nadřízený a admin. Admin to nastavuje u typu absence.",
-    section: "Týmový kalendář",
+    q: "Jak pošlu hromadnou připomínku o nevyčerpané dovolené?",
+    section: "Analytika a Exporty (admin)",
+    a: "V Analytice je sekce „Nevyčerpaná dovolená ke konci roku“ — zaškrtněte lidi a klikněte na „Poslat připomínku“. Každému přijde upozornění v aplikaci.",
+    roles: ["admin"],
   },
   {
     q: "Jak vypnu e-mailová upozornění?",
     a: "Klikněte na zvoneček v horní liště a e-maily vypněte v jeho nabídce. Oznámení v aplikaci zůstanou.",
+    section: "Oznámení a e-maily",
+  },
+  {
+    q: "Kdo mi dá vědět, že žádost čeká příliš dlouho?",
+    a: "Schvalovatelé dostávají připomínky a po nastavené době se žádost automaticky předá zástupci vedoucího, případně adminům.",
     section: "Oznámení a e-maily",
   },
   {
@@ -352,13 +476,23 @@ export const faqs: HelpFaq[] = [
     roles: ["manager", "admin"],
   },
   {
-    q: "Kdo mi dá vědět, že žádost čeká příliš dlouho?",
-    a: "Schvalovatelé dostávají připomínky a po nastavené době se žádost automaticky předá zástupci vedoucího, případně adminům.",
-    section: "Oznámení a e-maily",
+    q: "Zapomněl(a) jsem heslo, co mám dělat?",
+    section: "Účet",
+    a: "Na přihlašovací stránce klikněte na odkaz pro obnovení hesla.",
   },
   {
-    q: "Jak funguje rychlé hledání Ctrl+K?",
-    a: "Stiskněte Ctrl+K (⌘K na Macu) a začněte psát: najdete stránky, kolegy (otevře se kalendář s jejich jménem) i akce jako „Nová žádost: Dovolená“.",
+    q: "Po registraci mi nepřišel potvrzovací e-mail. Co s tím?",
+    a: "Zkontrolujte složku spam a správnost adresy, e-mail může dorazit až po minutě. Když nepřijde, zkuste se přihlásit znovu, případně použijte „Zapomenuté heslo“. Pokud ani to nepomůže, kontaktujte správce firmy.",
+    section: "Účet",
+  },
+  {
+    q: "Při přihlášení se píše, že můj účet čeká na schválení.",
+    a: "Zaregistrovali jste se přes registrační odkaz firmy a nové lidi musí schválit admin. Až vás schválí, přihlaste se. Můžete ho požádat, ať to udělá v Nastavení firmy → Uživatelé.",
+    section: "Účet",
+  },
+  {
+    q: "Proč nevidím Ke schválení, Můj tým nebo Analytiku?",
+    a: "Ke schválení a Můj tým vidí jen manažeři a admini. Analytiku a Exporty vidí admin a lidé s doplňkovou rolí HR nebo Účetní. Když si myslíte, že je máte mít, požádejte admina o změnu role.",
     section: "Účet",
   },
   {
@@ -367,31 +501,9 @@ export const faqs: HelpFaq[] = [
     section: "Účet",
   },
   {
-    q: "Jaké klávesové zkratky má kalendář?",
-    a: "Šipky ← → posouvají období, T se vrátí na dnešek a M, 2 a W přepínají mezi měsícem, dvěma týdny a týdnem.",
-    section: "Týmový kalendář",
-  },
-  {
-    q: "Kdo schvaluje moje žádosti?",
-    a: "Váš nadřízený, vedoucí nebo zástupce vašeho oddělení (případně jejich stálý zástup) a admin. Když nemáte nadřízeného ani vedoucího oddělení, schválí žádost admin. Ostatní manažeři vaše žádosti nevidí ke schválení.",
-    section: "Žádost o absenci",
-  },
-  {
-    q: "Jak funguje registrační odkaz a jak ho zneplatním?",
-    a: "V Nastavení firmy → Uživatelé je karta „Registrační odkaz“. Odkaz obsahuje tajný kód; když unikne, vypněte ho nebo klikněte na „Nový odkaz“ — starý přestane fungovat. Ve výchozím stavu musí admin nově zaregistrované lidi schválit v seznamu uživatelů.",
-    section: "Nastavení firmy (admin)",
-    roles: ["admin"],
-  },
-  {
-    q: "Jak nastavím roli HR nebo Účetní?",
-    a: "V Nastavení firmy → Uživatelé u člověka klikněte na Upravit a vyberte „Doplňková role“. HR spravuje lidi (oddělení, nadřízený, datum nástupu, nároky, pozvánky), vidí všechny absence včetně nemoci, Analytiku, Exporty a Historii změn. Účetní jen čte absence a nároky pro mzdy (Exporty, Analytika). Ani jedna role nespravuje firmu, fakturaci ani role a neschvaluje žádosti.",
-    section: "Nastavení firmy (admin)",
-    roles: ["admin"],
-  },
-  {
-    q: "Zapomněl(a) jsem heslo, co mám dělat?",
+    q: "Jak funguje rychlé hledání Ctrl+K?",
+    a: "Stiskněte Ctrl+K (⌘K na Macu) a začněte psát: najdete stránky, kolegy (otevře se kalendář s jejich jménem) i akce jako „Nová žádost: Dovolená“.",
     section: "Účet",
-    a: "Na přihlašovací stránce klikněte na odkaz pro obnovení hesla.",
   },
 ];
 

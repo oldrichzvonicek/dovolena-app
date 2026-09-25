@@ -57,7 +57,10 @@ export default function HelpPage() {
 
   const topFaqs = useMemo(() => {
     const tracked = audienceFaqs.filter((f) => (viewCounts[f.q] ?? 0) > 0).sort((a, b) => (viewCounts[b.q] ?? 0) - (viewCounts[a.q] ?? 0));
-    const curated = audienceFaqs.filter((f) => f.top && !tracked.includes(f));
+    // Manažer / admin uvidí nejdřív dotazy určené pro jejich roli, potom obecné.
+    const curated = audienceFaqs
+      .filter((f) => f.top && !tracked.includes(f))
+      .sort((x, y) => (audience === "employee" ? 0 : Number(!!y.roles) - Number(!!x.roles)));
     const rest = audienceFaqs.filter((f) => !f.top && !tracked.includes(f));
     return [...tracked, ...curated, ...rest].slice(0, TOP_COUNT);
   }, [audienceFaqs, viewCounts]);

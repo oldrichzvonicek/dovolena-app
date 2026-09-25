@@ -22,7 +22,8 @@ export function renderHtml(subject: string, body: string): string {
   });
 }
 
-export async function sendEmail(to: string, subject: string, body: string): Promise<SendResult> {
+/** Sends one e-mail. `html` (e.g. from renderTemplate) overrides the generic layout built from the plain-text body. */
+export async function sendEmail(to: string, subject: string, body: string, html?: string): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, skipped: true };
   const from = process.env.EMAIL_FROM ?? "Dodio <onboarding@resend.dev>";
@@ -30,7 +31,7 @@ export async function sendEmail(to: string, subject: string, body: string): Prom
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: [to], subject, text: `${body}\n\n${appUrl()}/dashboard`, html: renderHtml(subject, body) }),
+      body: JSON.stringify({ from, to: [to], subject, text: `${body}\n\n${appUrl()}/dashboard`, html: html ?? renderHtml(subject, body) }),
     });
     if (!res.ok) return { ok: false, error: `${res.status} ${(await res.text()).slice(0, 200)}` };
     return { ok: true };

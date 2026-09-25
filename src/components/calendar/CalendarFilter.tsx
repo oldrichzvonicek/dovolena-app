@@ -5,9 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DbDepartment, LeaveColor } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
-export type CalendarViewMode = "month" | "2weeks" | "week";
+export type CalendarViewMode = "day" | "week" | "2weeks" | "month";
 
-const viewLabel: Record<CalendarViewMode, string> = { month: "Měsíc", "2weeks": "2 týdny", week: "Týden" };
+const viewLabel: Record<CalendarViewMode, string> = { day: "Den", week: "Týden", "2weeks": "2 týdny", month: "Měsíc" };
+const viewKey: Record<CalendarViewMode, string> = { day: "D", week: "W", "2weeks": "2", month: "M" };
 
 export function CalendarFilter({
   department,
@@ -90,6 +91,8 @@ export function CalendarFilter({
             <button
               key={v}
               onClick={() => onViewModeChange(v)}
+              title={`${viewLabel[v]} (klávesa ${viewKey[v]})`}
+              aria-pressed={viewMode === v}
               className={cn("rounded px-2.5 py-1", viewMode === v ? "bg-teal text-white" : "text-muted hover:bg-paper")}
             >
               {viewLabel[v]}
@@ -99,14 +102,15 @@ export function CalendarFilter({
       </div>
 
       <div className="flex items-center justify-center gap-3">
-        <button onClick={onPrev} className="rounded p-1.5 hover:bg-paper" aria-label="Předchozí období">
+        <button onClick={onPrev} className="rounded p-1.5 hover:bg-paper" aria-label="Předchozí období" title="Předchozí období (šipka ←)">
           <ChevronLeft size={18} />
         </button>
-        <button onClick={onToday} className="text-center font-display text-base capitalize hover:text-teal-dark">
-          {periodLabel}
-        </button>
-        <button onClick={onNext} className="rounded p-1.5 hover:bg-paper" aria-label="Další období">
+        <span className="text-center font-display text-base capitalize">{periodLabel}</span>
+        <button onClick={onNext} className="rounded p-1.5 hover:bg-paper" aria-label="Další období" title="Další období (šipka →)">
           <ChevronRight size={18} />
+        </button>
+        <button onClick={onToday} className="ml-1 rounded border border-line px-2.5 py-1 text-xs hover:bg-paper" title="Přejít na dnešek (klávesa T)">
+          Dnes
         </button>
       </div>
     </div>

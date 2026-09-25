@@ -10,8 +10,10 @@ import {
   format,
   isSameDay,
   isWeekend,
+  startOfDay,
   startOfMonth,
   startOfWeek,
+  subDays,
   subMonths,
   subWeeks,
 } from "date-fns";
@@ -101,7 +103,9 @@ export function TeamCalendar() {
   const today = new Date();
 
   const allDays =
-    viewMode === "month"
+    viewMode === "day"
+      ? [startOfDay(anchor)]
+      : viewMode === "month"
       ? eachDayOfInterval({ start: startOfMonth(anchor), end: endOfMonth(anchor) })
       : viewMode === "2weeks"
         ? eachDayOfInterval({ start: startOfWeek(anchor, { weekStartsOn: 1 }), end: addDays(startOfWeek(anchor, { weekStartsOn: 1 }), 13) })
@@ -113,11 +117,13 @@ export function TeamCalendar() {
   const days = allDays;
 
   const periodLabel =
-    viewMode === "month"
+    viewMode === "day"
+      ? [format(anchor, "EEEE d. LLLL yyyy", { locale: cs }), czechHolidayName(anchor)].filter(Boolean).join(" — ")
+      : viewMode === "month"
       ? format(anchor, "LLLL yyyy", { locale: cs })
       : `${format(days[0] ?? anchor, "d. M.")} – ${format(days[days.length - 1] ?? anchor, "d. M. yyyy")}`;
 
-  // Keyboard: ← → move by the current period, T = today, M / 2 / W = month / 2 weeks / week.
+  // Keyboard: ← → move by the current period, T = today, D / W / 2 / M = day / week / 2 weeks / month.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement | null;
@@ -128,6 +134,7 @@ export function TeamCalendar() {
       if (k === "arrowleft") goPrev();
       else if (k === "arrowright") goNext();
       else if (k === "t") setAnchor(new Date());
+      else if (k === "d") setViewMode("day");
       else if (k === "m") setViewMode("month");
       else if (k === "2") setViewMode("2weeks");
       else if (k === "w") setViewMode("week");
@@ -140,10 +147,10 @@ export function TeamCalendar() {
   }, [viewMode]);
 
   function goPrev() {
-    setAnchor((d) => (viewMode === "month" ? subMonths(d, 1) : viewMode === "2weeks" ? subWeeks(d, 2) : subWeeks(d, 1)));
+    setAnchor((d) => (viewMode === "day" ? subDays(d, 1) : viewMode === "month" ? subMonths(d, 1) : viewMode === "2weeks" ? subWeeks(d, 2) : subWeeks(d, 1)));
   }
   function goNext() {
-    setAnchor((d) => (viewMode === "month" ? addMonths(d, 1) : viewMode === "2weeks" ? addWeeks(d, 2) : addWeeks(d, 1)));
+    setAnchor((d) => (viewMode === "day" ? addDays(d, 1) : viewMode === "month" ? addMonths(d, 1) : viewMode === "2weeks" ? addWeeks(d, 2) : addWeeks(d, 1)));
   }
 
   // Drag-select on the viewer's own row to request leave for that range.
@@ -312,7 +319,7 @@ export function TeamCalendar() {
                 }
                 className={cn(
                   "h-full border-x border-transparent",
-                  isCzechHoliday(d) ? "bg-warning-light/60" : isWeekend(d) && "bg-paper",
+                  isCzechHoliday(d) ? "border-warning/40 bg-warning/25" : isWeekend(d) && "bg-paper",
                   isToday && "bg-teal/10",
                   inDrag && "bg-teal/30"
                 )}
@@ -374,7 +381,14 @@ export function TeamCalendar() {
                   left: `calc(${(segStart / days.length) * 100}% + 2px)`,
                   width: `calc(${((segEnd - segStart + 1) / days.length) * 100}% - 4px)`,
                 }}
-              />
+              >
+                {(viewMode === "day" || viewMode === "week") && (
+                  <span className="block truncate px-2 text-[11px] leading-6 text-white">
+                    {r.leave_type.label}
+                    {r.status === "pending" ? " (čeká)" : ""}
+                  </span>
+                )}
+              </div>
             ));
           })}
         </div>
@@ -423,38 +437,34 @@ export function TeamCalendar() {
         </button>
       )}
       {leaveTypesLegend.length > 0 && (
-        <div className={cn("mt-2 flex-wrap gap-4 rounded border border-line bg-paper px-4 py-2.5 text-xs text-muted sm:mt-4 sm:flex", legendOpen ? "flex" : "hidden")}>
-          {leaveTypesLegend.map((t) => {
-            const icon = leaveIconFor(t.key);
-            return (
-              <span key={t.key} className="flex items-center gap-1.5" title={`${t.label} — barva použitá pro tento typ absence v kalendáři`}>
-                {icon ? <LeaveTypeIcon name={icon} size={13} /> : null}
-                <span className={cn("h-2.5 w-2.5 rounded-sm", colorDot[t.color])} />
-                {t.label}
-              </span>
-            );
-          })}
-          <span className="flex items-center gap-1.5" title="U soukromých absencí (např. nemoc) kolegové důvod nevidí">
-            <span className="h-2.5 w-2.5 rounded-sm bg-slate" /> Nepřítomen
+        <div className={cn("mt-2 flex-wrap items-center gap-x-5 gap-y-2 rounded border border-line bg-paper px-4 py-2.5 text-xs text-muted sm:mt-4 sm:flex", legendOpen ? "flex" : "hidden")}>
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <span className="font-medium text-ink">Typy absencí</span>
+            {leaveTypesLegend.map((t) => {
+              const icon = leaveIconFor(t.key);
+              return (
+                <span key={t.key} className="flex items-center gap-1.5" title={`${t.label} — barva tohoto typu v kalendáři`}>
+                  {icon ? <LeaveTypeIcon name={icon} size={13} /> : null}
+                  <span className={cn("h-2.5 w-2.5 rounded-sm", colorDot[t.color])} />
+                  {t.label}
+                </span>
+              );
+            })}
+            <span className="flex items-center gap-1.5" title="U soukromých absencí (např. nemoc) kolegové důvod nevidí">
+              <span className="h-2.5 w-2.5 rounded-sm bg-slate" /> Nepřítomen
+            </span>
           </span>
-          <span className="flex items-center gap-1.5 border-l border-line pl-4" title="Schválená absence — plná barva">
-            <span className="h-2.5 w-5 rounded-sm bg-slate" /> Schváleno
-          </span>
-          <span className="flex items-center gap-1.5" title="Čeká na schválení — světlejší a šrafovaná barva stejného typu">
-            <span className={cn("h-2.5 w-5 rounded-sm bg-slate opacity-70", hatch)} /> Čeká na schválení
-          </span>
-          <span className="flex items-center gap-1.5" title="Dny, na které admin/manažer nemůže naplánovat běžnou dovolenou">
-            <span className="h-2.5 w-2.5 rounded-sm bg-warning" /> Státní svátek
-          </span>
-          <span className="hidden items-center gap-1 lg:flex" title="Klávesové zkratky kalendáře">
-            <kbd className="rounded border border-line bg-white px-1">←</kbd>
-            <kbd className="rounded border border-line bg-white px-1">→</kbd> posun · <kbd className="rounded border border-line bg-white px-1">T</kbd> dnes ·
-            <kbd className="rounded border border-line bg-white px-1">M</kbd>
-            <kbd className="rounded border border-line bg-white px-1">2</kbd>
-            <kbd className="rounded border border-line bg-white px-1">W</kbd> pohled
-          </span>
-          <span className="ml-auto flex items-center gap-1.5" title="Dnešní datum">
-            <span className="h-2.5 w-2.5 rounded-sm border-2 border-teal" /> Dnes
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-line sm:border-l sm:pl-5">
+            <span className="font-medium text-ink">Značky</span>
+            <span className="flex items-center gap-1.5" title="Šrafovaný pruh = žádost ještě čeká na schválení (barva zůstává podle typu)">
+              <span className={cn("h-2.5 w-6 rounded-sm bg-ink/50", hatch)} /> Šrafování = čeká na schválení
+            </span>
+            <span className="flex items-center gap-1.5" title="Státní svátek">
+              <span className="h-2.5 w-2.5 rounded-sm bg-warning" /> Státní svátek
+            </span>
+            <span className="flex items-center gap-1.5" title="Dnešní den">
+              <span className="h-2.5 w-2.5 rounded-sm border-2 border-teal" /> Dnešní den
+            </span>
           </span>
         </div>
       )}

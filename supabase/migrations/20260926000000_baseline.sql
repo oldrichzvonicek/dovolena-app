@@ -504,14 +504,14 @@ language sql
 as $$
   insert into leave_types (company_id, key, label, color, counts_against, active) values
     (target_company_id, 'dovolena', 'Dovolená', 'teal', 'vacation', true),
-    (target_company_id, 'sick', 'Sick Day', 'rust', 'sick', true),
-    (target_company_id, 'home_office', 'Home Office', 'moss', 'none', true),
+    (target_company_id, 'sick', 'Sick Day', 'wine', 'sick', true),
+    (target_company_id, 'home_office', 'Home Office', 'sky', 'none', true),
     (target_company_id, 'lekar', 'Lékař', 'violet', 'none', true),
-    (target_company_id, 'nahradni_volno', 'Náhradní volno', 'amber', 'none', true),
+    (target_company_id, 'nahradni_volno', 'Náhradní volno', 'gold', 'none', true),
     -- Seeded but off by default — admin switches these on in Typy absencí
     -- once actually needed, rather than every company starting with them live.
     (target_company_id, 'osetrovacka', 'Ošetřování člena rodiny', 'plum', 'none', false),
-    (target_company_id, 'materska', 'Mateřská dovolená', 'sky', 'none', false),
+    (target_company_id, 'materska', 'Mateřská dovolená', 'forest', 'none', false),
     (target_company_id, 'nemoc', 'Nemoc', 'sage', 'none', false),
     (target_company_id, 'sluzebni_cesta', 'Služební cesta', 'slate', 'none', false)
   on conflict (company_id, key) do nothing;
@@ -2335,3 +2335,10 @@ alter table leave_types drop column if exists requires_attachment;
 update leave_requests set note = null
 where note is not null
   and leave_type_id in (select id from leave_types where counts_against = 'sick' or hide_from_colleagues);
+
+-- Odlišné barvy výchozích typů absencí (dřív Dovolená, Home Office i Lékař splývaly v zelených a broskvových odstínech).
+-- Mění se jen typy, které mají stále původní výchozí barvu — ručně přebarvené zůstanou.
+update leave_types set color = 'wine' where key = 'sick' and color = 'rust';
+update leave_types set color = 'sky' where key = 'home_office' and color = 'moss';
+update leave_types set color = 'gold' where key = 'nahradni_volno' and color = 'amber';
+update leave_types set color = 'forest' where key = 'materska' and color = 'sky';
