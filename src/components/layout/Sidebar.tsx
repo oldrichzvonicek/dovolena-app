@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug } from "lucide-react";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -51,6 +51,7 @@ const settingsGroups = [
     items: [
       { key: "billing", label: "Fakturace & tarify", icon: CreditCard },
       { key: "integrations", label: "Integrace", icon: Plug },
+      { key: "emails", label: "E-maily", icon: Mail },
       { key: "audit", label: "Historie změn", icon: History },
     ],
   },

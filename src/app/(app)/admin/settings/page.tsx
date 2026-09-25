@@ -12,6 +12,7 @@ import { CompanySettingsPanel } from "@/components/admin/CompanySettingsPanel";
 import { BillingPanel } from "@/components/admin/BillingPanel";
 import { AuditLogPanel } from "@/components/admin/AuditLogPanel";
 import { IntegrationsPanel } from "@/components/admin/IntegrationsPanel";
+import { EmailsPanel } from "@/components/admin/EmailsPanel";
 
 const titles: Record<string, string> = {
   users: "Uživatelé",
@@ -20,6 +21,7 @@ const titles: Record<string, string> = {
   general: "Provoz & kalendář",
   billing: "Fakturace & tarify",
   integrations: "Integrace",
+  emails: "E-maily",
   audit: "Historie změn",
 };
 
@@ -46,6 +48,7 @@ function SettingsContent() {
         {active === "general" && <CompanySettingsPanel />}
         {active === "billing" && <BillingPanel />}
         {active === "integrations" && <IntegrationsPanel />}
+        {active === "emails" && <EmailsPanel />}
         {active === "audit" && <AuditLogPanel />}
       </div>
     </div>

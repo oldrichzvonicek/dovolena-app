@@ -1297,7 +1297,32 @@ create table if not exists email_outbox (
 
 alter table email_outbox enable row level security;
 
+-- Správa e-mailů: firemní přepínače (companies.email_settings) a přehled odeslaných e-mailů (company_id + category).
+alter table companies add column if not exists email_settings jsonb not null default '{}'::jsonb;
+alter table email_outbox add column if not exists company_id uuid references companies(id) on delete cascade;
+alter table email_outbox add column if not exists category text;
+create index if not exists email_outbox_company_idx on email_outbox (company_id, created_at desc);
+
 create index if not exists email_outbox_pending_idx on email_outbox (created_at) where sent_at is null;
+
+-- Kategorie volitelných e-mailů (firemní přepínače v Nastavení → E-maily). NULL = provozní e-mail, který vypnout nejde.
+create or replace function email_category_for_notification(t text)
+returns text
+language sql
+immutable
+as $$
+  select case t
+    when 'request_created' then 'approver_requests'
+    when 'cancellation_requested' then 'approver_requests'
+    when 'request_approved' then 'requester_decisions'
+    when 'request_rejected' then 'requester_decisions'
+    when 'cancellation_resolved' then 'requester_decisions'
+    when 'vacation_reminder' then 'reminders'
+    when 'help_question' then 'help_questions'
+    when 'join_pending' then 'join_pending'
+    else null
+  end;
+$$;
 
 create or replace function queue_notification_email()
 returns trigger
@@ -1306,14 +1331,92 @@ security definer
 as $$
 declare
   target record;
+  cat text;
+  settings jsonb;
 begin
-  select email, name, email_notifications, active into target from profiles where id = new.profile_id;
+  select email, name, email_notifications, active, company_id into target from profiles where id = new.profile_id;
   if target.email is null or not target.email_notifications or not target.active then
     return new;
   end if;
-  insert into email_outbox (to_email, subject, body, notification_id)
-  values (target.email, new.title, coalesce(new.body, ''), new.id);
+  cat := email_category_for_notification(new.type);
+  select email_settings into settings from companies where id = target.company_id;
+  -- Firma může tuto kategorii e-mailů vypnout (upozornění v aplikaci zůstává).
+  if cat is not null and coalesce((settings ->> cat)::boolean, true) = false then
+    return new;
+  end if;
+  insert into email_outbox (to_email, subject, body, notification_id, company_id, category)
+  values (target.email, new.title, coalesce(new.body, ''), new.id, target.company_id, coalesce(cat, new.type));
   return new;
+end;
+$$;
+
+-- Doplnění firmy a kategorie u už existujících e-mailů z upozornění (kvůli přehledu odeslaných e-mailů).
+update email_outbox o
+   set company_id = p.company_id, category = coalesce(email_category_for_notification(n.type), n.type)
+  from notifications n join profiles p on p.id = n.profile_id
+ where o.notification_id = n.id and o.company_id is null;
+
+-- Přepínač e-mailové kategorie: admin všechny, HR jen přehled pro HR a připomínky.
+create or replace function set_email_setting(p_key text, p_enabled boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cid uuid := current_company_id();
+begin
+  if cid is null then
+    raise exception 'Nejste přihlášeni.';
+  end if;
+  if p_key not in ('approver_requests', 'requester_decisions', 'weekly_digest', 'hr_digest', 'reminders', 'help_questions', 'join_pending') then
+    raise exception 'Neznámý typ e-mailu.';
+  end if;
+  if current_user_role() is distinct from 'admin'
+     and not (coalesce(current_user_staff() = 'hr', false) and p_key in ('hr_digest', 'reminders')) then
+    raise exception 'Tento e-mail smí nastavit jen admin.';
+  end if;
+  update companies set email_settings = jsonb_set(coalesce(email_settings, '{}'::jsonb), array[p_key], to_jsonb(p_enabled)) where id = cid;
+end;
+$$;
+
+-- Přehled odeslaných e-mailů firmy (jen admin). Záměrně bez obsahu e-mailů — jen kdy, komu, jaký typ a jak dopadlo.
+create or replace function email_log(p_limit int default 100)
+returns table (id uuid, created_at timestamptz, sent_at timestamptz, to_email text, category text, subject text, attempts int, error text, status text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if current_user_role() is distinct from 'admin' then
+    raise exception 'Přehled e-mailů vidí jen admin.';
+  end if;
+  return query
+    select o.id, o.created_at, o.sent_at, o.to_email, o.category, o.subject, o.attempts, o.error,
+           case when o.sent_at is not null then 'sent'
+                when o.attempts >= 5 then 'failed'
+                when o.error is not null then 'retrying'
+                else 'pending' end
+    from email_outbox o
+    where o.company_id = current_company_id()
+    order by o.created_at desc
+    limit least(greatest(coalesce(p_limit, 100), 1), 500);
+end;
+$$;
+
+-- Znovu odeslat e-mail, který se nepodařilo doručit (nebo čeká).
+create or replace function retry_email(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if current_user_role() is distinct from 'admin' then
+    raise exception 'E-maily znovu odesílá jen admin.';
+  end if;
+  update email_outbox set attempts = 0, error = null, claimed_at = null
+   where id = p_id and company_id = current_company_id() and sent_at is null;
 end;
 $$;
 

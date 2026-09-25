@@ -415,6 +415,12 @@ export const faqs: HelpFaq[] = [
     roles: ["admin"],
   },
   {
+    q: "Jak vypnu nebo zkontroluji e-maily, které Dodio posílá?",
+    section: "Nastavení firmy (admin)",
+    a: "V Nastavení firmy → E-maily uvidíte všechny e-maily, které Dodio posílá, komu a kdy. Sedm skupin (žádosti ke schválení, vyřízení žádosti, týdenní přehled pro manažery, přehled pro HR, připomínky dovolené, dotazy z Nápovědy a noví uživatelé čekající na schválení) můžete pro celou firmu vypnout přepínačem; upozornění v aplikaci (zvoneček) zůstávají. HR smí přepínat jen přehled pro HR a připomínky. Záložka „Odeslané e-maily“ (jen admin) ukazuje posledních 200 e-mailů firmy: komu, kdy, jaký druh a zda se odeslal. Když se e-mail nepodařilo doručit, můžete ho poslat znovu. V přehledu není text e-mailů, jen jejich stav. Provozní e-maily (pozvánky, fakturace, právní změny) vypnout nejdou.",
+    roles: ["admin"],
+  },
+  {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
     a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",

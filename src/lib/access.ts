@@ -5,7 +5,7 @@ type Who = Pick<DbProfile, "role" | "staff_role"> | null | undefined;
 /**
  * Who sees what (the database enforces the same rules — this only decides which screens and menu items are offered):
  *  - admin:      everything
- *  - HR:         Analytika, Exporty, Nastavení → Uživatelé (invite, departments/manager/hire date/entitlements) and Historie změn
+ *  - HR:         Analytika, Exporty, Nastavení → Uživatelé (invite, departments/manager/hire date/entitlements), E-maily (jen přehled pro HR a připomínky) and Historie změn
  *  - accountant: Analytika and Exporty, read only
  *  - manager:    Analytika, ale jen za svá oddělení (bez Exportů)
  */
@@ -21,8 +21,8 @@ export const canSeeAnalytics = (p: Who) => canSeeReports(p) || p?.role === "mana
 
 /** Settings sections the person may open (keys match the `?sekce=` values). */
 export function allowedSettingsSections(p: Who): string[] {
-  if (isAdminRole(p)) return ["users", "departments", "leave-types", "general", "billing", "integrations", "audit"];
-  if (isHr(p)) return ["users", "audit"];
+  if (isAdminRole(p)) return ["users", "departments", "leave-types", "general", "billing", "integrations", "emails", "audit"];
+  if (isHr(p)) return ["users", "emails", "audit"];
   return [];
 }
 

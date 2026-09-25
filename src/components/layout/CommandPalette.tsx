@@ -50,6 +50,7 @@ const adminItems: Item[] = [
   { href: "/admin/settings?sekce=general", label: "Nastavení firmy — Provoz & kalendář", icon: Settings, group: "Administrace" },
   { href: "/admin/settings?sekce=billing", label: "Nastavení firmy — Fakturace & tarify", icon: Settings, group: "Administrace" },
   { href: "/admin/settings?sekce=integrations", label: "Nastavení firmy — Integrace (Slack, Teams…)", icon: Settings, group: "Administrace" },
+  { href: "/admin/settings?sekce=emails", label: "Nastavení firmy — E-maily (přepínače, odeslané)", icon: Settings, group: "Administrace" },
   { href: "/admin/settings?sekce=audit", label: "Nastavení firmy — Historie změn", icon: Settings, group: "Administrace" },
 ];
 const helpItem: Item = { href: "/help", label: "Nápověda", icon: HelpCircle, group: "Navigace" };

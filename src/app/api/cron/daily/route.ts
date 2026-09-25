@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   let escalated = 0;
   let digests = 0;
 
-  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days");
+  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings");
 
   for (const company of companies ?? []) {
     const [{ data: profiles }, { data: depts }, { data: pending }, { data: away }] = await Promise.all([
@@ -123,9 +123,13 @@ export async function GET(req: Request) {
       const lines = weekRows.slice(0, 12).map((w) => `• ${w.profile!.name} — ${w.leave_type?.hide_from_colleagues ? "Nepřítomen" : w.leave_type?.label} (${w.start_date} – ${w.end_date})`);
       const pendingCount = ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id).length;
 
+      // Firma může jednotlivé druhy e-mailů vypnout (Nastavení → E-maily); chybějící hodnota = zapnuto.
+      const emailSettings = ((company as { email_settings?: Record<string, boolean> | null }).email_settings ?? {}) as Record<string, boolean>;
       const rows = people
-        .filter((p) => (p.role === "manager" || p.role === "admin") && p.email && p.email_notifications)
+        .filter((p) => emailSettings.weekly_digest !== false && (p.role === "manager" || p.role === "admin") && p.email && p.email_notifications)
         .map((p) => ({
+          company_id: company.id,
+          category: "weekly_digest",
           to_email: p.email!,
           subject: "Týdenní přehled absencí — Dodio",
           body: `Dobré ráno ${p.name.split(" ")[0]},\n\nzde je přehled na tento týden.\n\nČeká na schválení: ${pendingCount}\nAbsence tento týden: ${weekRows.length}\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
@@ -133,7 +137,7 @@ export async function GET(req: Request) {
       if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
 
       // HR digest (admins and people with the HR role): capacity risks, slow requests — only sent when there is something to act on.
-      const hrRecipients = people.filter((p) => (p.role === "admin" || p.staff_role === "hr") && p.email && p.email_notifications);
+      const hrRecipients = people.filter((p) => emailSettings.hr_digest !== false && (p.role === "admin" || p.staff_role === "hr") && p.email && p.email_notifications);
       if (hrRecipients.length > 0) {
         try {
           const workDays = ((company as { work_days?: number[] }).work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
@@ -176,7 +180,7 @@ export async function GET(req: Request) {
 
           const digest = hrDigest({ capacityBreaches: breaches, liability: vacationLiability([], null, null), slowPending: slow, pendingTotal: companyPending.length, medianDecisionHours: speed.overallMedianHours });
           if (digest) {
-            await supabase.from("email_outbox").insert(hrRecipients.map((p) => ({ to_email: p.email!, subject: digest.subject, body: digest.body })));
+            await supabase.from("email_outbox").insert(hrRecipients.map((p) => ({ company_id: company.id, category: "hr_digest", to_email: p.email!, subject: digest.subject, body: digest.body })));
             digests += hrRecipients.length;
           }
         } catch (e) {
