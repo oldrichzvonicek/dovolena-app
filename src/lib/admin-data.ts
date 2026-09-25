@@ -478,6 +478,8 @@ export interface NewInvitePayload {
   sick_total: number;
   sick_opening_used: number;
   role?: Role;
+  /** Datum nástupu (yyyy-mm-dd) z importu; uloží se do profilu po převzetí pozvánky. */
+  hire_date?: string | null;
 }
 
 /** Runs as a single DB transaction (see import_employees in schema.sql) — either every row (and any new department it needs) is written, or none is. */

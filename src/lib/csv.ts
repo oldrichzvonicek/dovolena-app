@@ -1,5 +1,5 @@
-/** Minimal CSV parser: handles quoted fields and both "," and ";" delimiters. */
-export function parseCsv(text: string): string[][] {
+/** Minimal CSV parser: handles quoted fields; without `delimiter` it accepts both "," and ";". */
+export function parseCsv(text: string, delimiter?: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -20,7 +20,7 @@ export function parseCsv(text: string): string[][] {
       }
     } else if (c === '"') {
       inQuotes = true;
-    } else if (c === "," || c === ";") {
+    } else if (delimiter ? c === delimiter : c === "," || c === ";") {
       row.push(field);
       field = "";
     } else if (c === "\n" || c === "\r") {

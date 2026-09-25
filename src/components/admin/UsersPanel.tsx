@@ -307,7 +307,7 @@ export function UsersPanel() {
           <Link2 size={14} /> Kopírovat registrační odkaz
         </Button>
         <Button variant="secondary" onClick={() => setImportOpen(true)}>
-          <Upload size={14} /> Hromadný CSV import / export
+          <Upload size={14} /> Import z mzdového systému
         </Button>
         {linkCopied && <span className="text-xs text-teal-dark">Odkaz zkopírován</span>}
       </div>

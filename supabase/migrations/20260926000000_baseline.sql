@@ -778,6 +778,9 @@ create table if not exists company_invites (
   unique (company_id, email)
 );
 
+-- Datum nástupu z importu (mzdový systém) — při převzetí pozvánky se uloží do profile_hr.
+alter table company_invites add column if not exists hire_date date;
+
 alter table company_invites enable row level security;
 
 drop policy if exists "admins manage invites" on company_invites;
@@ -831,6 +834,11 @@ begin
     upper(left(split_part(inv.name, ' ', 1), 1) || left(split_part(inv.name, ' ', 2), 1)),
     caller_email
   );
+
+  if inv.hire_date is not null then
+    insert into profile_hr (profile_id, hire_date) values (auth.uid(), inv.hire_date)
+    on conflict (profile_id) do update set hire_date = excluded.hire_date;
+  end if;
 
   insert into leave_entitlements (profile_id, leave_type_id, year, total_days, opening_used_days)
   select auth.uid(), lt.id, year_now, prorate_days(inv.vacation_total, inv.company_id), inv.vacation_opening_used
@@ -1589,7 +1597,7 @@ begin
 
     insert into company_invites (
       company_id, email, name, department_id, manager_id, manager_invite_email,
-      vacation_total, vacation_opening_used, sick_total, sick_opening_used, role
+      vacation_total, vacation_opening_used, sick_total, sick_opening_used, role, hire_date
     ) values (
       target_company_id,
       lower(trim(r->>'email')),
@@ -1602,7 +1610,8 @@ begin
       coalesce((r->>'sick_total')::numeric, 0),
       coalesce((r->>'sick_opening_used')::numeric, 0),
       -- HR smí zvát jen zaměstnance; role manažer / admin přiděluje jen admin.
-      case when current_user_role() = 'admin' then coalesce(nullif(r->>'role', '')::user_role, 'employee') else 'employee'::user_role end
+      case when current_user_role() = 'admin' then coalesce(nullif(r->>'role', '')::user_role, 'employee') else 'employee'::user_role end,
+      nullif(r->>'hire_date', '')::date
     )
     on conflict (company_id, email) do update set
       name = excluded.name,
@@ -1613,7 +1622,8 @@ begin
       vacation_opening_used = excluded.vacation_opening_used,
       sick_total = excluded.sick_total,
       sick_opening_used = excluded.sick_opening_used,
-      role = excluded.role;
+      role = excluded.role,
+      hire_date = excluded.hire_date;
 
     n := n + 1;
   end loop;

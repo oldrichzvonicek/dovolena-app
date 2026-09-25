@@ -387,7 +387,7 @@ export const faqs: HelpFaq[] = [
   {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
-    a: "V Nastavení firmy → Uživatelé klikněte na „Hromadný CSV import / export“ — založí se účty i oddělení najednou.",
+    a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",
     roles: ["admin"],
   },
   {

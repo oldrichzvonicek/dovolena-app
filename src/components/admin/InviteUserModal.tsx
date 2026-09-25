@@ -15,7 +15,7 @@ const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Ma
 
 /** Targeted invite for one specific email — role/department/manager set up front, unlike
  * the generic company-wide link, which anyone who gets forwarded it can use to join. */
-const EMAIL_RE = /^[^s@,;]+@[^s@,;]+.[^s@,;]+$/;
+const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 
 /** "jana.novakova@firma.cz" -> "Jana Novakova" — used when several addresses are pasted at once. */
 function nameFromEmail(email: string) {
@@ -64,7 +64,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
     setError(null);
   }
 
-  const emails = Array.from(new Set(email.split(/[s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
+  const emails = Array.from(new Set(email.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
   const invalid = emails.filter((e) => !EMAIL_RE.test(e));
   const canSubmit = emails.length > 0 && invalid.length === 0;
 
