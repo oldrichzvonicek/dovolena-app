@@ -1,31 +1,93 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, AlertTriangle } from "lucide-react";
+import { Plus, AlertTriangle, Paperclip } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { countWorkingDays } from "@/lib/working-days";
+import { countWorkingDays, dayWord, workingDaysPhrase } from "@/lib/working-days";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { DbLeaveType, DbProfile } from "@/lib/supabase/types";
-import { createLeaveRequest } from "@/lib/data";
+import { DbBlackoutPeriod, DbCompany, DbLeaveType, DbProfile } from "@/lib/supabase/types";
+import { createLeaveRequest, leaveAttachmentUrl, updateLeaveRequest, uploadLeaveAttachment } from "@/lib/data";
+import { fetchBlackoutPeriods, fetchCompany } from "@/lib/admin-data";
+import { errorMessage } from "@/lib/utils";
+import { loadBalances, remainingOf } from "@/lib/balances";
+import { reducesPresence } from "@/lib/leave-kinds";
 
-export function RequestLeaveModal({ onCreated }: { onCreated?: () => void }) {
+export interface EditingRequest {
+  id: string;
+  leave_type_id: string;
+  start_date: string;
+  end_date: string;
+  half_day: boolean;
+  working_days: number;
+  note: string | null;
+  covering_profile_id: string | null;
+  attachment_url: string | null;
+}
+
+type DurationMode = "full" | "half" | "hours";
+
+/** Pre-fills a fresh (create-mode) request — from the CTA's per-type shortcuts, or from "Duplikovat" / "Upravit a poslat znovu" on an existing request (which always creates a new one: a rejected/approved request can't be edited in place). */
+export interface PrefillRequest {
+  leave_type_id?: string;
+  half_day?: boolean;
+  start_date?: string;
+  end_date?: string;
+  note?: string | null;
+  covering_profile_id?: string | null;
+}
+
+interface RequestLeaveModalProps {
+  onSaved?: () => void;
+  /** Custom trigger element. Pass null to render no trigger at all (fully controlled via `open`/`onOpenChange`, e.g. from a calendar drag). Omit for the default "+ Nová žádost" button. */
+  trigger?: React.ReactNode | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  editingRequest?: EditingRequest;
+  initialDates?: { start: string; end: string };
+  prefill?: PrefillRequest;
+}
+
+export function RequestLeaveModal({
+  onSaved,
+  trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  editingRequest,
+  initialDates,
+  prefill,
+}: RequestLeaveModalProps) {
   const { profile } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? controlledOnOpenChange ?? (() => {}) : setInternalOpen;
+
+  const isEditing = !!editingRequest;
+
   const [leaveTypes, setLeaveTypes] = useState<DbLeaveType[]>([]);
   const [colleagues, setColleagues] = useState<DbProfile[]>([]);
 
   const [typeId, setTypeId] = useState<string>("");
-  const [halfDay, setHalfDay] = useState(false);
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [durationMode, setDurationMode] = useState<DurationMode>("full");
+  const [hoursValue, setHoursValue] = useState(4);
+  const [startDate, setStartDate] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [endDate, setEndDate] = useState(new Date().toLocaleDateString("sv-SE"));
   const [note, setNote] = useState("");
   const [coveringId, setCoveringId] = useState<string>("");
-  const [conflictName, setConflictName] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<{ names: string[]; teamCount: number; teamSize: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [company, setCompany] = useState<DbCompany | null>(null);
+  const [blackouts, setBlackouts] = useState<DbBlackoutPeriod[]>([]);
+  const [remainingForType, setRemainingForType] = useState<number | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [existingAttachmentUrl, setExistingAttachmentUrl] = useState<string | null>(null);
+  const [existingAttachmentSignedUrl, setExistingAttachmentSignedUrl] = useState<string | null>(null);
+
+  const selectedType = leaveTypes.find((t) => t.id === typeId);
 
   useEffect(() => {
     if (!open || !profile) return;
@@ -35,184 +97,447 @@ export function RequestLeaveModal({ onCreated }: { onCreated?: () => void }) {
       .select("*")
       .eq("company_id", profile.company_id)
       .then(({ data }) => {
-        setLeaveTypes((data as DbLeaveType[]) ?? []);
-        if (data && data.length > 0) setTypeId((data as DbLeaveType[])[0].id);
+        const rows = (data as DbLeaveType[]) ?? [];
+        setLeaveTypes(rows);
+        if (!isEditing && !prefill?.leave_type_id) {
+          const firstActive = rows.find((t) => t.active) ?? rows[0];
+          if (firstActive) setTypeId(firstActive.id);
+        }
       });
     supabase
       .from("profiles")
       .select("*")
       .eq("company_id", profile.company_id)
+      .eq("active", true)
       .neq("id", profile.id)
       .then(({ data }) => setColleagues((data as DbProfile[]) ?? []));
+    fetchCompany(profile.company_id).then(setCompany);
+    fetchBlackoutPeriods(profile.company_id).then(setBlackouts);
+
+    setAttachmentFile(null);
+    setExistingAttachmentUrl(editingRequest?.attachment_url ?? null);
+
+    if (editingRequest) {
+      setTypeId(editingRequest.leave_type_id);
+      setStartDate(editingRequest.start_date);
+      setEndDate(editingRequest.end_date);
+      setNote(editingRequest.note ?? "");
+      setCoveringId(editingRequest.covering_profile_id ?? "");
+      if (editingRequest.half_day) {
+        setDurationMode("half");
+      } else if (
+        editingRequest.start_date === editingRequest.end_date &&
+        editingRequest.working_days !== countWorkingDays(editingRequest.start_date, editingRequest.end_date)
+      ) {
+        setDurationMode("hours");
+        setHoursValue(Math.round(editingRequest.working_days * (company?.standard_daily_hours ?? 8) * 4) / 4);
+      } else {
+        setDurationMode("full");
+      }
+    } else {
+      const today = new Date().toLocaleDateString("sv-SE");
+      if (prefill?.leave_type_id) setTypeId(prefill.leave_type_id);
+      setDurationMode(prefill?.half_day ? "half" : "full");
+      setStartDate(prefill?.start_date ?? initialDates?.start ?? today);
+      setEndDate(prefill?.end_date ?? initialDates?.end ?? today);
+      setNote(prefill?.note ?? "");
+      // Prefill with the employee's default substitute (set in Nastavení firmy / Můj tým) — still editable per request.
+      setCoveringId(prefill?.covering_profile_id ?? profile.substitute_id ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, profile]);
 
+  // A dragged/typed multi-day range can't be a half-day or hourly request.
+  useEffect(() => {
+    if (startDate !== endDate && durationMode !== "full") setDurationMode("full");
+  }, [startDate, endDate, durationMode]);
+
+  // The selected type may not allow the currently-picked duration mode.
+  useEffect(() => {
+    if (!selectedType) return;
+    if (durationMode === "half" && !selectedType.allow_half_day) setDurationMode("full");
+    if (durationMode === "hours" && !selectedType.allow_hours) setDurationMode("full");
+  }, [selectedType, durationMode]);
+
+  useEffect(() => {
+    if (!existingAttachmentUrl) {
+      setExistingAttachmentSignedUrl(null);
+      return;
+    }
+    leaveAttachmentUrl(existingAttachmentUrl).then(setExistingAttachmentSignedUrl);
+  }, [existingAttachmentUrl]);
+
+  const dailyHours = company?.standard_daily_hours ?? 8;
+
   const workingDays = useMemo(() => {
-    if (halfDay) return 0.5;
+    if (durationMode === "half") return 0.5;
+    if (durationMode === "hours") return dailyHours > 0 ? Math.round((hoursValue / dailyHours) * 1000) / 1000 : 0;
     return countWorkingDays(startDate, endDate);
-  }, [startDate, endDate, halfDay]);
+  }, [startDate, endDate, durationMode, hoursValue, dailyHours]);
+
+  // "Team" = same department when the employee has one, otherwise the whole company.
+  const team = useMemo(() => {
+    if (!profile) return { colleagues: [] as DbProfile[], size: 1 };
+    const mates = profile.department_id ? colleagues.filter((c) => c.department_id === profile.department_id) : colleagues;
+    return { colleagues: mates, size: mates.length + 1 };
+  }, [colleagues, profile]);
+
+  // Remaining balance for the selected type's category (null when the type doesn't count against a balance).
+  useEffect(() => {
+    if (!profile || !open || !typeId) return;
+    const type = leaveTypes.find((t) => t.id === typeId);
+    if (!type || type.counts_against === "none") {
+      setRemainingForType(null);
+      return;
+    }
+    if (type.counts_against !== "vacation" && type.counts_against !== "sick") {
+      setRemainingForType(null);
+      return;
+    }
+    const cat = type.counts_against;
+    (async () => {
+      const balances = await loadBalances(profile.company_id, { profileId: profile.id, excludeRequestId: isEditing ? editingRequest!.id : undefined });
+      setRemainingForType(remainingOf(balances.get(profile.id, cat)));
+    })();
+  }, [profile, open, typeId, leaveTypes, isEditing, editingRequest]);
+
+  const today = new Date().toLocaleDateString("sv-SE");
+
+  // Blocked-period is the one policy rule that's overridable (with an
+  // explicit "odeslat i přesto" confirmation) rather than a hard stop — see
+  // the CTA below. Everything else in policyError still blocks submission.
+  const blackoutWarning = useMemo(() => {
+    const blackout = blackouts.find((b) => b.start_date <= endDate && b.end_date >= startDate);
+    return blackout ? `V termínu ${blackout.start_date} – ${blackout.end_date} je blokováno podávání žádostí (${blackout.label}).` : null;
+  }, [blackouts, startDate, endDate]);
+  const [overrideBlackout, setOverrideBlackout] = useState(false);
+
+  useEffect(() => setOverrideBlackout(false), [blackoutWarning]);
+
+  const policyError = useMemo(() => {
+    if (workingDays <= 0) return "Vybraný termín nezahrnuje žádný pracovní den (víkend nebo státní svátek).";
+    if (!company) return null;
+
+    if (startDate < today) {
+      if (!company.backdating_allowed) return "Zpětné zadávání absencí není v této firmě povoleno.";
+      const daysBack = Math.round((new Date(today).getTime() - new Date(startDate).getTime()) / 86400000);
+      if (daysBack > company.backdating_max_days) {
+        return `Zpětně lze zadat maximálně ${company.backdating_max_days} ${dayWord(company.backdating_max_days)} — tento termín je ${daysBack} ${dayWord(daysBack)} zpět.`;
+      }
+    }
+
+    if (workingDays > company.min_advance_threshold_days) {
+      const daysAhead = Math.round((new Date(startDate).getTime() - new Date(today).getTime()) / 86400000);
+      if (daysAhead < company.min_advance_days) {
+        return `Absence delší než ${company.min_advance_threshold_days} dní je nutné podat min. ${company.min_advance_days} dní předem.`;
+      }
+    }
+
+    if (remainingForType !== null) {
+      const after = remainingForType - workingDays;
+      if (after < 0 && (!company.allow_negative_balance || after < -company.max_negative_balance_days)) {
+        return company.allow_negative_balance
+          ? `Tato žádost by srazila zůstatek na ${after} dní — maximální povolený mínus je ${company.max_negative_balance_days} dní.`
+          : `Na tuto absenci nemáte dostatečný zůstatek (zbývá ${remainingForType} dní).`;
+      }
+    }
+
+    return null;
+  }, [company, blackouts, startDate, endDate, workingDays, remainingForType, today]);
 
   // Live collision check against everyone else's approved leave in the same range.
   useEffect(() => {
     if (!profile || !open) return;
     const supabase = createClient();
-    supabase
+    let query = supabase
       .from("leave_requests")
-      .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(id, name)")
+      .select("profile_id, leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(id, name)")
       .eq("status", "approved")
       .lte("start_date", endDate)
       .gte("end_date", startDate)
-      .neq("profile_id", profile.id)
-      .limit(1)
-      .then(({ data }) => {
-        const row = (data as unknown as { profile: { name: string } | null }[])?.[0];
-        setConflictName(row?.profile?.name ?? null);
+      .neq("profile_id", profile.id);
+    if (isEditing) query = query.neq("id", editingRequest!.id);
+
+    query.then(({ data }) => {
+      const rows = ((data as unknown as { profile_id: string; leave_type: { key: string } | null; profile: { id: string; name: string } | null }[]) ?? []).filter(
+        (r) => reducesPresence(r.leave_type?.key) && reducesPresence(selectedType?.key)
+      );
+      if (rows.length === 0) {
+        setConflict(null);
+        return;
+      }
+      const teamMateIds = new Set(team.colleagues.map((c) => c.id));
+      const teamOverlap = rows.filter((r) => teamMateIds.has(r.profile_id));
+      if (teamOverlap.length === 0) {
+        setConflict(null);
+        return;
+      }
+      setConflict({
+        // Only team members, matching teamCount/teamSize below — showing
+        // company-wide names here (unrelated headcount) is what produced
+        // nonsense like "8 z 6 members" before.
+        names: teamOverlap.map((r) => r.profile?.name).filter((n): n is string => !!n),
+        teamCount: teamOverlap.length,
+        teamSize: team.size,
       });
-  }, [startDate, endDate, profile, open]);
+    });
+  }, [startDate, endDate, profile, open, team, isEditing, editingRequest]);
 
   async function handleSubmit() {
-    if (!profile || !typeId) return;
+    if (!profile || !typeId || policyError) return;
+    if (blackoutWarning && !overrideBlackout) return;
+    if (selectedType?.requires_attachment && !attachmentFile && !existingAttachmentUrl) return;
     setSubmitting(true);
     setError(null);
     try {
-      await createLeaveRequest({
-        profile_id: profile.id,
+      const attachment_url = attachmentFile ? await uploadLeaveAttachment(profile.id, attachmentFile) : existingAttachmentUrl;
+      const payload = {
         leave_type_id: typeId,
         start_date: startDate,
-        end_date: halfDay ? startDate : endDate,
-        half_day: halfDay,
+        end_date: durationMode === "full" ? endDate : startDate,
+        half_day: durationMode === "half",
         working_days: workingDays,
         note: note || undefined,
         covering_profile_id: coveringId || null,
-      });
+        attachment_url,
+      };
+      if (isEditing) {
+        await updateLeaveRequest(editingRequest!.id, payload);
+      } else {
+        await createLeaveRequest({
+          profile_id: profile.id,
+          ...payload,
+          status:
+            selectedType?.requires_approval === false ||
+            (selectedType?.auto_approve_max_days != null && workingDays <= Number(selectedType.auto_approve_max_days))
+              ? "approved"
+              : "pending",
+        });
+      }
       setOpen(false);
-      setNote("");
-      setCoveringId("");
-      onCreated?.();
+      onSaved?.();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nepodařilo se odeslat žádost.");
+      setError(errorMessage(e));
     } finally {
       setSubmitting(false);
     }
   }
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="primary" className="text-base px-5 py-2.5">
-          <Plus size={18} /> Nová žádost o volno
-        </Button>
-      </DialogTrigger>
-      <DialogContent title="Nová žádost o volno">
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Typ absence</label>
-            <Select value={typeId} onValueChange={setTypeId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {leaveTypes.map((t) => (
+  const dialog = (
+    <DialogContent title={isEditing ? "Upravit žádost o absenci" : "Nová žádost o absenci"}>
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Typ absence</label>
+          <Select value={typeId} onValueChange={setTypeId}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {leaveTypes
+                .filter((t) => t.active || t.id === typeId)
+                .map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.label}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+            </SelectContent>
+          </Select>
+        </div>
 
+        {startDate === endDate && (selectedType?.allow_half_day !== false || selectedType?.allow_hours !== false) && (
           <div>
             <label className="mb-1.5 block text-sm font-medium">Délka trvání</label>
             <div className="flex gap-1 rounded border border-line p-1 text-sm">
               <button
-                onClick={() => setHalfDay(false)}
-                className={`flex-1 rounded px-3 py-1.5 ${!halfDay ? "bg-teal text-white" : "text-muted"}`}
+                onClick={() => setDurationMode("full")}
+                className={`flex-1 rounded px-3 py-1.5 ${durationMode === "full" ? "bg-teal text-white" : "text-muted"}`}
               >
-                Celý den / více dní
+                Celý den
               </button>
-              <button
-                onClick={() => setHalfDay(true)}
-                className={`flex-1 rounded px-3 py-1.5 ${halfDay ? "bg-teal text-white" : "text-muted"}`}
-              >
-                Půlden
-              </button>
+              {selectedType?.allow_half_day !== false && (
+                <button
+                  onClick={() => setDurationMode("half")}
+                  className={`flex-1 rounded px-3 py-1.5 ${durationMode === "half" ? "bg-teal text-white" : "text-muted"}`}
+                >
+                  Půlden
+                </button>
+              )}
+              {selectedType?.allow_hours !== false && (
+                <button
+                  onClick={() => setDurationMode("hours")}
+                  className={`flex-1 rounded px-3 py-1.5 ${durationMode === "hours" ? "bg-teal text-white" : "text-muted"}`}
+                >
+                  Hodiny
+                </button>
+              )}
             </div>
+            {durationMode === "hours" && (
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <input
+                  type="number"
+                  min={0.25}
+                  max={dailyHours}
+                  step={0.25}
+                  value={hoursValue}
+                  onChange={(e) => setHoursValue(Number(e.target.value))}
+                  className="w-20 rounded border border-line px-2 py-1.5 text-center"
+                />
+                <span className="text-muted">hodin (ze standardního úvazku {dailyHours} h/den)</span>
+              </div>
+            )}
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Od</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded border border-line px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Do</label>
-              <input
-                type="date"
-                value={endDate}
-                disabled={halfDay}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded border border-line px-3 py-2 text-sm disabled:bg-paper"
-              />
-            </div>
-          </div>
-
-          <div className="rounded bg-paper px-3 py-2 text-sm text-ink">
-            Celkem: <span className="font-medium">{workingDays} pracovní{workingDays === 1 ? "ho dne" : workingDays < 5 ? " dny" : " dní"}</span>{" "}
-            <span className="text-muted">— víkendy a státní svátky odečteny automaticky</span>
-          </div>
-
-          {conflictName && (
-            <div className="flex items-start gap-2 rounded border border-amber/30 bg-amber-light px-3 py-2 text-sm text-ink">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber" />
-              <span>
-                Ve stejném termínu má volno <strong>{conflictName}</strong>.
-              </span>
-            </div>
-          )}
-
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Poznámka pro manažera (volitelné)</label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
+            <label className="mb-1.5 block text-sm font-medium">Od</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                const v = e.target.value;
+                setStartDate(v);
+                if (v > endDate) setEndDate(v);
+              }}
               className="w-full rounded border border-line px-3 py-2 text-sm"
-              placeholder="Např. důvod žádosti"
             />
           </div>
-
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Zastupování (volitelné)</label>
-            <Select value={coveringId} onValueChange={setCoveringId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Vyberte kolegu" />
-              </SelectTrigger>
-              <SelectContent>
-                {colleagues.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {error && <p className="text-sm text-rust">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Zrušit
-            </Button>
-            <Button variant="primary" onClick={handleSubmit} disabled={submitting || !typeId}>
-              {submitting ? "Odesílám…" : "Odeslat ke schválení"}
-            </Button>
+            <label className="mb-1.5 block text-sm font-medium">Do</label>
+            <input
+              type="date"
+              value={endDate}
+              disabled={durationMode !== "full"}
+              onChange={(e) => {
+                const v = e.target.value;
+                setEndDate(v);
+                if (v < startDate) setStartDate(v);
+              }}
+              className="w-full rounded border border-line px-3 py-2 text-sm disabled:bg-paper"
+            />
           </div>
         </div>
-      </DialogContent>
+
+        <div className="rounded bg-paper px-3 py-2 text-sm text-ink">
+          Celkem: <span className="font-medium">{workingDaysPhrase(workingDays)}</span>{" "}
+          <span className="text-muted">— víkendy a státní svátky odečteny automaticky</span>
+        </div>
+
+        {conflict && conflict.teamCount > 0 && (
+          <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning-light px-3 py-2 text-sm text-ink">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning-dark" />
+            <span>
+              Ve stejném termínu má volno <strong>{conflict.teamCount} z {conflict.teamSize}</strong> členů vašeho
+              týmu: {conflict.names.slice(0, 3).join(", ")}
+              {conflict.names.length > 3 ? ` a další` : ""}.
+            </span>
+          </div>
+        )}
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Poznámka pro manažera (volitelné)</label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            className="w-full rounded border border-line px-3 py-2 text-sm"
+            placeholder="Např. důvod žádosti" aria-label="Např. důvod žádosti"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Zastupování (volitelné)</label>
+          <Select value={coveringId} onValueChange={setCoveringId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Vyberte kolegu" />
+            </SelectTrigger>
+            <SelectContent>
+              {colleagues.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedType?.requires_attachment && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Příloha {!selectedType.requires_approval ? "" : "(např. potvrzení od lékaře)"}
+            </label>
+            <input
+              type="file"
+              onChange={(e) => setAttachmentFile(e.target.files?.[0] ?? null)}
+              className="w-full rounded border border-line px-3 py-2 text-sm"
+            />
+            {attachmentFile && <p className="mt-1 text-xs text-muted">Nahradí: {attachmentFile.name}</p>}
+            {!attachmentFile && existingAttachmentSignedUrl && (
+              <a href={existingAttachmentSignedUrl} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 text-xs text-teal-dark hover:underline">
+                <Paperclip size={12} /> Zobrazit nahranou přílohu
+              </a>
+            )}
+            {!attachmentFile && !existingAttachmentUrl && <p className="mt-1 text-xs text-danger">Tento typ absence vyžaduje přílohu.</p>}
+          </div>
+        )}
+
+        {blackoutWarning && (
+          <div className="rounded border border-warning/30 bg-warning-light px-3 py-2 text-sm text-warning-dark">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>{blackoutWarning}</span>
+            </div>
+            <label className="mt-2 flex items-center gap-2 pl-6 text-sm">
+              <input type="checkbox" checked={overrideBlackout} onChange={(e) => setOverrideBlackout(e.target.checked)} className="h-4 w-4 accent-warning" />
+              Odeslat i přesto — nadřízený uvidí, že jde o blokovaný termín.
+            </label>
+          </div>
+        )}
+
+        {policyError && (
+          <div className="flex items-start gap-2 rounded border border-danger/30 bg-danger-light px-3 py-2 text-sm text-danger">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span>{policyError}</span>
+          </div>
+        )}
+
+        {error && <p className="text-sm text-danger">{error}</p>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="secondary" onClick={() => setOpen(false)}>
+            Zrušit
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={submitting || !typeId || !!policyError || (!!blackoutWarning && !overrideBlackout)}
+          >
+            {submitting ? "Odesílám…" : isEditing ? "Uložit změny" : blackoutWarning ? "Odeslat i přesto" : "Odeslat ke schválení"}
+          </Button>
+        </div>
+      </div>
+    </DialogContent>
+  );
+
+  if (trigger === null) {
+    // Fully controlled, no visible trigger (e.g. opened by a calendar drag-select).
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        {dialog}
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger ?? (
+          <Button variant="primary">
+            <Plus size={18} /> Nová žádost o absenci
+          </Button>
+        )}
+      </DialogTrigger>
+      {dialog}
     </Dialog>
   );
 }

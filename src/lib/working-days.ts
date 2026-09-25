@@ -5,20 +5,20 @@ import { addDays, isWeekend, isSameDay, parseISO, format } from "date-fns";
  * moving public holidays other than Good Friday and Easter Monday, which are
  * computed below from the Easter algorithm).
  */
-function fixedCzechHolidays(year: number): Date[] {
+function fixedCzechHolidays(year: number): { date: Date; name: string }[] {
   const d = (month: number, day: number) => new Date(year, month - 1, day);
   return [
-    d(1, 1), // Nový rok / Den obnovy samostatného českého státu
-    d(5, 1), // Svátek práce
-    d(5, 8), // Den vítězství
-    d(7, 5), // Den slovanských věrozvěstů Cyrila a Metoděje
-    d(7, 6), // Den upálení mistra Jana Husa
-    d(9, 28), // Den české státnosti
-    d(10, 28), // Den vzniku samostatného československého státu
-    d(11, 17), // Den boje za svobodu a demokracii
-    d(12, 24), // Štědrý den
-    d(12, 25), // 1. svátek vánoční
-    d(12, 26), // 2. svátek vánoční
+    { date: d(1, 1), name: "Nový rok / Den obnovy samostatného českého státu" },
+    { date: d(5, 1), name: "Svátek práce" },
+    { date: d(5, 8), name: "Den vítězství" },
+    { date: d(7, 5), name: "Den slovanských věrozvěstů Cyrila a Metoděje" },
+    { date: d(7, 6), name: "Den upálení mistra Jana Husa" },
+    { date: d(9, 28), name: "Den české státnosti" },
+    { date: d(10, 28), name: "Den vzniku samostatného československého státu" },
+    { date: d(11, 17), name: "Den boje za svobodu a demokracii" },
+    { date: d(12, 24), name: "Štědrý den" },
+    { date: d(12, 25), name: "1. svátek vánoční" },
+    { date: d(12, 26), name: "2. svátek vánoční" },
   ];
 }
 
@@ -41,17 +41,26 @@ function easterSunday(year: number): Date {
   return new Date(year, month - 1, day);
 }
 
-export function czechHolidays(year: number): Date[] {
+function namedCzechHolidays(year: number): { date: Date; name: string }[] {
   const easter = easterSunday(year);
   return [
     ...fixedCzechHolidays(year),
-    addDays(easter, -2), // Velký pátek (Good Friday)
-    addDays(easter, 1), // Velikonoční pondělí (Easter Monday)
+    { date: addDays(easter, -2), name: "Velký pátek" },
+    { date: addDays(easter, 1), name: "Velikonoční pondělí" },
   ];
+}
+
+export function czechHolidays(year: number): Date[] {
+  return namedCzechHolidays(year).map((h) => h.date);
 }
 
 export function isCzechHoliday(date: Date): boolean {
   return czechHolidays(date.getFullYear()).some((h) => isSameDay(h, date));
+}
+
+/** Name of the Czech state holiday on this date, or null if it isn't one. */
+export function czechHolidayName(date: Date): string | null {
+  return namedCzechHolidays(date.getFullYear()).find((h) => isSameDay(h.date, date))?.name ?? null;
 }
 
 /** Counts working days (Mon–Fri, excluding Czech state holidays) between two ISO dates, inclusive. */
@@ -67,6 +76,26 @@ export function countWorkingDays(startISO: string, endISO: string): number {
     cursor = addDays(cursor, 1);
   }
   return count;
+}
+
+/**
+ * Correct Czech noun form for a day count. Non-integer amounts (half-days,
+ * hourly requests converted to e.g. 0.5 or 1.5) always take the genitive
+ * singular "dne" ("0,5 dne", "1,5 dne"), never "dny" — that form is only for
+ * a whole 2–4. Whole numbers still follow the usual 1 / 2–4 / 5+ split.
+ */
+export function dayWord(n: number): "den" | "dne" | "dny" | "dní" {
+  if (!Number.isInteger(n)) return "dne";
+  if (n === 1) return "den";
+  if (n >= 2 && n <= 4) return "dny";
+  return "dní";
+}
+
+/** "X pracovní(ho) den/dne/dny/dní", with "pracovní" itself correctly declined. */
+export function workingDaysPhrase(n: number): string {
+  const word = dayWord(n);
+  const adjective = word === "dne" ? "pracovního" : word === "dní" ? "pracovních" : "pracovní";
+  return `${n} ${adjective} ${word}`;
 }
 
 export function formatRange(startISO: string, endISO: string): string {

@@ -24,6 +24,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadProfile = useCallback(
     async (userId: string) => {
       const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      if (data && (data as DbProfile).active === false) {
+        try {
+          sessionStorage.setItem("dodio-deactivated", "1");
+        } catch {}
+        await supabase.auth.signOut();
+        setProfile(null);
+        return;
+      }
       setProfile(data as DbProfile | null);
     },
     [supabase]

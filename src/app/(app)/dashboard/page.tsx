@@ -1,34 +1,54 @@
 "use client";
 
 import { useState } from "react";
+import { Users } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { BalanceCards } from "@/components/dashboard/BalanceCards";
 import { WhoIsOutToday } from "@/components/dashboard/WhoIsOutToday";
 import { UpcomingLeave } from "@/components/dashboard/UpcomingLeave";
-import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
+import { NewRequestButton } from "@/components/dashboard/NewRequestButton";
+import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsWidget";
+import { CancellationRequests } from "@/components/manager/CancellationRequests";
 import { useAuth } from "@/lib/auth-context";
+import { useOnDataChanged } from "@/lib/events";
+import { isNameDayFor } from "@/lib/name-days";
 
 export default function DashboardPage() {
   const { profile } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
+  useOnDataChanged(() => setRefreshKey((k) => k + 1));
 
-  const today = new Date().toLocaleDateString("cs-CZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const now = new Date();
+  const today = now.toLocaleDateString("cs-CZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const isManager = profile?.role === "manager" || profile?.role === "admin";
+  const firstName = profile?.name.split(" ")[0] ?? "";
+  const isMyNameDay = isNameDayFor(now, firstName);
+
+  const subtitle = `${today.charAt(0).toUpperCase()}${today.slice(1)}${isMyNameDay ? " · Dnes máš svátek — všechno nejlepší! 🎉" : ""}`;
 
   return (
     <div key={refreshKey}>
-      <Header title={`Vítej zpět, ${profile?.name.split(" ")[0] ?? ""}`} subtitle={today} />
-      <div className="space-y-6 p-8">
-        <BalanceCards />
-
-        <div>
-          <RequestLeaveModal onCreated={() => setRefreshKey((k) => k + 1)} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-6">
-          <WhoIsOutToday />
+      <Header title={`Vítej zpět, ${firstName}`} subtitle={subtitle} />
+      <div className="p-4 pb-0 sm:p-8 sm:pb-0">
+        {/* Upper tier: my own absences */}
+        <div className="space-y-6">
+          <BalanceCards />
+          <NewRequestButton onSaved={() => setRefreshKey((k) => k + 1)} />
           <UpcomingLeave />
         </div>
       </div>
+
+      {/* Lower tier: team overview and manager agenda, visually separated and tinted */}
+      <section aria-labelledby="team-overview-heading" className="mt-8 border-t border-line bg-teal-light/30 px-4 py-6 sm:px-8 sm:py-8">
+        <h2 id="team-overview-heading" className="mb-5 flex items-center gap-2 font-display text-h2">
+          <Users size={18} className="text-teal-dark" /> {isManager ? "Týmový přehled a agenda manažera" : "Týmový přehled"}
+        </h2>
+        <div className="space-y-6">
+          <PendingApprovalsWidget onChanged={() => setRefreshKey((k) => k + 1)} />
+          <CancellationRequests onChanged={() => setRefreshKey((k) => k + 1)} />
+          <WhoIsOutToday />
+        </div>
+      </section>
     </div>
   );
 }

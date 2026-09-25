@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { useOnDataChanged } from "@/lib/events";
+import { AppLogo } from "@/components/shared/AppLogo";
+
+export const TOGGLE_NAV_EVENT = "dodio:toggle-nav";
 
 const mainNav = [
   { href: "/dashboard", label: "Nástěnka", icon: LayoutDashboard },
@@ -20,7 +24,8 @@ const managerNav = [
 ];
 
 const adminNav = [
-  { href: "/admin/exports", label: "Rychlé přehledy & Exporty", icon: BarChart3 },
+  { href: "/admin/overview", label: "Přehled", icon: BarChart3 },
+  { href: "/admin/exports", label: "Exporty", icon: Download },
   { href: "/admin/settings", label: "Nastavení firmy", icon: Settings },
 ];
 
@@ -40,9 +45,10 @@ function NavLink({
   return (
     <Link
       href={href}
+      data-tour={`nav-${href.replace(/^\//, "").replace(/\//g, "-")}`}
       className={cn(
         "flex items-center justify-between rounded px-3 py-2 text-sm transition-colors",
-        active ? "bg-teal-light text-teal font-medium" : "text-ink hover:bg-paper"
+        active ? "bg-teal-light text-teal-dark font-medium" : "text-ink hover:bg-paper"
       )}
     >
       <span className="flex items-center gap-2.5">
@@ -50,7 +56,7 @@ function NavLink({
         {label}
       </span>
       {!!badge && (
-        <span className="rounded-full bg-rust px-1.5 py-0.5 text-[11px] font-semibold text-white leading-none">
+        <span className="rounded-full bg-warning px-1.5 py-0.5 text-[11px] font-semibold text-white leading-none">
           {badge}
         </span>
       )}
@@ -62,31 +68,61 @@ export function Sidebar() {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const isManager = profile?.role === "manager" || profile?.role === "admin";
   const isAdmin = profile?.role === "admin";
 
-  useEffect(() => {
+  function loadPending() {
     if (!isManager) return;
-    const supabase = createClient();
-    supabase
+    createClient()
       .from("leave_requests")
       .select("id", { count: "exact", head: true })
       .eq("status", "pending")
       .then(({ count }) => setPendingCount(count ?? 0));
-  }, [isManager]);
+  }
+
+  useEffect(loadPending, [isManager]); // eslint-disable-line react-hooks/exhaustive-deps
+  useOnDataChanged(loadPending);
+
+  useEffect(() => {
+    const toggle = () => setMobileOpen((v) => !v);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMobileOpen(false);
+    window.addEventListener(TOGGLE_NAV_EVENT, toggle);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener(TOGGLE_NAV_EVENT, toggle);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  useEffect(() => setMobileOpen(false), [pathname]);
+
+  useEffect(() => {
+    if (!profile) return;
+    createClient()
+      .from("companies")
+      .select("logo_url")
+      .eq("id", profile.company_id)
+      .single()
+      .then(({ data }) => setLogoUrl(data?.logo_url ?? null));
+  }, [profile]);
 
   if (!profile) return null;
 
-  return (
-    <aside className="flex h-screen w-[260px] flex-col border-r border-line bg-white">
-      <div className="flex items-center gap-2 border-b border-line px-5 py-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded bg-ink font-display text-sm text-white">
-          D
-        </div>
-        <div>
-          <div className="font-display text-base leading-tight">Dovolená</div>
-        </div>
+  const inner = (
+    <>
+      <div className="flex items-center border-b border-line px-5 py-5">
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt="Logo firmy" className="h-9 max-w-full object-contain" />
+        ) : (
+          <div className="flex items-center gap-2">
+            <AppLogo className="h-8 w-8" />
+            <div className="font-display text-base leading-tight">Dodio</div>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
@@ -128,8 +164,17 @@ export function Sidebar() {
         )}
       </nav>
 
+      <div className="px-3 pb-2">
+        <NavLink href="/help" label="Nápověda" icon={HelpCircle} active={pathname === "/help"} />
+        <div data-tour="sidebar-cmdk" className="mt-1 flex items-center gap-1.5 px-3 py-1 text-[11px] text-muted">
+          <kbd className="rounded border border-line bg-paper px-1 py-0.5 font-sans">Ctrl</kbd>+
+          <kbd className="rounded border border-line bg-paper px-1 py-0.5 font-sans">K</kbd>
+          rychlá navigace
+        </div>
+      </div>
+
       <div className="flex items-center gap-2.5 border-t border-line px-5 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-light text-xs font-medium text-teal">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-light text-xs font-medium text-teal-dark">
           {profile.avatar_initials}
         </div>
         <div className="flex-1 min-w-0">
@@ -140,6 +185,31 @@ export function Sidebar() {
           <LogOut size={16} />
         </button>
       </div>
-    </aside>
+
+      <div className="flex items-center gap-1.5 border-t border-line px-5 py-2 text-[11px] text-muted">
+        <AppLogo className="h-3 w-3" /> Poháněno aplikací Dodio
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-r border-line bg-white lg:flex">{inner}</aside>
+      {mobileOpen && (
+        <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigace">
+          <div className="absolute inset-0 bg-ink/40" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute left-0 top-0 flex h-full w-[280px] max-w-[85vw] flex-col bg-white shadow-xl">
+            <button
+              onClick={() => setMobileOpen(false)}
+              aria-label="Zavřít menu"
+              className="absolute right-2 top-2 rounded p-2 text-muted hover:bg-paper hover:text-ink"
+            >
+              <X size={18} />
+            </button>
+            {inner}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

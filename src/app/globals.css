@@ -1,18 +1,18 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-display: "Fraunces", Georgia, serif;
-  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-display: "Manrope", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
 }
 
 html,
 body {
-  background-color: #eef1f4;
-  color: #16233b;
+  background-color: #f7f5f0;
+  color: #2c2c2a;
 }
 
 body {
@@ -24,18 +24,35 @@ h2,
 h3,
 .font-display {
   font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
-/* Hairline card: the app's signature surface. No shadow, no uniform radius —
-   a single 4px corner and a 1px line do the work instead. */
+/* Dodio card: warm white surface, hairline border, generous radius-lg. */
 .card {
   background: #ffffff;
-  border: 1px solid #d7dce1;
-  border-radius: 6px;
+  border: 1px solid #d3d1c7;
+  border-radius: 16px;
 }
 
 ::selection {
-  background: #dce8ea;
+  background: #dceee7;
+}
+
+/* Dodio Input spec: focus border in brand-teal-dark (kept even where a
+   component doesn't set its own focus ring), disabled fields read as
+   surface + ink-muted rather than just dimmed. */
+input:not([type="checkbox"]):not([type="radio"]):focus,
+textarea:focus {
+  outline: none;
+  border-color: #085041;
+  box-shadow: 0 0 0 1px #085041;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):disabled,
+textarea:disabled {
+  background: #f7f5f0;
+  color: #5f5e5a;
+  cursor: not-allowed;
 }
 
 /* Respect reduced motion */
@@ -44,5 +61,16 @@ h3,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  aside,
+  header button,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
   }
 }

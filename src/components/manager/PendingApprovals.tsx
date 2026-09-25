@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AlertTriangle, Check, X } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
+import { addDays, differenceInCalendarDays, format, isWeekend, parseISO } from "date-fns";
+import { cs } from "date-fns/locale";
+import { AlertTriangle, Calendar, Check, Paperclip, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { approveLeaveRequest, rejectLeaveRequest } from "@/lib/data";
+import { approveLeaveRequest, leaveAttachmentUrl, rejectLeaveRequest } from "@/lib/data";
 import { LeaveBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { formatRange } from "@/lib/working-days";
+import { dayWord, formatRange } from "@/lib/working-days";
+import { fetchCompany } from "@/lib/admin-data";
 import { LeaveColor } from "@/lib/supabase/types";
+import { cn, formatNumber } from "@/lib/utils";
+import { confirmDialog } from "@/components/shared/ConfirmHost";
+import { emitDataChanged, useOnDataChanged } from "@/lib/events";
+import { reducesPresence } from "@/lib/leave-kinds";
+import { computeApprovalWarnings, fetchMyDepartmentIds, hasOtherApprover } from "@/lib/approval-checks";
 
 interface PendingRow {
   id: string;
@@ -17,64 +25,173 @@ interface PendingRow {
   end_date: string;
   working_days: number;
   note: string | null;
-  leave_type: { key: string; label: string; color: LeaveColor };
-  profile: { id: string; name: string; avatar_initials: string | null };
+  attachment_url: string | null;
+  leave_type: { key: string; label: string; color: LeaveColor; counts_against: "vacation" | "sick" | "none" };
+  profile: {
+    id: string;
+    name: string;
+    avatar_initials: string | null;
+    manager_id: string | null;
+    department_id: string | null;
+    department: { name: string } | null;
+  };
 }
 
 export function PendingApprovals() {
   const { profile } = useAuth();
   const [pending, setPending] = useState<PendingRow[]>([]);
   const [conflicts, setConflicts] = useState<Record<string, string>>({});
+  const [remaining, setRemaining] = useState<Record<string, number>>({});
+  const [capacityWarnings, setCapacityWarnings] = useState<Record<string, { percent: number; count: number; size: number }>>({});
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [filter, setFilter] = useState<"all" | "conflict" | "clean">("all");
+  const [calendarOpenId, setCalendarOpenId] = useState<string | null>(null);
+  const [myDepts, setMyDepts] = useState<Set<string>>(new Set());
+  const isMyTeam = (p: { manager_id: string | null; department_id: string | null }) =>
+    p.manager_id === profile?.id || (!!p.department_id && myDepts.has(p.department_id));
+
+  useOnDataChanged(() => load());
 
   async function load() {
+    if (!profile) return;
     const supabase = createClient();
+    const year = new Date().getFullYear();
+
     const { data } = await supabase
       .from("leave_requests")
       .select(
-        `id, start_date, end_date, working_days, note,
-         leave_type:leave_types(key, label, color),
-         profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials)`
+        `id, start_date, end_date, working_days, note, attachment_url,
+         leave_type:leave_types(key, label, color, counts_against),
+         profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials, manager_id, department_id, department:departments!profiles_department_id_fkey(name))`
       )
       .eq("status", "pending")
       .order("created_at", { ascending: true });
 
-    const rows = (data as unknown as PendingRow[]) ?? [];
+    // Direct reports first (matches "auto-assigned approver" — this manager
+    // is the one actually meant to act on those); Array.sort is stable, so
+    // the FIFO order from the query above is preserved within each group.
+    const mine = await fetchMyDepartmentIds(profile.company_id, profile.id);
+    setMyDepts(mine);
+    const otherApprover = await hasOtherApprover(profile.company_id, profile.id);
+    const rows = ((data as unknown as PendingRow[]) ?? [])
+      .filter((r) => !otherApprover || r.profile.id !== profile.id)
+      .sort((a, b) => {
+      const aMine = a.profile.manager_id === profile.id || (a.profile.department_id && mine.has(a.profile.department_id)) ? 0 : 1;
+      const bMine = b.profile.manager_id === profile.id || (b.profile.department_id && mine.has(b.profile.department_id)) ? 0 : 1;
+      return aMine - bMine;
+    });
     setPending(rows);
 
     // For each pending request, check if anyone else already has approved leave overlapping it.
     const conflictMap: Record<string, string> = {};
     for (const r of rows) {
+      if (!reducesPresence(r.leave_type.key)) continue;
       const { data: overlap } = await supabase
         .from("leave_requests")
-        .select("profile:profiles!leave_requests_profile_id_fkey(name)")
+        .select("leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(name)")
         .eq("status", "approved")
         .neq("profile_id", r.profile.id)
         .lte("start_date", r.end_date)
         .gte("end_date", r.start_date)
-        .limit(1);
-      const name = (overlap as unknown as { profile: { name: string } | null }[])?.[0]?.profile?.name;
+        ;
+      const name = (overlap as unknown as { leave_type: { key: string } | null; profile: { name: string } | null }[])?.find((o) => reducesPresence(o.leave_type?.key))?.profile?.name;
       if (name) conflictMap[r.id] = name;
     }
     setConflicts(conflictMap);
+
+    // Remaining balance after approval: entitlement total minus already-approved usage
+    // minus this pending request's days, per profile + counts_against category.
+    const warnings = await computeApprovalWarnings(
+      profile.company_id,
+      rows.map((r) => ({
+        id: r.id,
+        start_date: r.start_date,
+        end_date: r.end_date,
+        working_days: r.working_days,
+        counts_against: r.leave_type.counts_against,
+        type_key: r.leave_type.key,
+        profile: { id: r.profile.id, department_id: r.profile.department_id },
+      }))
+    );
+    setRemaining(warnings.remaining);
+    setCapacityWarnings(warnings.capacity);
+
     setLoading(false);
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [profile]);
 
   async function approve(id: string) {
     if (!profile) return;
     await approveLeaveRequest(id, profile.id);
-    load();
+    emitDataChanged();
   }
 
   async function reject(id: string, reason: string) {
     if (!profile) return;
     await rejectLeaveRequest(id, profile.id, reason);
-    load();
+    emitDataChanged();
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const hasWarning = (r: PendingRow) => !!conflicts[r.id] || !!capacityWarnings[r.id] || (remaining[r.id] !== undefined && remaining[r.id] < 0);
+  const conflictCount = pending.filter(hasWarning).length;
+  const visible = pending.filter((r) => (filter === "all" ? true : filter === "conflict" ? hasWarning(r) : !hasWarning(r)));
+  const selectedRows = pending.filter((r) => selected.has(r.id));
+  const selectedWarnings = selectedRows.filter(hasWarning).length;
+  const allVisibleSelected = visible.length > 0 && visible.every((r) => selected.has(r.id));
+
+  function toggleSelectAllVisible() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visible.forEach((r) => next.delete(r.id));
+      else visible.forEach((r) => next.add(r.id));
+      return next;
+    });
+  }
+
+  async function approveSelected() {
+    if (!profile || selectedRows.length === 0) return;
+    if (
+      selectedWarnings > 0 &&
+      !(await confirmDialog(`${selectedWarnings} z vybraných žádostí má varování (konflikt v týmu, kapacita nebo minus). Přesto schválit všech ${selectedRows.length}?`, {
+        confirmLabel: "Schválit vše",
+      }))
+    )
+      return;
+    setBulkBusy(true);
+    try {
+      await Promise.all(selectedRows.map((r) => approveLeaveRequest(r.id, profile.id)));
+      setSelected(new Set());
+      emitDataChanged();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function rejectSelected(reason: string) {
+    if (!profile) return;
+    setBulkBusy(true);
+    try {
+      await Promise.all(selectedRows.map((r) => rejectLeaveRequest(r.id, profile.id, reason)));
+      setSelected(new Set());
+      emitDataChanged();
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   if (loading) {
@@ -85,61 +202,240 @@ export function PendingApprovals() {
     return <div className="card p-8 text-center text-sm text-muted">Žádné žádosti nečekají na schválení. 🎉</div>;
   }
 
+  const pill = "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium";
+
   return (
-    <div className="card divide-y divide-line">
-      {pending.map((r) => (
-        <div key={r.id} className="flex items-center justify-between gap-4 p-5">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-paper text-xs font-medium">
-              {r.profile.avatar_initials}
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-medium">{r.profile.name}</div>
-              <div className="flex items-center gap-2 text-xs text-muted">
-                <LeaveBadge type={r.leave_type} />
-                <span>{formatRange(r.start_date, r.end_date)}</span>
-                <span>· {r.working_days} dní</span>
+    <div>
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {(
+          [
+            ["all", `Všechny (${pending.length})`],
+            ["conflict", `⚠️ S konfliktem (${conflictCount})`],
+            ["clean", `✓ Bez konfliktu (${pending.length - conflictCount})`],
+          ] as [typeof filter, string][]
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium",
+              filter === key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper"
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="card overflow-hidden">
+        <div className="flex items-center gap-4 border-b border-line bg-paper px-5 py-3">
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAllVisible} className="h-4 w-4 rounded border-line accent-teal" />
+            Vybrat vše ({visible.length})
+          </label>
+        </div>
+
+        {visible.length === 0 && <div className="p-8 text-center text-sm text-muted">V tomto filtru nic není.</div>}
+
+        <div className="divide-y divide-line">
+          {visible.map((r) => (
+            <div key={r.id} className="p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(r.id)}
+                    onChange={() => toggleSelected(r.id)}
+                    className="h-4 w-4 shrink-0 rounded border-line accent-teal"
+                    aria-label={`Vybrat žádost od ${r.profile.name}`}
+                  />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-paper text-xs font-medium">{r.profile.avatar_initials}</div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium">{r.profile.name}</span>
+                      {r.profile.department?.name && <span className="text-xs text-muted">· {r.profile.department.name}</span>}
+                      {isMyTeam(r.profile) && <span className="rounded-sm bg-teal-light px-1.5 py-0.5 text-[11px] font-medium text-teal-dark">Váš tým</span>}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                      <LeaveBadge type={r.leave_type} />
+                      <span>{formatRange(r.start_date, r.end_date)}</span>
+                      <span>
+                        · {formatNumber(Number(r.working_days))} {dayWord(Number(r.working_days))}
+                      </span>
+                    </div>
+                    {r.leave_type.counts_against !== "none" && remaining[r.id] !== undefined && remaining[r.id] >= 0 && (
+                      <div className="mt-1 text-xs text-muted">
+                        Po schválení zbude: <span className="font-medium text-ink">{formatNumber(Number(remaining[r.id]))} dní</span>
+                      </div>
+                    )}
+                    {r.attachment_url && (
+                      <button
+                        onClick={async () => window.open(await leaveAttachmentUrl(r.attachment_url!), "_blank")}
+                        className="mt-1 flex items-center gap-1 text-xs text-teal-dark hover:underline"
+                      >
+                        <Paperclip size={12} /> Zobrazit přílohu
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setCalendarOpenId(calendarOpenId === r.id ? null : r.id)}
+                    aria-expanded={calendarOpenId === r.id}
+                    className="flex items-center gap-1.5 rounded px-2 py-1.5 text-sm text-teal-dark hover:bg-teal-light"
+                  >
+                    <Calendar size={14} /> {calendarOpenId === r.id ? "Skrýt kalendář" : "Zobrazit v kalendáři"}
+                  </button>
+                  <RejectDialog onConfirm={(reason) => reject(r.id, reason)} />
+                  <Button variant="primary" onClick={() => approve(r.id)}>
+                    <Check size={16} /> Schválit
+                  </Button>
+                </div>
               </div>
-              {conflicts[r.id] && (
-                <div className="mt-1 flex items-center gap-1.5 text-xs text-amber">
-                  <AlertTriangle size={13} />
-                  Konflikt s {conflicts[r.id]}
+
+              {hasWarning(r) && (
+                <div className="mt-2.5 flex flex-wrap gap-2 sm:pl-[3.25rem]">
+                  {capacityWarnings[r.id] && (
+                    <span className={cn(pill, "bg-danger-light text-danger-dark")}>
+                      <AlertTriangle size={13} /> Vysoké riziko: výpadek {capacityWarnings[r.id].percent} % oddělení ({capacityWarnings[r.id].count} z {capacityWarnings[r.id].size})
+                    </span>
+                  )}
+                  {conflicts[r.id] && (
+                    <span className={cn(pill, "bg-warning-light text-warning-dark")}>
+                      <AlertTriangle size={13} /> Konflikt s {conflicts[r.id]}
+                    </span>
+                  )}
+                  {remaining[r.id] !== undefined && remaining[r.id] < 0 && (
+                    <span className={cn(pill, "bg-danger-light text-danger-dark")}>
+                      <AlertTriangle size={13} /> Po schválení zůstatek {formatNumber(Number(remaining[r.id]))} dní (minus)
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {calendarOpenId === r.id && (
+                <div className="mt-3 sm:pl-[3.25rem]">
+                  <OverlapPreview request={r} />
                 </div>
               )}
             </div>
-          </div>
+          ))}
+        </div>
+      </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <RejectDialog onConfirm={(reason) => reject(r.id, reason)} />
-            <Button variant="primary" className="bg-moss hover:bg-moss/90" onClick={() => approve(r.id)}>
-              <Check size={16} /> Schválit
+      {selected.size > 0 && (
+        <div className="sticky bottom-4 z-30 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-white px-4 py-3 shadow-[0_8px_30px_rgba(22,35,59,0.18)]">
+          <div className="text-sm">
+            <span className="font-medium">Vybráno {selected.size}</span>
+            {selectedWarnings > 0 && <span className="ml-2 text-warning-dark">⚠️ {selectedWarnings} z vybraných má varování</span>}
+          </div>
+          <div className="flex gap-2">
+            <BulkRejectDialog count={selected.size} disabled={bulkBusy} onConfirm={rejectSelected} />
+            <Button variant="primary" onClick={approveSelected} disabled={bulkBusy}>
+              <Check size={16} /> {bulkBusy ? "Pracuji…" : `Schválit vybrané (${selected.size})`}
             </Button>
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
-function RejectDialog({ onConfirm }: { onConfirm: (reason: string) => void }) {
+/** Week-style preview of who else is out around the requested dates (same department, home office excluded). */
+function OverlapPreview({ request }: { request: PendingRow }) {
+  const [rows, setRows] = useState<{ id: string; name: string; start_date: string; end_date: string; color: LeaveColor; label: string }[] | null>(null);
+
+  const from = addDays(parseISO(request.start_date), -2);
+  const spanDays = Math.min(14, differenceInCalendarDays(parseISO(request.end_date), from) + 3);
+  const days = Array.from({ length: Math.max(spanDays, 5) }, (_, i) => addDays(from, i));
+  const isos = days.map((d) => d.toLocaleDateString("sv-SE"));
+
+  useEffect(() => {
+    if (!request.profile.department_id) {
+      setRows([]);
+      return;
+    }
+    createClient()
+      .from("leave_requests")
+      .select("id, start_date, end_date, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id)")
+      .eq("status", "approved")
+      .lte("start_date", isos[isos.length - 1])
+      .gte("end_date", isos[0])
+      .then(({ data }) => {
+        type R = { id: string; start_date: string; end_date: string; leave_type: { key: string; label: string; color: LeaveColor } | null; profile: { id: string; name: string; department_id: string | null } | null };
+        setRows(
+          ((data as unknown as R[]) ?? [])
+            .filter((r) => r.profile?.department_id === request.profile.department_id && r.profile.id !== request.profile.id && r.leave_type && reducesPresence(r.leave_type.key))
+            .map((r) => ({ id: r.id, name: r.profile!.name, start_date: r.start_date, end_date: r.end_date, color: r.leave_type!.color, label: r.leave_type!.label }))
+        );
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request.id]);
+
+  const inRange = (iso: string, a: string, b: string) => iso >= a && iso <= b;
+
+  return (
+    <div className="rounded border border-line bg-paper p-3">
+      <div className="grid items-center gap-x-1 gap-y-1 text-[11px] text-muted" style={{ gridTemplateColumns: `110px repeat(${days.length}, minmax(20px, 1fr))` }}>
+        <span />
+        {days.map((d, i) => (
+          <span key={isos[i]} className={cn("text-center", isWeekend(d) && "opacity-50")}>
+            {format(d, "EEEEEE d.", { locale: cs })}
+          </span>
+        ))}
+        <span className="truncate text-xs font-medium text-ink">{request.profile.name}</span>
+        {isos.map((iso) => (
+          <span key={iso} className={cn("h-4 rounded-sm", inRange(iso, request.start_date, request.end_date) ? "bg-teal opacity-70 [background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.6)_0_4px,transparent_4px_8px)]" : "bg-white")} />
+        ))}
+        {(rows ?? []).map((o) => (
+          <Fragment key={o.id}>
+            <span className="truncate text-xs text-ink" title={`${o.name} — ${o.label}`}>
+              {o.name}
+            </span>
+            {isos.map((iso) => (
+              <span key={iso} className={cn("h-4 rounded-sm", inRange(iso, o.start_date, o.end_date) ? colorBg[o.color] : "bg-white")} title={inRange(iso, o.start_date, o.end_date) ? o.label : undefined} />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+      {rows !== null && rows.length === 0 && <p className="mt-2 text-xs text-muted">V těchto dnech nikdo další z oddělení nechybí.</p>}
+    </div>
+  );
+}
+
+function BulkRejectDialog({ count, disabled, onConfirm }: { count: number; disabled: boolean; onConfirm: (reason: string) => void }) {
+  return <RejectDialog onConfirm={onConfirm} label="Zamítnout vybrané" disabled={disabled} count={count} />;
+}
+
+function RejectDialog({ onConfirm, label = "Zamítnout", disabled, count }: { onConfirm: (reason: string) => void; label?: string; disabled?: boolean; count?: number }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setReason("");
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="danger">
-          <X size={16} /> Zamítnout
+        <Button variant="danger" disabled={disabled}>
+          <X size={16} /> {label}
         </Button>
       </DialogTrigger>
-      <DialogContent title="Zamítnout žádost">
+      <DialogContent title={count ? `Zamítnout ${count} vybraných žádostí` : "Zamítnout žádost"}>
         <div className="space-y-3">
-          <label className="block text-sm font-medium">Důvod zamítnutí</label>
+          <label className="block text-sm font-medium" htmlFor="reject-reason">
+            Důvod zamítnutí (zobrazí se zaměstnanci)
+          </label>
           <textarea
+            id="reject-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            placeholder="Např. Není zajištěn provoz e-shopu"
+            placeholder="Např. Kritický termín projektu"
             className="w-full rounded border border-line px-3 py-2 text-sm"
           />
           <div className="flex justify-end gap-2">
@@ -148,8 +444,9 @@ function RejectDialog({ onConfirm }: { onConfirm: (reason: string) => void }) {
             </Button>
             <Button
               variant="danger"
+              disabled={!reason.trim()}
               onClick={() => {
-                onConfirm(reason);
+                onConfirm(reason.trim());
                 setOpen(false);
               }}
             >
@@ -161,3 +458,8 @@ function RejectDialog({ onConfirm }: { onConfirm: (reason: string) => void }) {
     </Dialog>
   );
 }
+
+const colorBg: Record<LeaveColor, string> = {
+  teal: "bg-teal", rust: "bg-rust", moss: "bg-moss", violet: "bg-violet", amber: "bg-amber", sky: "bg-sky",
+  plum: "bg-plum", sage: "bg-sage", gold: "bg-gold", wine: "bg-wine", slate: "bg-slate", forest: "bg-forest",
+};

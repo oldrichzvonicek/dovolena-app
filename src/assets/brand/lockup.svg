@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 96" width="300" height="96">
+<defs>
+<clipPath id="lockupclip"><rect x="0" y="0" width="96" height="96" rx="22"></rect></clipPath>
+</defs>
+<rect x="0" y="0" width="96" height="96" rx="22" fill="#0F9D7C"></rect>
+<g clip-path="url(#lockupclip)"><circle cx="96" cy="96" r="34" fill="#F0997B"></circle></g>
+<text x="120" y="62" font-family="Manrope, 'Segoe UI', sans-serif" font-size="44" font-weight="700" letter-spacing="-1" fill="#2C2C2A">dodio</text>
+</svg>

@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 export const Select = SelectPrimitive.Root;
 export const SelectValue = SelectPrimitive.Value;
 
-export function SelectTrigger({ className, children }: { className?: string; children: React.ReactNode }) {
+export function SelectTrigger({ className, children, "aria-label": ariaLabel }: { className?: string; children: React.ReactNode; "aria-label"?: string }) {
   return (
     <SelectPrimitive.Trigger
+      aria-label={ariaLabel}
       className={cn(
         "flex w-full items-center justify-between rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal",
         className
@@ -41,7 +42,7 @@ export function SelectItem({ value, children }: { value: string; children: React
     >
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator>
-        <Check size={14} className="text-teal" />
+        <Check size={14} className="text-teal-dark" />
       </SelectPrimitive.ItemIndicator>
     </SelectPrimitive.Item>
   );
