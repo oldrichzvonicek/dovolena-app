@@ -30,7 +30,7 @@ export const PLANS: Plan[] = [
     monthly: 0,
     yearly: 0,
     tagline: "Pro úplné začátky: dovolená pod kontrolou bez tabulek.",
-    features: ["Až 5 uživatelů", "Žádosti, schvalování a týmový kalendář", "Notifikace v aplikaci a e-mailová upozornění", "Chytré návrhy dovolené"],
+    features: ["Až 5 uživatelů", "Žádosti, schvalování a týmový kalendář", "Notifikace v aplikaci a e-mailová upozornění", "Analytika: přehledy absencí, kapacita a nadcházející absence", "Chytré návrhy dovolené"],
   },
   {
     key: "basic",
@@ -65,7 +65,6 @@ export const PLANS: Plan[] = [
       "Bez horního limitu uživatelů (do 30 v ceně, každý další 39 Kč)",
       "Vše z tarifu Team",
       "HR Insights a role HR",
-      "Analytika",
       "Eskalace schvalování a zástupy",
       "Historie změn",
       "Nárok podle odpracovaných let",
@@ -192,7 +191,8 @@ export const FEATURE_MATRIX: FeatureGroup[] = [
     rows: [
       { label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
       { label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, false, true] },
-      { label: "Analytika a Historie změn", values: [false, false, false, true] },
+      { label: "Analytika", benefit: "Přehledy absencí, kapacita a nadcházející absence za firmu i oddělení.", values: [true, true, true, true] },
+      { label: "Historie změn", values: [false, false, false, true] },
       { label: "HR Insights a role HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
     ],
   },
