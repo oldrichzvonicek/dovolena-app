@@ -7,6 +7,7 @@ type Who = Pick<DbProfile, "role" | "staff_role"> | null | undefined;
  *  - admin:      everything
  *  - HR:         Analytika, Exporty, Nastavení → Uživatelé (invite, departments/manager/hire date/entitlements) and Historie změn
  *  - accountant: Analytika and Exporty, read only
+ *  - manager:    Analytika, ale jen za svá oddělení (bez Exportů)
  */
 export const isAdminRole = (p: Who) => p?.role === "admin";
 export const isHr = (p: Who) => p?.staff_role === "hr";
@@ -14,6 +15,9 @@ export const isAccountant = (p: Who) => p?.staff_role === "accountant";
 
 /** Analytika + Exporty. */
 export const canSeeReports = (p: Who) => isAdminRole(p) || !!p?.staff_role;
+
+/** Analytika: admin, HR a účetní za celou firmu, manažer jen za svá oddělení (výběr dat řeší OverviewPanel). */
+export const canSeeAnalytics = (p: Who) => canSeeReports(p) || p?.role === "manager";
 
 /** Settings sections the person may open (keys match the `?sekce=` values). */
 export function allowedSettingsSections(p: Who): string[] {

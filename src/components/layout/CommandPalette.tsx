@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { allowedSettingsSections, canSeeReports } from "@/lib/access";
+import { allowedSettingsSections, canSeeAnalytics, canSeeReports } from "@/lib/access";
 import { createClient } from "@/lib/supabase/client";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { cn } from "@/lib/utils";
@@ -101,7 +101,7 @@ export function CommandPalette() {
     const staffItems = adminItems.filter((i) => {
       if (isAdmin) return true;
       if ((i.href ?? "").startsWith("/admin/settings")) return allowed.some((k) => (i.href ?? "").endsWith("=" + k));
-      return canSeeReports(profile);
+      return (i.href ?? "").startsWith("/admin/overview") ? canSeeAnalytics(profile) : canSeeReports(profile);
     });
     return [...actions, ...mainItems, ...(isManager ? managerItems : []), ...staffItems, helpItem];
   }, [profile, types]);

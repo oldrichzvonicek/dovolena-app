@@ -510,7 +510,7 @@ as $$
 $$;
 
 -- Má firma přihlášeného uživatele danou funkci? Pravidla musí odpovídat hasFeature() v src/lib/plans.ts:
---  hr_insights: doplněk u Free/Starter/Team, v ceně od Pro;  accountant: doplněk u Free/Starter, v ceně od Team.
+--  hr_insights: doplněk u Free/Starter/Team, v ceně od Pro;  accountant: doplněk u Free, v ceně od Starteru (basic).
 create or replace function company_has_feature(feature text)
 returns boolean
 language sql
@@ -520,7 +520,7 @@ set search_path = public
 as $$
   select case feature
     when 'hr_insights' then c.plan in ('pro', 'enterprise') or 'hr_insights' = any (c.addons)
-    when 'accountant'  then c.plan in ('starter', 'pro', 'enterprise') or 'accountant' = any (c.addons)
+    when 'accountant'  then c.plan in ('basic', 'starter', 'pro', 'enterprise') or 'accountant' = any (c.addons)
     else false
   end
   from companies c
@@ -1674,7 +1674,7 @@ begin
       raise exception 'Role HR je součástí doplňku HR Insights (v tarifu Pro v ceně).';
     end if;
     if new.staff_role = 'accountant' and not coalesce(company_has_feature('accountant'), false) then
-      raise exception 'Role Účetní je od tarifu Team v ceně, u Free a Starteru jde o doplněk.';
+      raise exception 'Role Účetní je od tarifu Starter v ceně, u Free jde o doplněk.';
     end if;
   end if;
   if new.active is distinct from old.active and (current_user_role() <> 'admin' or new.id = auth.uid()) then

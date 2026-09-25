@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { canSeeReports, canSeeSettings } from "@/lib/access";
+import { canSeeAnalytics, canSeeReports, canSeeSettings } from "@/lib/access";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { HelpDrawer } from "@/components/layout/HelpDrawer";
@@ -29,11 +29,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isAdmin = profile?.role === "admin";
   const isManager = isAdmin || profile?.role === "manager";
   const adminArea = pathname.startsWith("/admin");
-  const reportsArea = pathname.startsWith("/admin/overview") || pathname.startsWith("/admin/exports");
+  const analyticsArea = pathname.startsWith("/admin/overview");
+  const exportsArea = pathname.startsWith("/admin/exports");
   const settingsArea = pathname.startsWith("/admin/settings");
   const forbidden =
     !!profile &&
-    ((adminArea && !isAdmin && !(reportsArea && canSeeReports(profile)) && !(settingsArea && canSeeSettings(profile))) ||
+    ((adminArea && !isAdmin && !(analyticsArea && canSeeAnalytics(profile)) && !(exportsArea && canSeeReports(profile)) && !(settingsArea && canSeeSettings(profile))) ||
       ((pathname.startsWith("/approvals") || pathname.startsWith("/team")) && !isManager));
 
   useEffect(() => {

@@ -17,6 +17,8 @@ export interface Plan {
   extraPerUserYearly?: number;
   includedUsers?: number;
   recommended?: boolean;
+  /** Jednou větou: pro koho je tarif. */
+  tagline: string;
   features: string[];
 }
 
@@ -27,6 +29,7 @@ export const PLANS: Plan[] = [
     employeeLimit: 5,
     monthly: 0,
     yearly: 0,
+    tagline: "Pro úplné začátky: dovolená pod kontrolou bez tabulek.",
     features: ["Až 5 uživatelů", "Žádosti, schvalování a týmový kalendář", "Notifikace v aplikaci a e-mailová upozornění", "Chytré návrhy dovolené"],
   },
   {
@@ -35,7 +38,8 @@ export const PLANS: Plan[] = [
     employeeLimit: 10,
     monthly: 290,
     yearly: 2900,
-    features: ["Až 10 uživatelů", "Vše z tarifu Free", "iCal a CSV export"],
+    tagline: "Malý tým, který potřebuje podklady pro mzdy a kalendář v mobilu.",
+    features: ["Až 10 uživatelů", "Vše z tarifu Free", "iCal a CSV export", "Role Účetní a mzdový export"],
   },
   {
     key: "starter",
@@ -43,7 +47,8 @@ export const PLANS: Plan[] = [
     employeeLimit: 15,
     monthly: 590,
     yearly: 5900,
-    features: ["Až 15 uživatelů", "Vše z tarifu Starter", "Integrace do firemních nástrojů (Teams, Slack, Discord a další)", "Role Účetní a mzdový export"],
+    tagline: "Rostoucí firma, kde se žádosti a upozornění řeší přímo v Teams nebo Slacku.",
+    features: ["Až 15 uživatelů", "Vše z tarifu Starter", "Integrace do firemních nástrojů (Teams, Slack, Discord a další)"],
   },
   {
     key: "pro",
@@ -55,6 +60,7 @@ export const PLANS: Plan[] = [
     extraPerUserMonthly: 39,
     extraPerUserYearly: 390,
     recommended: true,
+    tagline: "Firma, která lidi opravdu řídí: přehledy, pravidla a žádné limity.",
     features: [
       "Bez horního limitu uživatelů (do 30 v ceně, každý další 39 Kč)",
       "Vše z tarifu Team",
@@ -123,9 +129,9 @@ export const ADDONS: Addon[] = [
     name: "Účetní",
     monthly: 100,
     yearly: 1000,
-    availableOn: ["free", "basic"],
-    includedIn: ["starter", "pro"],
-    info: "Role Účetní (jen čtení) a mzdové exporty: účetní stahuje podklady pro mzdy, ale nevidí typy citlivých absencí. Od tarifu Team je v ceně.",
+    availableOn: ["free"],
+    includedIn: ["basic", "starter", "pro"],
+    info: "Role Účetní (jen čtení) a mzdové exporty: účetní stahuje podklady pro mzdy, ale nevidí typy citlivých absencí. Od tarifu Starter je v ceně.",
   },
 ];
 
@@ -134,4 +140,65 @@ export const addonByKey = (key: AddonKey): Addon => ADDONS.find((a) => a.key ===
 /** Má firma s daným tarifem a doplňky funkci? Stejné pravidlo je v SQL (company_has_feature). */
 export function hasFeature(planKey: string | null | undefined, addons: readonly string[] | null | undefined, feature: AddonKey): boolean {
   return addonByKey(feature).includedIn.includes(planByKey(planKey).key) || (addons ?? []).includes(feature);
+}
+
+// ---------------------------------------------------------------------------
+// Srovnávací tabulka funkcí (pořadí sloupců = pořadí tarifů: Free, Starter, Team, Pro)
+// ---------------------------------------------------------------------------
+
+/** true = v ceně, false = není, "addon" = přikoupit jako doplněk, text = konkrétní hodnota. */
+export type Cell = boolean | "addon" | string;
+
+export interface FeatureRow {
+  label: string;
+  /** Krátká věta, proč to zákazníkovi pomáhá (zobrazí se pod názvem). */
+  benefit?: string;
+  values: [Cell, Cell, Cell, Cell];
+}
+
+export interface FeatureGroup {
+  title: string;
+  rows: FeatureRow[];
+}
+
+export const FEATURE_MATRIX: FeatureGroup[] = [
+  {
+    title: "Každodenní dovolená",
+    rows: [
+      { label: "Počet uživatelů", values: ["5", "10", "15", "bez limitu"] },
+      { label: "Žádosti a schvalování", benefit: "Konec e-mailů a tabulek, každý vidí stav své žádosti.", values: [true, true, true, true] },
+      { label: "Týmový kalendář a české svátky", benefit: "Na první pohled vidíte, kdo kdy chybí.", values: [true, true, true, true] },
+      { label: "Soukromí nemoci", benefit: "Kolegové vidí jen „Nepřítomen“, důvod znají jen nadřízený a admin.", values: [true, true, true, true] },
+      { label: "Chytré návrhy dovolené", benefit: "Kdy stačí pár dní k dlouhému volnu kolem svátků.", values: [true, true, true, true] },
+      { label: "Notifikace v aplikaci a e-mailová upozornění", values: [true, true, true, true] },
+    ],
+  },
+  {
+    title: "Mzdy a účetnictví",
+    rows: [
+      { label: "iCal a CSV export", benefit: "Kalendář v telefonu a data do Excelu.", values: [false, true, true, true] },
+      { label: "Role Účetní a mzdový export", benefit: "Účetní si podklady stáhne sama, bez psaní e-mailů.", values: ["addon", true, true, true] },
+    ],
+  },
+  {
+    title: "Propojení",
+    rows: [
+      { label: "Teams, Slack, Discord a další", benefit: "Nové žádosti a schválení se ukazují přímo ve firemním chatu.", values: [false, false, true, true] },
+      { label: "Webhooky", benefit: "Napojení na vlastní systémy.", values: [false, false, false, true] },
+    ],
+  },
+  {
+    title: "Řízení a přehledy",
+    rows: [
+      { label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
+      { label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, false, true] },
+      { label: "Analytika a Historie změn", values: [false, false, false, true] },
+      { label: "HR Insights a role HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
+    ],
+  },
+];
+
+/** Cena na osobu a měsíc při plném využití limitu tarifu (jen tarify s pevným limitem). */
+export function pricePerUser(plan: Plan): number | null {
+  return plan.employeeLimit && plan.monthly > 0 ? Math.round(plan.monthly / plan.employeeLimit) : null;
 }

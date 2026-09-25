@@ -185,7 +185,7 @@ export function Sidebar() {
               Manažer
             </div>
             <div className="space-y-1">
-              {managerNav.map((item) => (
+              {[...managerNav, ...(!isAdmin && !canSeeReports(profile) ? [{ href: "/admin/overview", label: "Analytika", icon: BarChart3 }] : [])].map((item) => (
                 <NavLink
                   key={item.href}
                   {...item}

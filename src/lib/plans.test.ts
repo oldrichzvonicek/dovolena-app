@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADDONS, PLANS, hasFeature, planByKey, planPrice, recommendedFor } from "./plans";
+import { ADDONS, FEATURE_MATRIX, PLANS, hasFeature, planByKey, planPrice, pricePerUser, recommendedFor } from "./plans";
 
 const plan = (k: string) => PLANS.find((p) => p.key === k)!;
 
@@ -50,13 +50,29 @@ describe("add-ons", () => {
     expect(hasFeature("pro", [], "hr_insights")).toBe(true);
   });
 
-  it("Účetní: paid add-on on Free and Basic, included from Starter", () => {
-    expect(hasFeature("basic", [], "accountant")).toBe(false);
-    expect(hasFeature("basic", ["accountant"], "accountant")).toBe(true);
+  it("Účetní: paid add-on only on Free, included from Starter (basic)", () => {
     expect(hasFeature("free", [], "accountant")).toBe(false);
     expect(hasFeature("free", ["accountant"], "accountant")).toBe(true);
+    expect(hasFeature("basic", [], "accountant")).toBe(true);
     expect(hasFeature("starter", [], "accountant")).toBe(true);
     expect(hasFeature("pro", null, "accountant")).toBe(true);
+  });
+
+  it("the comparison table agrees with hasFeature()", () => {
+    const row = (label: string) => FEATURE_MATRIX.flatMap((g) => g.rows).find((r) => r.label.startsWith(label))!;
+    const keys = ["free", "basic", "starter", "pro"];
+    keys.forEach((k, i) => {
+      expect(row("Role Účetní").values[i] === true || row("Role Účetní").values[i] === "addon").toBe(true);
+      expect(row("Role Účetní").values[i] === true).toBe(hasFeature(k, [], "accountant"));
+      expect(row("HR Insights").values[i] === true).toBe(hasFeature(k, [], "hr_insights"));
+    });
+  });
+
+  it("shows price per user for fixed-limit plans", () => {
+    expect(pricePerUser(plan("basic"))).toBe(29);
+    expect(pricePerUser(plan("starter"))).toBe(39);
+    expect(pricePerUser(plan("free"))).toBeNull();
+    expect(pricePerUser(plan("pro"))).toBeNull();
   });
 
   it("an unknown plan behaves like Free", () => {

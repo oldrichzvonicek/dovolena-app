@@ -17,6 +17,7 @@ import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationRepor
 import { HrInsights } from "@/components/admin/HrInsights";
 import { reducesPresence } from "@/lib/leave-kinds";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { fetchAnalyticsDepartmentIds } from "@/lib/approval-scope";
 
 interface State {
   employeeCount: number;
@@ -112,12 +113,29 @@ export function OverviewPanel() {
   });
   const upcomingLabel = upcomingDays === 0 ? "do konce roku" : `v dalších ${upcomingDays} dnech`;
 
-  useEffect(() => {
-    if (profile) createClient().from("departments").select("*").eq("company_id", profile.company_id).then(({ data }) => setDepartments((data as DbDepartment[]) ?? []));
-  }, [profile]);
+  // Manažer vidí Analytiku jen za svá oddělení (null = celá firma: admin, HR, účetní).
+  const [scopeIds, setScopeIds] = useState<Set<string> | null | undefined>(undefined);
 
   useEffect(() => {
     if (!profile) return;
+    let alive = true;
+    (async () => {
+      const [scope, { data }] = await Promise.all([
+        fetchAnalyticsDepartmentIds(profile),
+        createClient().from("departments").select("*").eq("company_id", profile.company_id),
+      ]);
+      if (!alive) return;
+      const all = (data as DbDepartment[]) ?? [];
+      setDepartments(scope ? all.filter((d) => scope.has(d.id)) : all);
+      setScopeIds(scope);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile || scopeIds === undefined) return;
     const supabase = createClient();
     const today = new Date().toLocaleDateString("sv-SE");
     const monthStart = range.from;
@@ -125,13 +143,17 @@ export function OverviewPanel() {
     const in30 = upcomingDays === 0 ? `${new Date().getFullYear()}-12-31` : new Date(Date.now() + upcomingDays * 86400000).toLocaleDateString("sv-SE");
 
     (async () => {
-      const [{ count: employeeCount }, { count: pendingCount }, { data: monthRequests }, { data: upcomingRequests }, { data: todayRequests }] =
+      const [{ count: employeeCount }, pendingRes, { data: monthRequests }, { data: upcomingRequests }, { data: todayRequests }] =
         await Promise.all([
           deptFilter === "all"
-            ? supabase.from("profiles").select("id", { count: "exact", head: true }).eq("company_id", profile.company_id).eq("active", true)
+            ? scopeIds
+              ? supabase.from("profiles").select("id", { count: "exact", head: true }).eq("company_id", profile.company_id).eq("active", true).in("department_id", [...scopeIds])
+              : supabase.from("profiles").select("id", { count: "exact", head: true }).eq("company_id", profile.company_id).eq("active", true)
             : supabase.from("profiles").select("id", { count: "exact", head: true }).eq("company_id", profile.company_id).eq("active", true).eq("department_id", deptFilter),
-          // RLS already limits leave_requests to this company — same rows the sidebar badge counts.
-          supabase.from("leave_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+          // RLS already limits leave_requests to this company — same rows the sidebar badge counts. Manažer: jen žádosti lidí ze svých oddělení.
+          scopeIds || deptFilter !== "all"
+            ? supabase.from("leave_requests").select("id, profile:profiles!leave_requests_profile_id_fkey(department_id)").eq("status", "pending")
+            : supabase.from("leave_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
           supabase
             .from("leave_requests")
             .select(
@@ -161,7 +183,11 @@ export function OverviewPanel() {
         leave_type: { key: string; label: string; color: LeaveColor } | null;
         profile: { id: string; name: string; department_id: string | null; department: { name: string } | null } | null;
       };
-      const inDept = (id: string | null | undefined) => deptFilter === "all" || id === deptFilter;
+      const inDept = (id: string | null | undefined) => (deptFilter === "all" ? !scopeIds || (!!id && scopeIds.has(id)) : id === deptFilter);
+      const pendingCount =
+        scopeIds || deptFilter !== "all"
+          ? ((pendingRes.data as unknown as { profile: { department_id: string | null } | null }[]) ?? []).filter((r) => inDept(r.profile?.department_id)).length
+          : pendingRes.count;
       const { data: comp } = await supabase.from("companies").select("work_days").eq("id", profile.company_id).single();
       const workDays = (comp?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
       const monthRows = ((monthRequests as unknown as MonthReq[]) ?? [])
@@ -227,7 +253,7 @@ export function OverviewPanel() {
       });
       setLoading(false);
     })();
-  }, [profile, range.from, range.to, deptFilter, upcomingDays]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, scopeIds, range.from, range.to, deptFilter, upcomingDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxDeptDays = Math.max(1, ...(state?.byDepartment.map((d) => d.days) ?? [1]));
   const monthLabel = range.label;
@@ -308,7 +334,7 @@ export function OverviewPanel() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Všechna oddělení</SelectItem>
+                <SelectItem value="all">{scopeIds ? "Všechna moje oddělení" : "Všechna oddělení"}</SelectItem>
                 {departments.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
                     {d.name}

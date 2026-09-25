@@ -183,7 +183,7 @@ export function EditEmployeeModal({
                 </SelectItem>
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-muted">Přidává práva k základní roli. Nastavuje jen admin. Role HR patří k HR Insights, role Účetní je od tarifu Team v ceně.</p>
+            <p className="mt-1 text-xs text-muted">Přidává práva k základní roli. Nastavuje jen admin. Role HR patří k HR Insights, role Účetní je od tarifu Starter v ceně.</p>
           </div>
 
           <div>

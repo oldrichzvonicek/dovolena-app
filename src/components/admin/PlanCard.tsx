@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowDown, Check, Crown } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
+import { Check, ChevronDown, Crown, Minus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { ADDONS, PLANS, YEARLY_NOTE, formatKc, planByKey, planPrice, recommendedFor, type Addon, type Plan } from "@/lib/plans";
+import { ADDONS, FEATURE_MATRIX, PLANS, YEARLY_NOTE, formatKc, planByKey, planPrice, pricePerUser, recommendedFor, type Addon, type Plan } from "@/lib/plans";
 import { useFeatures } from "@/lib/use-features";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
   const { profile } = useAuth();
   const [employees, setEmployees] = useState<number | null>(null);
   const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
+  const [showMatrix, setShowMatrix] = useState(false);
   const plan = planByKey(planKey);
   const features = useFeatures();
   const users = employees ?? 0;
@@ -74,14 +75,6 @@ Děkujeme.`);
               <p className="text-xs text-muted">{planPrice(plan, users, "monthly") === 0 ? "0 Kč" : `${formatKc(planPrice(plan, users, "monthly"))} / měs.`}</p>
             </div>
           </div>
-          {plan.key !== "pro" && (
-            <Button
-              variant="secondary"
-              onClick={() => document.getElementById("tarify")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            >
-              <ArrowDown size={15} /> Přejít na vyšší tarif
-            </Button>
-          )}
         </div>
 
         <div className="mt-4">
@@ -145,13 +138,21 @@ Děkujeme.`);
                     p.recommended && <span className="rounded-full bg-gold-light px-2 py-0.5 text-[11px] font-medium text-gold-dark">Doporučeno</span>
                   )}
                 </div>
-                <div className="mt-1 text-lg font-medium">{priceOf(p)}</div>
+                <p className="mt-1 text-xs text-muted">{p.tagline}</p>
+                <div className="mt-2 text-lg font-medium">{priceOf(p)}</div>
                 <div className="text-xs text-muted">
                   {p.employeeLimit === null ? "bez limitu uživatelů" : `do ${p.employeeLimit} uživatelů`}
                   {p.includedUsers && p.extraPerUserMonthly && (
                     <> · základ {formatKc(period === "monthly" ? p.monthly : p.yearly)} + {formatKc((period === "monthly" ? p.extraPerUserMonthly : p.extraPerUserYearly) ?? 0)} za každého nad {p.includedUsers}</>
                   )}
                 </div>
+                {(pricePerUser(p) !== null || (period === "yearly" && p.monthly > 0)) && (
+                  <div className="mt-0.5 text-xs text-teal-dark">
+                    {pricePerUser(p) !== null && <>jen {pricePerUser(p)} Kč na osobu měsíčně</>}
+                    {pricePerUser(p) !== null && period === "yearly" && p.monthly > 0 && " · "}
+                    {period === "yearly" && p.monthly > 0 && <>ušetříte {formatKc(p.monthly * 12 - p.yearly)} ročně</>}
+                  </div>
+                )}
                 <ul className="mt-3 flex-1 space-y-1.5 text-sm">
                   {p.features.map((f) => (
                     <li key={f} className="flex gap-2">
@@ -159,19 +160,79 @@ Děkujeme.`);
                     </li>
                   ))}
                 </ul>
-                {!fits && employees !== null && <p className="mt-2 text-xs text-warning-dark">Nestačí pro vašich {employees} uživatelů.</p>}
+                {!fits && !current && employees !== null && <p className="mt-2 text-xs text-warning-dark">Tarif je pro max. {p.employeeLimit} uživatelů. Pro váš tým ({employees} členů) zvolte {recommendedFor(employees).name}.</p>}
                 <Button
                   className="mt-4 w-full justify-center"
                   variant={p.recommended && !current ? "primary" : "secondary"}
-                  disabled={current || !salesEmail}
+                  disabled={current || !fits || !salesEmail}
+                  title={!fits ? `Tarif je určen pro maximálně ${p.employeeLimit} uživatelů` : undefined}
                   onClick={() => choose(p)}
                 >
-                  {current ? "Aktuální tarif" : "Zvolit tarif"}
+                  {current ? "Aktuální tarif" : !fits ? "Pro váš tým nestačí" : "Zvolit tarif"}
                 </Button>
               </div>
             );
           })}
         </div>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowMatrix((v) => !v)}
+            aria-expanded={showMatrix}
+            className="flex items-center gap-1.5 text-sm font-medium text-teal-dark underline underline-offset-2"
+          >
+            Porovnat všechny funkce <ChevronDown size={15} className={cn("transition-transform", showMatrix && "rotate-180")} />
+          </button>
+          {showMatrix && (
+            <div className="card mt-3 overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left">
+                    <th className="p-3 font-medium">Funkce</th>
+                    {PLANS.map((p) => (
+                      <th key={p.key} className={cn("p-3 text-center font-medium", p.key === plan.key && "text-teal-dark")}>
+                        {p.name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {FEATURE_MATRIX.map((g) => (
+                    <Fragment key={g.title}>
+                      <tr className="bg-paper">
+                        <th colSpan={5} className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wide text-muted">
+                          {g.title}
+                        </th>
+                      </tr>
+                      {g.rows.map((r) => (
+                        <tr key={r.label} className="border-b border-line last:border-0">
+                          <td className="p-3">
+                            <div>{r.label}</div>
+                            {r.benefit && <div className="text-xs text-muted">{r.benefit}</div>}
+                          </td>
+                          {r.values.map((v, i) => (
+                            <td key={i} className="p-3 text-center">
+                              {v === true ? (
+                                <Check size={15} className="mx-auto text-teal-dark" aria-label="Ano" />
+                              ) : v === false ? (
+                                <Minus size={15} className="mx-auto text-muted" aria-label="Ne" />
+                              ) : v === "addon" ? (
+                                <span className="text-xs text-gold-dark">doplněk</span>
+                              ) : (
+                                <span className="text-xs">{v}</span>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         <div className="mt-6">
           <h2 className="font-display text-h2">Doplňky</h2>
           <p className="text-xs text-muted">Cena je za celou firmu, ne za uživatele.</p>
@@ -199,7 +260,7 @@ Děkujeme.`);
                         ? "Doplněk máte aktivní."
                         : buyable
                           ? a.key === "accountant"
-                            ? "Od tarifu Team je v ceně."
+                            ? "Od tarifu Starter je v ceně."
                             : "V tarifu Pro je v ceně."
                           : "V tomto tarifu se nedokupuje."}
                   </p>

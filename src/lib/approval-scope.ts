@@ -36,3 +36,26 @@ export async function fetchDecisionScope(me: { id: string; company_id: string; r
     canDecide: (p) => (!!p.manager_id && managerIds.has(p.manager_id)) || (!!p.department_id && headed.has(p.department_id)),
   };
 }
+
+/**
+ * Oddělení, za která smí manažer vidět Analytiku: jeho vlastní oddělení, oddělení, kterému je vedoucím / zástupcem
+ * (včetně stálého zástupu), a oddělení jeho přímých podřízených. Admin (null) vidí všechna.
+ * Data samotná stejně filtruje RLS — soukromé typy absencí (nemoc) uvidí manažer jen u svých podřízených.
+ */
+export async function fetchAnalyticsDepartmentIds(me: { id: string; company_id: string; role: string; staff_role?: string | null; department_id: string | null }): Promise<Set<string> | null> {
+  if (me.role === "admin" || me.staff_role) return null;
+  const supabase = createClient();
+  const [{ data: depts }, { data: people }] = await Promise.all([
+    supabase.from("departments").select("id, head_profile_id, deputy_head_profile_id").eq("company_id", me.company_id),
+    supabase.from("profiles").select("id, manager_id, substitute_id, department_id").eq("company_id", me.company_id).eq("active", true),
+  ]);
+  const substituted = new Set((people ?? []).filter((p) => p.substitute_id === me.id).map((p) => p.id as string));
+  const managerIds = new Set<string>([me.id, ...substituted]);
+  const ids = new Set<string>();
+  if (me.department_id) ids.add(me.department_id);
+  for (const d of depts ?? []) {
+    if (d.head_profile_id === me.id || d.deputy_head_profile_id === me.id || (d.head_profile_id && substituted.has(d.head_profile_id as string))) ids.add(d.id as string);
+  }
+  for (const p of people ?? []) if (p.manager_id && managerIds.has(p.manager_id as string) && p.department_id) ids.add(p.department_id as string);
+  return ids;
+}
