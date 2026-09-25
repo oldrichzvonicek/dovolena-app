@@ -124,7 +124,7 @@ export function RequestLeaveModal({
         setDurationMode("half");
       } else if (
         editingRequest.start_date === editingRequest.end_date &&
-        editingRequest.working_days !== countWorkingDays(editingRequest.start_date, editingRequest.end_date)
+        editingRequest.working_days !== countWorkingDays(editingRequest.start_date, editingRequest.end_date, company?.work_days)
       ) {
         setDurationMode("hours");
         setHoursValue(Math.round(editingRequest.working_days * (company?.standard_daily_hours ?? 8) * 4) / 4);
@@ -161,8 +161,8 @@ export function RequestLeaveModal({
   const workingDays = useMemo(() => {
     if (durationMode === "half") return 0.5;
     if (durationMode === "hours") return dailyHours > 0 ? Math.round((hoursValue / dailyHours) * 1000) / 1000 : 0;
-    return countWorkingDays(startDate, endDate);
-  }, [startDate, endDate, durationMode, hoursValue, dailyHours]);
+    return countWorkingDays(startDate, endDate, company?.work_days);
+  }, [startDate, endDate, durationMode, hoursValue, dailyHours, company?.work_days]);
 
   // "Team" = same department when the employee has one, otherwise the whole company.
   const team = useMemo(() => {

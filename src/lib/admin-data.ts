@@ -180,11 +180,14 @@ export interface AdminEmployeeRow {
 export async function fetchCompanyEmployees(companyId: string): Promise<AdminEmployeeRow[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name, email, role, department_id, manager_id, substitute_id, avatar_initials, active, hire_date, staff_role, join_pending")
+    .select("id, name, email, role, department_id, manager_id, substitute_id, avatar_initials, active, staff_role, join_pending")
     .eq("company_id", companyId)
     .order("name", { ascending: true });
   if (error) throw error;
-  return data;
+  // Datum nástupu je v samostatné tabulce, kterou čte jen admin a HR (ostatním se vrátí prázdný seznam).
+  const { data: hr } = await supabase.from("profile_hr").select("profile_id, hire_date");
+  const hire = new Map((hr ?? []).map((h) => [h.profile_id as string, h.hire_date as string | null]));
+  return (data ?? []).map((e) => ({ ...e, hire_date: hire.get(e.id as string) ?? null })) as AdminEmployeeRow[];
 }
 
 /** Admin schválí registraci z odkazu: účet se aktivuje a dotyčný se může přihlásit. */
@@ -199,7 +202,7 @@ export async function updateEmployeeStaffRole(id: string, staffRole: "hr" | "acc
 }
 
 export async function updateEmployeeHireDate(id: string, hireDate: string | null) {
-  const { error } = await supabase.from("profiles").update({ hire_date: hireDate }).eq("id", id);
+  const { error } = await supabase.from("profile_hr").upsert({ profile_id: id, hire_date: hireDate }, { onConflict: "profile_id" });
   if (error) throw error;
 }
 
@@ -399,6 +402,7 @@ export async function updateLeaveType(
     allow_half_day: boolean;
     allow_hours: boolean;
     hide_from_colleagues: boolean;
+    counts_as_present: boolean;
   }>
 ) {
   const { error } = await supabase.from("leave_types").update(payload).eq("id", id);

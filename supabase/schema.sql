@@ -354,7 +354,11 @@ alter table profiles add column if not exists deactivated_at timestamptz;
 alter table profiles add column if not exists substitute_id uuid references profiles(id) on delete set null;
 
 -- Datum nástupu — základ pro příplatek k dovolené za odpracované roky (companies.seniority_*).
-alter table profiles add column if not exists hire_date date;
+-- (datum nástupu je v tabulce profile_hr — čte ho jen dotčená osoba, HR a admin; viz konec souboru)
+create table if not exists profile_hr (
+  profile_id uuid primary key references profiles(id) on delete cascade,
+  hire_date date
+);
 
 -- Doplňková role vedle role zaměstnanec / manažer / admin (nastavuje jen admin, viz guard_profile_update):
 --   hr         — personalistika: vidí všechna data o absencích a nárocích, spravuje lidi (oddělení, nadřízený,
@@ -365,10 +369,7 @@ alter table profiles add column if not exists staff_role text check (staff_role 
 -- Nové registrace z odkazu čekají na schválení adminem (viz company_join / join_company_by_code).
 alter table profiles add column if not exists join_pending boolean not null default false;
 
--- Unguessable id for the personal iCal feed URL (see src/app/api/ical) — the
--- feed is fetched unauthenticated by calendar apps, so the token itself is
--- what stands in for auth. Regenerable from Nastavení/Tým if it ever leaks.
-alter table profiles add column if not exists calendar_token uuid not null default gen_random_uuid() unique;
+-- Token osobního iCal odkazu je v tabulce profile_secrets (čte ji jen vlastník) — viz konec souboru.
 
 -- Denormalized copy of auth.users.email — client code can't join auth.users
 -- directly (no RLS-visible table), and Uživatelé needs to show it. Set once
@@ -397,6 +398,17 @@ alter table leave_types add column if not exists requires_approval boolean not n
 alter table leave_types add column if not exists paid boolean not null default true;
 alter table leave_types add column if not exists allow_half_day boolean not null default true;
 alter table leave_types add column if not exists allow_hours boolean not null default true;
+-- Typ, při kterém člověk dál pracuje (Home Office, služební cesta…): nesnižuje kapacitu týmu a nepočítá se jako nepřítomnost.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'leave_types' and column_name = 'counts_as_present'
+  ) then
+    alter table leave_types add column counts_as_present boolean not null default false;
+    update leave_types set counts_as_present = true where key = 'home_office';
+  end if;
+end $$;
 -- Display order in pickers (request form, quick CTA) — admin-controlled via
 -- up/down reorder in Typy absencí, not tied to creation order any more.
 alter table leave_types add column if not exists sort_order int not null default 0;
@@ -1041,6 +1053,14 @@ $$;
 -- definer because the sender has no RLS insert privilege on other people's
 -- notifications rows.
 -- ---------------------------------------------------------------------------
+create table if not exists help_question_log (
+  id bigint generated always as identity primary key,
+  profile_id uuid not null references profiles(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists help_question_log_idx on help_question_log (profile_id, created_at desc);
+alter table help_question_log enable row level security;
+
 create or replace function send_help_question(p_message text)
 returns int
 language plpgsql
@@ -1056,6 +1076,14 @@ begin
   if p_message is null or trim(p_message) = '' then
     raise exception 'Zpráva nemůže být prázdná.';
   end if;
+  if length(p_message) > 2000 then
+    raise exception 'Zpráva je příliš dlouhá (nejvýše 2000 znaků).';
+  end if;
+  -- Ochrana před zahlcením adminů: nejvýše 5 dotazů za hodinu na člověka.
+  if (select count(*) from help_question_log where profile_id = auth.uid() and created_at > now() - interval '1 hour') >= 5 then
+    raise exception 'Příliš mnoho dotazů za sebou. Zkuste to prosím za chvíli.';
+  end if;
+  insert into help_question_log (profile_id) values (auth.uid());
 
   insert into notifications (profile_id, type, title, body)
   select id, 'help_question', 'Dotaz na podporu od ' || requester_name, p_message
@@ -1594,10 +1622,12 @@ begin
   if new.company_id is distinct from old.company_id then
     raise exception 'Firmu u profilu nelze změnit.';
   end if;
-  if new.hire_date is distinct from old.hire_date and current_user_role() <> 'admin' and current_user_staff() is distinct from 'hr' then
-    raise exception 'Datum nástupu může měnit jen admin nebo HR.';
+  -- E-mail v profilu smí být jen ten z přihlašovacího účtu (jinak by si šlo nechat posílat upozornění na cizí adresu).
+  if new.email is distinct from old.email and auth.uid() is not null
+     and (new.id is distinct from auth.uid() or new.email is distinct from my_auth_email()) then
+    raise exception 'E-mail lze změnit jen v nastavení přihlašovacího účtu.';
   end if;
-  if new.staff_role is distinct from old.staff_role and current_user_role() is distinct from 'admin' then
+  if new.staff_role is distinct from old.staff_role and auth.uid() is not null and current_user_role() is distinct from 'admin' then
     raise exception 'Doplňkovou roli (HR / účetní) může nastavit jen admin.';
   end if;
   if new.active is distinct from old.active and (current_user_role() <> 'admin' or new.id = auth.uid()) then
@@ -1693,16 +1723,17 @@ as $$
       when 'dovolena' then (
         -- Datum nástupu (pokud je vyplněné): nástup v dřívějším roce = celý nárok, v letošním roce se krátí podle měsíce nástupu.
         select case
-          when p.hire_date is not null and extract(year from p.hire_date) < extract(year from now())
-            then c.default_vacation_days + seniority_bonus_days(p.hire_date, c.id, extract(year from now())::int)
+          when h.hire_date is not null and extract(year from h.hire_date) < extract(year from now())
+            then c.default_vacation_days + seniority_bonus_days(h.hire_date, c.id, extract(year from now())::int)
           else prorate_from(
-                 c.default_vacation_days + seniority_bonus_days(p.hire_date, c.id, extract(year from now())::int),
+                 c.default_vacation_days + seniority_bonus_days(h.hire_date, c.id, extract(year from now())::int),
                  c.id,
-                 coalesce(p.hire_date, current_date)
+                 coalesce(h.hire_date, current_date)
                )
         end
-        from profiles p join companies c on c.id = target_company_id
-        where p.id = target_profile_id
+        from companies c
+        left join profile_hr h on h.profile_id = target_profile_id
+        where c.id = target_company_id
       )
       when 'sick' then (select default_sick_days from companies where id = target_company_id)
     end
@@ -1969,26 +2000,27 @@ stable
 set search_path = public
 as $$
 begin
-  if current_user_role() is distinct from 'admin' then
-    raise exception 'Jen admin.';
+  if current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr' then
+    raise exception 'Jen admin nebo HR.';
   end if;
   return query
-    select p.id, p.name, p.hire_date,
-           date_part('year', age(make_date(p_year, 12, 31), p.hire_date))::int,
-           seniority_bonus_days(p.hire_date, p.company_id, p_year),
+    select p.id, p.name, h.hire_date,
+           date_part('year', age(make_date(p_year, 12, 31), h.hire_date))::int,
+           seniority_bonus_days(h.hire_date, p.company_id, p_year),
            coalesce(e.total_days, 0)::numeric,
            (case
-              when extract(year from p.hire_date) = p_year
-                then prorate_from(c.default_vacation_days + seniority_bonus_days(p.hire_date, p.company_id, p_year), p.company_id, p.hire_date)
-              else c.default_vacation_days + seniority_bonus_days(p.hire_date, p.company_id, p_year)
+              when extract(year from h.hire_date) = p_year
+                then prorate_from(c.default_vacation_days + seniority_bonus_days(h.hire_date, p.company_id, p_year), p.company_id, h.hire_date)
+              else c.default_vacation_days + seniority_bonus_days(h.hire_date, p.company_id, p_year)
             end)::numeric
     from profiles p
     join companies c on c.id = p.company_id
+    join profile_hr h on h.profile_id = p.id
     left join leave_types lt on lt.company_id = p.company_id and lt.key = 'dovolena'
     left join leave_entitlements e on e.profile_id = p.id and e.leave_type_id = lt.id and e.year = p_year
     where p.company_id = current_company_id()
       and p.active
-      and p.hire_date is not null
+      and h.hire_date is not null
     order by p.name;
 end;
 $$;
@@ -2005,8 +2037,8 @@ declare
   r record;
   vac_type uuid;
 begin
-  if current_user_role() is distinct from 'admin' then
-    raise exception 'Jen admin.';
+  if current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr' then
+    raise exception 'Jen admin nebo HR.';
   end if;
   select id into vac_type from leave_types where company_id = current_company_id() and key = 'dovolena';
   if vac_type is null then
@@ -2342,3 +2374,389 @@ update leave_types set color = 'wine' where key = 'sick' and color = 'rust';
 update leave_types set color = 'sky' where key = 'home_office' and color = 'moss';
 update leave_types set color = 'gold' where key = 'nahradni_volno' and color = 'amber';
 update leave_types set color = 'forest' where key = 'materska' and color = 'sky';
+
+-- ---------------------------------------------------------------------------
+-- profile_secrets — tajný token osobního iCal odkazu (src/app/api/ical). Dřív ležel ve sloupci
+-- profiles.calendar_token, který četl každý kolega, a přes cizí token šlo stáhnout jeho
+-- kalendář včetně soukromých absencí (nemoc). Teď ho čte jen vlastník; starý sloupec se smaže,
+-- takže všechny dřívější odkazy přestanou platit (noví tokeny se vygenerují).
+-- ---------------------------------------------------------------------------
+create table if not exists profile_secrets (
+  profile_id uuid primary key references profiles(id) on delete cascade,
+  calendar_token uuid not null default gen_random_uuid() unique
+);
+
+alter table profile_secrets enable row level security;
+
+drop policy if exists "own profile secrets" on profile_secrets;
+create policy "own profile secrets" on profile_secrets
+  for select using (profile_id = auth.uid());
+
+insert into profile_secrets (profile_id) select id from profiles on conflict (profile_id) do nothing;
+
+create or replace function create_profile_secret()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into profile_secrets (profile_id) values (new.id) on conflict (profile_id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_create_secret on profiles;
+create trigger profiles_create_secret
+  after insert on profiles
+  for each row execute function create_profile_secret();
+
+create or replace function get_my_calendar_token()
+returns uuid
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select calendar_token from profile_secrets where profile_id = auth.uid();
+$$;
+
+create or replace function rotate_calendar_token()
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t uuid := gen_random_uuid();
+begin
+  if auth.uid() is null then
+    raise exception 'Nejste přihlášeni.';
+  end if;
+  insert into profile_secrets (profile_id, calendar_token) values (auth.uid(), t)
+  on conflict (profile_id) do update set calendar_token = excluded.calendar_token;
+  return t;
+end;
+$$;
+
+grant execute on function get_my_calendar_token() to authenticated;
+grant execute on function rotate_calendar_token() to authenticated;
+
+alter table profiles drop column if exists calendar_token;
+
+-- ---------------------------------------------------------------------------
+-- Pracovní dny na serveru: státní svátky (včetně Velkého pátku a Velikonočního pondělí)
+-- a pracovní dny firmy (companies.work_days). Shodné s src/lib/working-days.ts.
+-- ---------------------------------------------------------------------------
+create or replace function easter_sunday(y int)
+returns date
+language plpgsql
+immutable
+as $$
+declare
+  a int; b int; c int; d int; e int; f int; g int; h int; i int; k int; l int; m int; mo int; da int;
+begin
+  a := y % 19; b := y / 100; c := y % 100; d := b / 4; e := b % 4;
+  f := (b + 8) / 25; g := (b - f + 1) / 3;
+  h := (19 * a + b - d - g + 15) % 30; i := c / 4; k := c % 4;
+  l := (32 + 2 * e + 2 * i - h - k) % 7;
+  m := (a + 11 * h + 22 * l) / 451;
+  mo := (h + l - 7 * m + 114) / 31;
+  da := ((h + l - 7 * m + 114) % 31) + 1;
+  return make_date(y, mo, da);
+end;
+$$;
+
+create or replace function czech_holiday(d date)
+returns boolean
+language sql
+immutable
+as $$
+  select (extract(month from d)::int, extract(day from d)::int) in ((1,1),(5,1),(5,8),(7,5),(7,6),(9,28),(10,28),(11,17),(12,24),(12,25),(12,26))
+      or d = easter_sunday(extract(year from d)::int) - 2
+      or d = easter_sunday(extract(year from d)::int) + 1;
+$$;
+
+create or replace function count_working_days(s date, e date, wd int[] default '{1,2,3,4,5}')
+returns numeric
+language sql
+immutable
+as $$
+  select count(*)::numeric
+  from generate_series(s::timestamp, e::timestamp, interval '1 day') g(d)
+  where extract(isodow from g.d)::int = any(coalesce(wd, '{1,2,3,4,5}'::int[]))
+    and not czech_holiday(g.d::date);
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Pravidla žádostí vynucená v databázi (dřív jen ve formuláři, přes API šla obejít):
+--  * počet dní si server přepočítá sám (žadatel ho nemůže podvrhnout ani nastavit záporný),
+--  * zpětné zadávání, minimální předstih a zůstatek (jen vlastní žádosti),
+--  * approved_by / escalated_at / rejection_reason nastavuje jen server, ne žadatel,
+--  * zastupující musí být ze stejné firmy.
+-- Trigger se jmenuje "a_..." aby běžel dřív než guard_leave_request_insert (ten čte working_days).
+-- ---------------------------------------------------------------------------
+create or replace function a_enforce_leave_request_rules()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  c companies%rowtype;
+  expected numeric;
+  self_service boolean;
+  today_cz date := (now() at time zone 'Europe/Prague')::date;
+  cat text;
+  yr int;
+  n int;
+  ent numeric;
+  used numeric;
+  prev_ent numeric;
+  prev_used numeric;
+  carry numeric := 0;
+  allowed_neg numeric;
+begin
+  -- Server (service role), SQL Editor a security definer funkce (např. celozávodní volno) se nekontrolují.
+  if auth.uid() is null or current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
+
+  self_service := new.profile_id = auth.uid();
+
+  if tg_op = 'INSERT' then
+    if self_service then
+      new.approved_by := null;
+    else
+      new.approved_by := case when new.status = 'approved' then auth.uid() else null end;
+    end if;
+    new.escalated_at := null;
+    new.rejection_reason := null;
+    new.cancellation_requested_at := null;
+  elsif self_service and old.status = 'pending' and new.status = 'pending' then
+    new.approved_by := old.approved_by;
+    new.escalated_at := old.escalated_at;
+    new.rejection_reason := old.rejection_reason;
+    new.cancellation_requested_at := old.cancellation_requested_at;
+  elsif new.status is distinct from old.status and new.status in ('approved', 'rejected') then
+    new.approved_by := auth.uid();
+  end if;
+
+  if tg_op = 'UPDATE'
+     and (new.start_date, new.end_date, new.half_day, new.working_days, new.leave_type_id)
+         is not distinct from (old.start_date, old.end_date, old.half_day, old.working_days, old.leave_type_id) then
+    return new;
+  end if;
+
+  select co.* into c from companies co where co.id = (select company_id from profiles where id = new.profile_id);
+  if c.id is null then
+    return new;
+  end if;
+
+  if new.end_date - new.start_date > 366 then
+    raise exception 'Absence může trvat nejvýše rok.';
+  end if;
+
+  expected := count_working_days(new.start_date, new.end_date, c.work_days);
+  if expected = 0 then
+    raise exception 'V zvoleném termínu není žádný pracovní den (víkend nebo státní svátek).';
+  end if;
+
+  if new.half_day then
+    if new.start_date <> new.end_date then
+      raise exception 'Půlden lze zadat jen na jeden den.';
+    end if;
+    new.working_days := 0.5;
+  elsif new.start_date = new.end_date then
+    -- Jednodenní: dovolen zlomek (hodiny), ale nikdy víc než celý den a nikdy ≤ 0.
+    if new.working_days is null or new.working_days <= 0 or new.working_days > expected then
+      new.working_days := expected;
+    end if;
+  else
+    new.working_days := expected;
+  end if;
+
+  if new.covering_profile_id is not null
+     and not exists (select 1 from profiles p where p.id = new.covering_profile_id and p.company_id = c.id) then
+    new.covering_profile_id := null;
+  end if;
+
+  if not self_service then
+    return new;
+  end if;
+
+  -- Zpětné zadávání
+  if new.start_date < today_cz then
+    if not coalesce(c.backdating_allowed, true) then
+      raise exception 'Zpětné zadávání absencí není v této firmě povoleno.';
+    elsif c.backdating_max_days is not null and (today_cz - new.start_date) > c.backdating_max_days then
+      raise exception 'Zpětně lze zadat maximálně % dní.', c.backdating_max_days;
+    end if;
+  end if;
+
+  -- Minimální předstih u delších absencí
+  if coalesce(c.min_advance_days, 0) > 0
+     and new.working_days > coalesce(c.min_advance_threshold_days, 0)
+     and (new.start_date - today_cz) < c.min_advance_days then
+    raise exception 'Absence delší než % dní je nutné podat min. % dní předem.', c.min_advance_threshold_days, c.min_advance_days;
+  end if;
+
+  -- Zůstatek (jen dovolená a sick days; čekající žádosti se stejně jako v aplikaci nepočítají).
+  -- Převod z loňska se počítá bez expirace, takže server nikdy není přísnější než formulář.
+  select t.counts_against into cat from leave_types t where t.id = new.leave_type_id;
+  if cat in ('vacation', 'sick') then
+    yr := extract(year from new.start_date)::int;
+    select count(*), coalesce(sum(e.total_days), 0), coalesce(sum(e.opening_used_days), 0)
+      into n, ent, used
+    from leave_entitlements e join leave_types t on t.id = e.leave_type_id
+    where e.profile_id = new.profile_id and e.year = yr and t.counts_against = cat;
+
+    if n > 0 then
+      select used + coalesce(sum(r.working_days), 0) into used
+      from leave_requests r join leave_types t on t.id = r.leave_type_id
+      where r.profile_id = new.profile_id and r.status = 'approved'
+        and extract(year from r.start_date)::int = yr and t.counts_against = cat
+        and r.id is distinct from new.id;
+
+      if cat = 'vacation' then
+        select coalesce(sum(e.total_days), 0), coalesce(sum(e.opening_used_days), 0)
+          into prev_ent, prev_used
+        from leave_entitlements e join leave_types t on t.id = e.leave_type_id
+        where e.profile_id = new.profile_id and e.year = yr - 1 and t.counts_against = cat;
+        select prev_used + coalesce(sum(r.working_days), 0) into prev_used
+        from leave_requests r join leave_types t on t.id = r.leave_type_id
+        where r.profile_id = new.profile_id and r.status = 'approved'
+          and extract(year from r.start_date)::int = yr - 1 and t.counts_against = cat;
+        carry := greatest(0, prev_ent - prev_used);
+        if c.max_carryover_days is not null then
+          carry := least(carry, c.max_carryover_days);
+        end if;
+      end if;
+
+      allowed_neg := case when c.allow_negative_balance then coalesce(c.max_negative_balance_days, 0) else 0 end;
+      if used + new.working_days > ent + carry + allowed_neg then
+        raise exception 'Na tuto absenci nemáte dostatečný zůstatek.';
+      end if;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists a_leave_requests_rules on leave_requests;
+create trigger a_leave_requests_rules
+  before insert or update on leave_requests
+  for each row execute function a_enforce_leave_request_rules();
+
+-- ---------------------------------------------------------------------------
+-- profile_hr: datum nástupu čte dotčená osoba, HR a admin; mění jen HR a admin.
+-- ---------------------------------------------------------------------------
+alter table profile_hr enable row level security;
+
+drop policy if exists "read own or hr hire date" on profile_hr;
+create policy "read own or hr hire date" on profile_hr
+  for select using (
+    profile_id = auth.uid()
+    or (
+      exists (select 1 from profiles p where p.id = profile_hr.profile_id and p.company_id = current_company_id())
+      and (current_user_role() = 'admin' or current_user_staff() = 'hr')
+    )
+  );
+
+drop policy if exists "hr manage hire date" on profile_hr;
+create policy "hr manage hire date" on profile_hr
+  for all using (
+    exists (select 1 from profiles p where p.id = profile_hr.profile_id and p.company_id = current_company_id())
+    and (current_user_role() = 'admin' or current_user_staff() = 'hr')
+  )
+  with check (
+    exists (select 1 from profiles p where p.id = profile_hr.profile_id and p.company_id = current_company_id())
+    and (current_user_role() = 'admin' or current_user_staff() = 'hr')
+  );
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'hire_date'
+  ) then
+    insert into profile_hr (profile_id, hire_date)
+    select id, hire_date from profiles where hire_date is not null
+    on conflict (profile_id) do update set hire_date = excluded.hire_date;
+    alter table profiles drop column hire_date;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Ochrana před zahlcením: statistika Nápovědy (nejvýše 300 záznamů za hodinu na člověka)
+-- a délka textu.
+-- ---------------------------------------------------------------------------
+create or replace function limit_help_rows()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  if tg_table_name = 'help_views' then
+    select count(*) into n from help_views where profile_id = new.profile_id and created_at > now() - interval '1 hour';
+  else
+    select count(*) into n from help_feedback where profile_id = new.profile_id and created_at > now() - interval '1 hour';
+  end if;
+  if n >= 300 then
+    raise exception 'Příliš mnoho záznamů za hodinu.';
+  end if;
+  if length(new.question) > 300 then
+    new.question := left(new.question, 300);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists help_views_limit on help_views;
+create trigger help_views_limit before insert on help_views for each row execute function limit_help_rows();
+drop trigger if exists help_feedback_limit on help_feedback;
+create trigger help_feedback_limit before insert on help_feedback for each row execute function limit_help_rows();
+
+-- ---------------------------------------------------------------------------
+-- E-mailová fronta: bezpečné vyzvednutí (dvě souběžná spuštění neposlala stejný e-mail dvakrát).
+-- ---------------------------------------------------------------------------
+alter table email_outbox add column if not exists claimed_at timestamptz;
+alter table integration_outbox add column if not exists claimed_at timestamptz;
+
+create or replace function claim_email_outbox(p_limit int default 50)
+returns setof email_outbox
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return query
+  with picked as (
+    select id from email_outbox
+    where sent_at is null and attempts < 5
+      and (claimed_at is null or claimed_at < now() - interval '5 minutes')
+    order by created_at
+    limit p_limit
+    for update skip locked
+  )
+  update email_outbox o set claimed_at = now()
+  from picked where o.id = picked.id
+  returning o.*;
+end;
+$$;
+
+revoke execute on function claim_email_outbox(int) from public, anon, authenticated;
+grant execute on function claim_email_outbox(int) to service_role;
+
+create or replace function my_auth_email()
+returns text
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select email from auth.users where id = auth.uid();
+$$;

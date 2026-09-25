@@ -30,11 +30,11 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   const scope = req.nextUrl.searchParams.get("scope") === "team" ? "team" : "mine";
   const supabase = createAdminClient();
 
-  const { data: viewer, error: viewerError } = await supabase
-    .from("profiles")
-    .select("id, name, company_id, role, active")
-    .eq("calendar_token", params.token)
-    .maybeSingle();
+  // The token lives in profile_secrets (readable only by its owner); resolve it with the service role.
+  const { data: secret } = await supabase.from("profile_secrets").select("profile_id").eq("calendar_token", params.token).maybeSingle();
+  const { data: viewer, error: viewerError } = secret
+    ? await supabase.from("profiles").select("id, name, company_id, role, active").eq("id", secret.profile_id).maybeSingle()
+    : { data: null, error: null };
 
   // A deactivated (former) employee's calendar link stops working immediately.
   if (viewerError || !viewer || !viewer.active) {

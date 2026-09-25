@@ -122,3 +122,11 @@ export const IMPORT_CSV_TEMPLATE = [
   "Jana Nováková,Marketing,,jana@firma.cz,20,20,5,5",
   "Petr Svoboda,Marketing,Jana Nováková,petr@firma.cz,12.5,20,3,5",
 ].join("\n");
+
+/**
+ * Text written into a spreadsheet/CSV export: values that start with = + - @ (or a tab / carriage return) would be run as a
+ * formula when opened in Excel or LibreOffice ("CSV injection"). A leading apostrophe makes the cell plain text.
+ */
+export function safeCell(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}

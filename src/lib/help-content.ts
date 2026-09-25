@@ -175,6 +175,17 @@ export const faqs: HelpFaq[] = [
     a: "Část dní se převede do dalšího roku — kolik a do kdy je nastaveno ve firemních pravidlech (Provoz & kalendář). Převedené dny jsou na nástěnce vidět zvlášť a po datu propadnutí se odečtou.",
   },
   {
+    q: "Jak funguje převod dovolené do dalšího roku?",
+    a: "Nevyčerpané dny z minulého roku se na začátku nového roku automaticky převedou. Kolik dní smíte převést, určuje firma (maximum), a do kdy je musíte vyčerpat (datum propadnutí). Převedené dny jsou na nástěnce v kartě Dovolená vidět zvlášť jako „Převedeno z loňska“ a čerpají se jako první. Co nestihnete do data propadnutí, se odečte. Bez nastaveného data dny nepropadají. Rozpis najdete pod odkazem „Jak se to počítá?“ na kartě dovolené.",
+    section: "Nástěnka",
+  },
+  {
+    q: "Jak nastavím převod dovolené do dalšího roku?",
+    a: "V Nastavení firmy → Provoz & kalendář, sekce „Převod a expirace dovolené“. Nastavíte datum, kdy převedená dovolená propadne (např. 31. 3.; prázdné = nikdy nepropadá), a maximální počet dní, které lze převést (prázdné = bez omezení). Změna platí pro výpočet zůstatků okamžitě a týká se převodu z minulého roku, nikoli už vyčerpaných dní.",
+    section: "Nastavení firmy (admin)",
+    roles: ["admin"],
+  },
+  {
     q: "Co znamená oranžový kroužek a štítek „Dochází“?",
     a: "Zůstatek dané absence klesl pod 20 % nároku nebo pod 2 dny. Je to jen upozornění — žádost můžete dál podat.",
     section: "Nástěnka",

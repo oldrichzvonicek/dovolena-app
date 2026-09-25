@@ -68,24 +68,3 @@ export function validateWebhookUrl(raw: string, provider?: WebhookProvider): str
   if (provider === "discord" && !/(^|.)discord(app)?.com$/.test(host)) return "Adresa webhooku Discordu musí být na discord.com.";
   return null;
 }
-
-export async function postWebhook(provider: WebhookProvider, url: string, text: string): Promise<{ ok: boolean; status: string }> {
-  const invalid = validateWebhookUrl(url, provider);
-  if (invalid) return { ok: false, status: invalid };
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildPayload(provider, text)),
-      redirect: "error",
-      signal: AbortSignal.timeout(8000),
-      cache: "no-store",
-    });
-    return res.ok ? { ok: true, status: `OK ${res.status}` } : { ok: false, status: `HTTP ${res.status}` };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "";
-    const redirected = /redirect/i.test(msg) || /redirect/i.test(String((e as { cause?: unknown })?.cause ?? ""));
-    if (redirected) return { ok: false, status: "adresa přesměrovává jinam — není to platný webhook, zkontrolujte URL" };
-    return { ok: false, status: msg ? msg.slice(0, 120) : "chyba odeslání" };
-  }
-}

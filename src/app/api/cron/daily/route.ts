@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { addDays } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCron } from "@/lib/email";
-import { reducesPresence } from "@/lib/leave-kinds";
 
 export const dynamic = "force-dynamic";
 
-const iso = (d: Date) => d.toLocaleDateString("sv-SE");
+// Dates are computed in Czech time (Vercel runs in UTC — "today" would otherwise be yesterday for a few hours after midnight).
+const iso = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: "Europe/Prague" });
 
 /**
  * Daily job: (1) escalates pending requests whose approver is away or that waited longer than
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
         .is("escalated_at", null),
       supabase
         .from("leave_requests")
-        .select("profile_id, start_date, end_date, leave_type:leave_types(key)")
+        .select("profile_id, start_date, end_date, leave_type:leave_types(key, counts_as_present)")
         .eq("status", "approved")
         .lte("start_date", today)
         .gte("end_date", today),
@@ -44,8 +44,8 @@ export async function GET(req: Request) {
     const people = profiles ?? [];
     const ids = new Set(people.map((p) => p.id));
     const absentToday = new Set(
-      ((away as unknown as { profile_id: string; leave_type: { key: string } | null }[]) ?? [])
-        .filter((a) => ids.has(a.profile_id) && reducesPresence(a.leave_type?.key))
+      ((away as unknown as { profile_id: string; leave_type: { key: string; counts_as_present: boolean } | null }[]) ?? [])
+        .filter((a) => ids.has(a.profile_id) && !a.leave_type?.counts_as_present)
         .map((a) => a.profile_id)
     );
     const admins = people.filter((p) => p.role === "admin");
@@ -87,18 +87,18 @@ export async function GET(req: Request) {
     }
 
     // 1b) chat digest "who is out today" (Mon–Fri, once per company per day, only if a webhook subscribes)
-    const weekday = now.getUTCDay();
+    const weekday = new Date(`${today}T12:00:00Z`).getUTCDay(); // day of week of the Czech date
     if (weekday >= 1 && weekday <= 5 && company.integration_digest_last !== today) {
       const { data: hooks } = await supabase.from("webhook_integrations").select("events").eq("company_id", company.id).eq("active", true);
       if ((hooks ?? []).some((h) => (h.events as string[]).includes("daily_digest"))) {
         const { data: outToday } = await supabase
           .from("leave_requests")
-          .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(name, company_id), leave_type:leave_types(label, key, hide_from_colleagues)")
+          .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(name, company_id), leave_type:leave_types(label, key, hide_from_colleagues, counts_as_present)")
           .eq("status", "approved")
           .lte("start_date", today)
           .gte("end_date", today);
-        type O = { profile: { name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean } | null };
-        const list = ((outToday as unknown as O[]) ?? []).filter((o) => o.profile?.company_id === company.id && reducesPresence(o.leave_type?.key));
+        type O = { profile: { name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean; counts_as_present: boolean } | null };
+        const list = ((outToday as unknown as O[]) ?? []).filter((o) => o.profile?.company_id === company.id && !o.leave_type?.counts_as_present);
         const text = list.length
           ? `🌴 Dnes chybí (${list.length}): ${list.map((o) => `${o.profile!.name} (${o.leave_type?.hide_from_colleagues ? "nepřítomen" : o.leave_type?.label})`).join(", ")}`
           : "✅ Dnes je celý tým přítomen.";
@@ -108,7 +108,7 @@ export async function GET(req: Request) {
     }
 
     // 2) Monday digest (once per company per day)
-    if (now.getUTCDay() === 1 && company.digest_last_sent !== today) {
+    if (new Date(`${today}T12:00:00Z`).getUTCDay() === 1 && company.digest_last_sent !== today) {
       const weekEnd = iso(addDays(now, 6));
       const { data: week } = await supabase
         .from("leave_requests")

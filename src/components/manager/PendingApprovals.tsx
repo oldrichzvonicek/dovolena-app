@@ -97,15 +97,23 @@ export function PendingApprovals() {
       ? await supabase.from("profiles").select("id, name, department_id").eq("company_id", profile.company_id)
       : { data: [] as { id: string; name: string; department_id: string | null }[] };
     const coById = new Map((coProfiles ?? []).map((p) => [p.id, p]));
+    // One query for all pending requests together (instead of one per request), matched in memory below.
+    type Overlap = { start_date: string; end_date: string; profile_id: string; leave_type: { key: string } | null; profile: { name: string; department_id: string | null } | null };
+    let allOverlaps: Overlap[] = [];
+    if (rows.length > 0) {
+      const minStart = rows.reduce((m, r) => (r.start_date < m ? r.start_date : m), rows[0].start_date);
+      const maxEnd = rows.reduce((m, r) => (r.end_date > m ? r.end_date : m), rows[0].end_date);
+      const { data: ov } = await supabase
+        .from("leave_requests")
+        .select("start_date, end_date, profile_id, leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(name, department_id)")
+        .eq("status", "approved")
+        .lte("start_date", maxEnd)
+        .gte("end_date", minStart);
+      allOverlaps = (ov as unknown as Overlap[]) ?? [];
+    }
     for (const r of rows) {
       if (!reducesPresence(r.leave_type.key) || !r.profile.department_id) continue;
-      const { data: overlap } = await supabase
-        .from("leave_requests")
-        .select("leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(name, department_id)")
-        .eq("status", "approved")
-        .neq("profile_id", r.profile.id)
-        .lte("start_date", r.end_date)
-        .gte("end_date", r.start_date);
+      const overlap = allOverlaps.filter((o) => o.profile_id !== r.profile.id && o.start_date <= r.end_date && o.end_date >= r.start_date);
       const hiddenNames = hiddenAll
         .filter((m) => m.profile_id !== r.profile.id && m.start_date <= r.end_date && m.end_date >= r.start_date && coById.get(m.profile_id)?.department_id === r.profile.department_id)
         .map((m) => coById.get(m.profile_id)!.name);

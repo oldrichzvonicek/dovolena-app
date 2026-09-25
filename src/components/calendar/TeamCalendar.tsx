@@ -27,7 +27,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useOnDataChanged } from "@/lib/events";
 import { useSearchParams } from "next/navigation";
 import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
-import { fetchMaskedAbsences } from "@/lib/data";
+import { fetchMaskedAbsencesStrict } from "@/lib/data";
 import { createClient } from "@/lib/supabase/client";
 import { DbDepartment, DbProfile, LeaveColor } from "@/lib/supabase/types";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
@@ -180,22 +180,37 @@ export function TeamCalendar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragging]);
 
+  // Only the requests around the shown period are loaded (±2 months), so the calendar stays fast as history grows.
+  const monthKey = format(anchor, "yyyy-MM");
+  const [loadFailed, setLoadFailed] = useState(false);
   function loadRequests() {
     if (!profile) return;
+    const from = format(startOfMonth(subMonths(anchor, 2)), "yyyy-MM-dd");
+    const to = format(endOfMonth(addMonths(anchor, 2)), "yyyy-MM-dd");
     Promise.all([
       createClient()
         .from("leave_requests")
         .select("id, start_date, end_date, profile_id, covering_profile_id, working_days, note, status, leave_type:leave_types(key, label, color)")
-        .in("status", ["approved", "pending"]),
-      fetchMaskedAbsences(),
-    ]).then(([{ data }, masked]) => {
+        .in("status", ["approved", "pending"])
+        .lte("start_date", to)
+        .gte("end_date", from),
+      fetchMaskedAbsencesStrict(from, to).then(
+        (m) => ({ masked: m, failed: false }),
+        () => ({ masked: [] as Awaited<ReturnType<typeof fetchMaskedAbsencesStrict>>, failed: true })
+      ),
+    ]).then(([{ data, error }, { masked, failed }]) => {
       // Private absences (e.g. sick leave) of colleagues arrive without a type — shown as "Nepřítomen".
       const hidden: RequestRow[] = masked.map((m) => ({ ...m, covering_profile_id: null, note: null, leave_type: ABSENT_TYPE }));
       setRequests([...((data as unknown as RequestRow[]) ?? []), ...hidden]);
+      setLoadFailed(!!error || failed);
     });
   }
 
   useOnDataChanged(loadRequests);
+  useEffect(() => {
+    loadRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, monthKey]);
 
   useEffect(() => {
     if (!profile) return;
@@ -215,7 +230,6 @@ export function TeamCalendar() {
       .eq("id", profile.company_id)
       .single()
       .then(({ data }) => setWeekendOperations(data?.weekend_operations ?? true));
-    loadRequests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
@@ -406,6 +420,14 @@ export function TeamCalendar() {
         </label>
         <ICalExportBox />
       </div>
+      {loadFailed && (
+        <div className="mb-3 flex items-center gap-2 rounded border border-warning/40 bg-warning-light px-3 py-2 text-sm text-warning-dark" role="alert">
+          Kalendář se nepodařilo načíst celý — některé absence mohou chybět.
+          <button onClick={() => loadRequests()} className="ml-auto text-xs underline">
+            Zkusit znovu
+          </button>
+        </div>
+      )}
       {onlyAbsentToday && (
         <div className="mb-3 flex items-center gap-2 rounded bg-teal-light px-3 py-2 text-sm text-teal-dark">
           Zobrazuji jen lidi s absencí dnes ({absentTodayIds.size}).

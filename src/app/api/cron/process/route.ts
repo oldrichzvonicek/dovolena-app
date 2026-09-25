@@ -10,14 +10,23 @@ export async function GET(req: Request) {
   if (!isAuthorizedCron(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const supabase = createAdminClient();
-  const { data: pending, error } = await supabase
-    .from("email_outbox")
-    .select("id, to_email, subject, body, attempts")
-    .is("sent_at", null)
-    .lt("attempts", 5)
-    .order("created_at", { ascending: true })
-    .limit(50);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Rows are claimed atomically (FOR UPDATE SKIP LOCKED), so two overlapping cron runs never send the same e-mail twice.
+  // Falls back to a plain read only when the SQL function is not deployed yet.
+  let pending: { id: string; to_email: string; subject: string; body: string; attempts: number }[] | null = null;
+  const claimed = await supabase.rpc("claim_email_outbox", { p_limit: 50 });
+  if (!claimed.error) {
+    pending = claimed.data as typeof pending;
+  } else {
+    const { data, error } = await supabase
+      .from("email_outbox")
+      .select("id, to_email, subject, body, attempts")
+      .is("sent_at", null)
+      .lt("attempts", 5)
+      .order("created_at", { ascending: true })
+      .limit(50);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    pending = data;
+  }
 
   let sent = 0;
   let failed = 0;

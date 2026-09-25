@@ -9,6 +9,8 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { fetchDepartments } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { safeCell } from "@/lib/csv";
+import { DEFAULT_WORK_DAYS, daysWithin } from "@/lib/working-days";
 import { DbDepartment } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
 
@@ -44,19 +46,23 @@ export function ExportsPanel() {
     const monthEnd = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).toLocaleDateString("sv-SE");
 
     (async () => {
-      const [{ data: employees }, { data: requests }, deps] = await Promise.all([
+      const [{ data: employees }, { data: requests }, deps, { data: comp }] = await Promise.all([
         supabase.from("profiles").select("id, name, department_id, department:departments!profiles_department_id_fkey(name)").eq("company_id", profile.company_id),
         supabase
           .from("leave_requests")
-          .select("profile_id, working_days, leave_type:leave_types(key, counts_against)")
+          .select("profile_id, start_date, end_date, working_days, leave_type:leave_types(key, counts_against)")
           .eq("status", "approved")
-          .gte("start_date", monthStart)
-          .lte("start_date", monthEnd),
+          // Every absence that overlaps the month (not just those starting in it) — its days are split between months.
+          .lte("start_date", monthEnd)
+          .gte("end_date", monthStart),
         fetchDepartments(profile.company_id),
+        supabase.from("companies").select("work_days").eq("id", profile.company_id).single(),
       ]);
+      const workDays = (comp?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
+      const within = (r: { start_date: string; end_date: string; working_days: number }) => daysWithin(r, monthStart, monthEnd, workDays);
 
       type Emp = { id: string; name: string; department_id: string | null; department: { name: string } | null };
-      type Req = { profile_id: string; working_days: number; leave_type: { key: string; counts_against: string } | null };
+      type Req = { profile_id: string; start_date: string; end_date: string; working_days: number; leave_type: { key: string; counts_against: string } | null };
 
       const built = ((employees as unknown as Emp[]) ?? []).map((e) => {
         const mine = ((requests as unknown as Req[]) ?? []).filter((r) => r.profile_id === e.id);
@@ -65,9 +71,9 @@ export function ExportsPanel() {
           name: e.name,
           departmentId: e.department_id,
           departmentName: e.department?.name ?? "Bez oddělení",
-          vacationUsed: mine.filter((r) => r.leave_type?.counts_against === "vacation").reduce((s, r) => s + Number(r.working_days), 0),
-          sickUsed: mine.filter((r) => r.leave_type?.counts_against === "sick").reduce((s, r) => s + Number(r.working_days), 0),
-          homeOffice: mine.filter((r) => r.leave_type?.key === "home_office").reduce((s, r) => s + Number(r.working_days), 0),
+          vacationUsed: mine.filter((r) => r.leave_type?.counts_against === "vacation").reduce((s, r) => s + within(r), 0),
+          sickUsed: mine.filter((r) => r.leave_type?.counts_against === "sick").reduce((s, r) => s + within(r), 0),
+          homeOffice: mine.filter((r) => r.leave_type?.key === "home_office").reduce((s, r) => s + within(r), 0),
         };
       });
       setRows(built);
@@ -80,8 +86,8 @@ export function ExportsPanel() {
 
   function handleExport() {
     const sheetRows = filteredRows.map((r) => ({
-      Jméno: r.name,
-      Oddělení: r.departmentName,
+      Jméno: safeCell(r.name),
+      Oddělení: safeCell(r.departmentName),
       "Vyčerpaná dovolená": r.vacationUsed,
       "Sick Days": r.sickUsed,
       "Home Office": r.homeOffice,

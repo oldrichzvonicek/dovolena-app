@@ -240,7 +240,7 @@ export function CompanySettingsPanel() {
           </div>
         </div>
         <p className="mt-1.5 text-xs text-muted">
-          Základ pro budoucí přepočet půldnů a hodinových absencí. Zatím se dny stále počítají jako celé pracovní dny.
+          Směnný provoz je zatím informativní. Pracovní dny níže se už používají při výpočtu počtu dní absence.
         </p>
 
         <div className="mt-3">

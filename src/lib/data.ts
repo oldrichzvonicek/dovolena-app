@@ -135,10 +135,23 @@ export interface MaskedAbsence {
 
 /** Dates-only absences the caller may not see in full. Empty for admins/superiors of the person. */
 export async function fetchMaskedAbsences(from?: string, to?: string): Promise<MaskedAbsence[]> {
+  try {
+    return await fetchMaskedAbsencesStrict(from, to);
+  } catch (e) {
+    console.warn("masked_absences failed — colleagues' private absences are not shown", e);
+    return [];
+  }
+}
+
+/** Same, but throws on failure so the caller can tell the user that some absences may be missing. Returns [] when the SQL function is not deployed yet. */
+export async function fetchMaskedAbsencesStrict(from?: string, to?: string): Promise<MaskedAbsence[]> {
   const args: { p_from?: string; p_to?: string } = {};
   if (from) args.p_from = from;
   if (to) args.p_to = to;
   const { data, error } = await supabase.rpc("masked_absences", args);
-  if (error) return []; // function not deployed yet — behave as before
+  if (error) {
+    if (/could not find the function|schema cache/i.test(error.message)) return [];
+    throw error;
+  }
   return ((data as MaskedAbsence[]) ?? []).map((r) => ({ ...r, working_days: Number(r.working_days) }));
 }

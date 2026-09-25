@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_WORK_DAYS, daysWithin } from "@/lib/working-days";
 
 export type BalanceCategory = "vacation" | "sick";
 
@@ -33,8 +34,8 @@ interface ReqRow {
 const sum = (xs: number[]) => xs.reduce((s, x) => s + Number(x), 0);
 
 /**
- * Balance for ONE calendar year. Only absences starting in that year count
- * against it (earlier years used to leak into the current balance).
+ * Balance for ONE calendar year. Only the working days that fall inside that year count against it: an
+ * absence over New Year (30. 12. – 3. 1.) is split between both years, not booked entirely to the first.
  * Vacation also gets last year's unused days (capped by max_carryover_days);
  * carried-over days are used first, so whatever is still unused after the
  * carryover expiry date (MM-DD) is forfeited.
@@ -45,34 +46,37 @@ export function computeBalance(
   reqs: ReqRow[],
   year: number,
   today: string,
-  carry: { max: number | null; expiryMD: string | null }
+  carry: { max: number | null; expiryMD: string | null },
+  workDays: number[] = DEFAULT_WORK_DAYS
 ): Balance {
   const catEnts = ents.filter((e) => e.leave_type?.counts_against === cat);
   const catReqs = reqs.filter((r) => r.leave_type?.counts_against === cat);
-  const inYear = (r: ReqRow, y: number) => r.start_date.startsWith(String(y));
+  const yearStart = (y: number) => `${y}-01-01`;
+  const yearEnd = (y: number) => `${y}-12-31`;
+  /** Working days of a request that fall inside calendar year y. */
+  const inYear = (r: ReqRow, y: number) => daysWithin(r, yearStart(y), yearEnd(y), workDays);
 
   const curEnts = catEnts.filter((e) => e.year === year);
   const prevEnts = catEnts.filter((e) => e.year === year - 1);
 
   let carryover = 0;
   if (cat === "vacation" && prevEnts.length > 0) {
-    const prevUsed = sum(prevEnts.map((e) => e.opening_used_days)) + sum(catReqs.filter((r) => inYear(r, year - 1)).map((r) => r.working_days));
+    const prevUsed = sum(prevEnts.map((e) => e.opening_used_days)) + sum(catReqs.map((r) => inYear(r, year - 1)));
     carryover = Math.max(0, sum(prevEnts.map((e) => e.total_days)) - prevUsed);
     if (carry.max !== null) carryover = Math.min(carryover, carry.max);
     if (carry.expiryMD) {
       const expiry = `${year}-${carry.expiryMD}`;
       if (today > expiry) {
-        const usedBeforeExpiry = sum(catReqs.filter((r) => inYear(r, year) && r.end_date <= expiry).map((r) => r.working_days));
+        const usedBeforeExpiry = sum(catReqs.map((r) => daysWithin(r, yearStart(year), expiry, workDays)));
         carryover = Math.min(carryover, usedBeforeExpiry);
       }
     }
   }
 
-  const yearReqs = catReqs.filter((r) => inYear(r, year));
   return {
     total: sum(curEnts.map((e) => e.total_days)) + carryover,
-    used: sum(curEnts.map((e) => e.opening_used_days)) + sum(yearReqs.filter((r) => r.end_date < today).map((r) => r.working_days)),
-    upcoming: sum(yearReqs.filter((r) => r.end_date >= today).map((r) => r.working_days)),
+    used: sum(curEnts.map((e) => e.opening_used_days)) + sum(catReqs.filter((r) => r.end_date < today).map((r) => inYear(r, year))),
+    upcoming: sum(catReqs.filter((r) => r.end_date >= today).map((r) => inYear(r, year))),
     carryover,
   };
 }
@@ -100,7 +104,7 @@ export async function loadBalances(companyId: string, opts: { profileId?: string
   const [{ data: ents }, { data: reqs }, { data: company }] = await Promise.all([
     entQ,
     reqQ,
-    supabase.from("companies").select("max_carryover_days, carryover_expiry_md").eq("id", companyId).single(),
+    supabase.from("companies").select("max_carryover_days, carryover_expiry_md, work_days").eq("id", companyId).single(),
   ]);
 
   const entRows = (ents as unknown as EntRow[]) ?? [];
@@ -118,7 +122,8 @@ export async function loadBalances(companyId: string, opts: { profileId?: string
         reqRows.filter((r) => r.profile_id === profileId),
         year,
         today,
-        carry
+        carry,
+        (company?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS
       );
     },
   };

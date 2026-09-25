@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
-import { postWebhook, validateWebhookUrl, type WebhookProvider } from "@/lib/webhooks";
+import { validateWebhookUrl, type WebhookProvider } from "@/lib/webhooks";
+import { postWebhook } from "@/lib/webhooks-send";
 
 export const dynamic = "force-dynamic";
 

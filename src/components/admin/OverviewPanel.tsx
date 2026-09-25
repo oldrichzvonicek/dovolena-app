@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Print
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { LeaveBadge } from "@/components/ui/badge";
-import { countWorkingDays, dayWord, formatRange } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS, countWorkingDays, dayWord, daysWithin, formatRange } from "@/lib/working-days";
 import { cn, formatNumber } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DbDepartment } from "@/lib/supabase/types";
@@ -135,11 +135,12 @@ export function OverviewPanel() {
           supabase
             .from("leave_requests")
             .select(
-              "working_days, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id, department:departments!profiles_department_id_fkey(name))"
+              "start_date, end_date, working_days, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id, department:departments!profiles_department_id_fkey(name))"
             )
             .eq("status", "approved")
-            .gte("start_date", monthStart)
-            .lte("start_date", monthEnd),
+            // Absences overlapping the period (their days are split between periods), not only those starting in it.
+            .lte("start_date", monthEnd)
+            .gte("end_date", monthStart),
           supabase
             .from("leave_requests")
             .select(
@@ -154,12 +155,18 @@ export function OverviewPanel() {
         ]);
 
       type MonthReq = {
+        start_date: string;
+        end_date: string;
         working_days: number;
         leave_type: { key: string; label: string; color: LeaveColor } | null;
         profile: { id: string; name: string; department_id: string | null; department: { name: string } | null } | null;
       };
       const inDept = (id: string | null | undefined) => deptFilter === "all" || id === deptFilter;
-      const monthRows = ((monthRequests as unknown as MonthReq[]) ?? []).filter((r) => inDept(r.profile?.department_id));
+      const { data: comp } = await supabase.from("companies").select("work_days").eq("id", profile.company_id).single();
+      const workDays = (comp?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
+      const monthRows = ((monthRequests as unknown as MonthReq[]) ?? [])
+        .filter((r) => inDept(r.profile?.department_id))
+        .map((r) => ({ ...r, working_days: daysWithin(r, monthStart, monthEnd, workDays) }));
 
       const byTypeMap = new Map<string, { label: string; color: LeaveColor; count: number; days: number }>();
       for (const r of monthRows) {

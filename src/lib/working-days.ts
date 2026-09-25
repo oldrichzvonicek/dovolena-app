@@ -63,8 +63,17 @@ export function czechHolidayName(date: Date): string | null {
   return namedCzechHolidays(date.getFullYear()).find((h) => isSameDay(h.date, date))?.name ?? null;
 }
 
-/** Counts working days (Mon–Fri, excluding Czech state holidays) between two ISO dates, inclusive. */
-export function countWorkingDays(startISO: string, endISO: string): number {
+export const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5];
+
+/** ISO weekday: 1 = Monday … 7 = Sunday. */
+const isoWeekday = (d: Date) => ((d.getDay() + 6) % 7) + 1;
+
+/**
+ * Counts working days between two ISO dates, inclusive: days that are in the company's working week
+ * (`workDays`, ISO 1 = Mon … 7 = Sun; default Mon–Fri) and are not Czech state holidays.
+ * Mirrors count_working_days() in schema.sql — the database recomputes the same number on every request.
+ */
+export function countWorkingDays(startISO: string, endISO: string, workDays: number[] = DEFAULT_WORK_DAYS): number {
   const start = parseISO(startISO);
   const end = parseISO(endISO);
   if (end < start) return 0;
@@ -72,10 +81,29 @@ export function countWorkingDays(startISO: string, endISO: string): number {
   let count = 0;
   let cursor = start;
   while (cursor <= end) {
-    if (!isWeekend(cursor) && !isCzechHoliday(cursor)) count++;
+    if (workDays.includes(isoWeekday(cursor)) && !isCzechHoliday(cursor)) count++;
     cursor = addDays(cursor, 1);
   }
   return count;
+}
+
+interface SpanLike {
+  start_date: string;
+  end_date: string;
+  working_days: number | string;
+}
+
+/**
+ * Working days of a request that fall inside [from, to] (ISO dates). A request fully inside the range keeps
+ * its stored number (that covers half days and hours); one that crosses the boundary is re-counted for the
+ * overlapping part, so a 28. 9. – 5. 10. absence is split between September and October.
+ */
+export function daysWithin(r: SpanLike, from: string, to: string, workDays: number[] = DEFAULT_WORK_DAYS): number {
+  if (r.end_date < from || r.start_date > to) return 0;
+  if (r.start_date >= from && r.end_date <= to) return Number(r.working_days);
+  const s = r.start_date > from ? r.start_date : from;
+  const e = r.end_date < to ? r.end_date : to;
+  return countWorkingDays(s, e, workDays);
 }
 
 /**

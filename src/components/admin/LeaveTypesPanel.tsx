@@ -13,6 +13,7 @@ import { cn, errorMessage } from "@/lib/utils";
 import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { SeniorityCard } from "@/components/admin/SeniorityCard";
+import { setPresenceKeys } from "@/lib/leave-kinds";
 
 // These two keys are load-bearing (hardcoded into onboarding, invite-claim
 // and every balance calculation) — protected from deletion at the DB level
@@ -86,6 +87,7 @@ export function LeaveTypesPanel() {
   async function load() {
     if (!profile) return;
     const [lt, c] = await Promise.all([fetchLeaveTypes(profile.company_id), fetchCompany(profile.company_id)]);
+    setPresenceKeys(lt.filter((t) => t.counts_as_present).map((t) => t.key));
     setTypes(lt);
     setCompany(c);
     setLoading(false);
@@ -392,6 +394,10 @@ export function LeaveTypesPanel() {
                           onBlur={(e) => handleUpdate(t, { auto_approve_max_days: e.target.value === "" ? null : Number(e.target.value) })}
                           className="w-20 rounded border border-line px-2 py-1 text-right text-sm disabled:opacity-50"
                         />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 text-sm" title="Člověk při této absenci pracuje (Home Office, služební cesta): nesnižuje kapacitu týmu a nepočítá se jako nepřítomný.">
+                        Počítá se jako práce (nesnižuje kapacitu)
+                        <Switch checked={t.counts_as_present} onCheckedChange={(v) => handleUpdate(t, { counts_as_present: v })} />
                       </label>
                       <label className="flex items-center justify-between gap-2 text-sm">
                         Placená absence

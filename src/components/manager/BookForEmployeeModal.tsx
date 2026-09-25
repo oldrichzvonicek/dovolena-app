@@ -38,6 +38,7 @@ export function BookForEmployeeModal({
   const [employees, setEmployees] = useState<DbProfile[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<DbLeaveType[]>([]);
   const [dailyHours, setDailyHours] = useState(8);
+  const [workDays, setWorkDays] = useState<number[] | undefined>(undefined);
 
   const [employeeId, setEmployeeId] = useState(presetEmployeeId ?? "");
 
@@ -78,7 +79,10 @@ export function BookForEmployeeModal({
         const firstActive = rows.find((t) => t.active) ?? rows[0];
         if (firstActive) setTypeId(firstActive.id);
       });
-    fetchCompany(profile.company_id).then((c) => setDailyHours(c.standard_daily_hours));
+    fetchCompany(profile.company_id).then((c) => {
+      setDailyHours(c.standard_daily_hours);
+      setWorkDays(c.work_days);
+    });
   }, [open, profile]);
 
   useEffect(() => {
@@ -96,8 +100,8 @@ export function BookForEmployeeModal({
   const workingDays = useMemo(() => {
     if (durationMode === "half") return 0.5;
     if (durationMode === "hours") return dailyHours > 0 ? Math.round((hoursValue / dailyHours) * 1000) / 1000 : 0;
-    return countWorkingDays(startDate, endDate);
-  }, [startDate, endDate, durationMode, hoursValue, dailyHours]);
+    return countWorkingDays(startDate, endDate, workDays);
+  }, [startDate, endDate, durationMode, hoursValue, dailyHours, workDays]);
 
   async function handleSubmit() {
     if (!profile || !employeeId || !typeId) return;

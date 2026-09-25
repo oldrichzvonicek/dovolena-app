@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { postWebhook, type WebhookProvider } from "@/lib/webhooks";
+import { type WebhookProvider } from "@/lib/webhooks";
+import { postWebhook } from "@/lib/webhooks-send";
 
 /** Sends queued integration_outbox events to every active webhook of the company that subscribes to the event. */
 export async function dispatchIntegrationEvents(): Promise<{ events: number; delivered: number; failed: number }> {
@@ -15,6 +16,17 @@ export async function dispatchIntegrationEvents(): Promise<{ events: number; del
   let delivered = 0;
   let failed = 0;
   for (const ev of events ?? []) {
+    // Claim the event first so two overlapping runs never deliver it twice (skipped when the claimed_at column is not deployed yet).
+    const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+    const claim = await supabase
+      .from("integration_outbox")
+      .update({ claimed_at: new Date().toISOString() })
+      .eq("id", ev.id)
+      .is("sent_at", null)
+      .or(`claimed_at.is.null,claimed_at.lt.${staleBefore}`)
+      .select("id");
+    if (!claim.error && (claim.data ?? []).length === 0) continue;
+
     const { data: hooks } = await supabase
       .from("webhook_integrations")
       .select("id, provider, url, events")

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createRouteClient } from "@/lib/supabase/server";
 
 interface AresSidlo {
   nazevUlice?: string;
@@ -31,6 +32,12 @@ function formatStreet(sidlo?: AresSidlo): string {
 // have to deal with ARES's own CORS policy. Nothing here is sensitive — IČO
 // lookups are public record.
 export async function GET(_req: NextRequest, { params }: { params: { ico: string } }) {
+  // Only signed-in users may use the proxy (it is not an open relay to ARES).
+  const {
+    data: { user },
+  } = await createRouteClient().auth.getUser();
+  if (!user) return NextResponse.json({ error: "Nejste přihlášeni." }, { status: 401 });
+
   const ico = params.ico.replace(/\D/g, "");
   if (ico.length !== 8) {
     return NextResponse.json({ error: "IČO musí mít 8 číslic." }, { status: 400 });

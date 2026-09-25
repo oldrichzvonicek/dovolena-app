@@ -81,11 +81,9 @@ export interface DbProfile {
   name: string;
   role: Role;
   avatar_initials: string | null;
-  calendar_token: string;
   email: string | null;
   active: boolean;
   email_notifications: boolean;
-  hire_date: string | null;
   staff_role: "hr" | "accountant" | null;
   join_pending: boolean;
 }
@@ -104,6 +102,7 @@ export interface DbLeaveType {
   allow_half_day: boolean;
   allow_hours: boolean;
   hide_from_colleagues: boolean;
+  counts_as_present: boolean;
   sort_order: number;
 }
 

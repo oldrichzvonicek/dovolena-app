@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { DbProfile } from "@/lib/supabase/types";
 import { completeOnboarding } from "@/lib/onboarding-intent";
+import { setPresenceKeys } from "@/lib/leave-kinds";
 
 interface AuthContextValue {
   session: Session | null;
@@ -42,6 +43,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut();
         setProfile(null);
         return;
+      }
+      if (data) {
+        // Types marked "counts as present" (Home Office, služební cesta…) don't reduce team capacity.
+        const { data: present } = await supabase.from("leave_types").select("key").eq("company_id", (data as DbProfile).company_id).eq("counts_as_present", true);
+        if (present) setPresenceKeys(present.map((t) => t.key as string));
       }
       setProfile(data as DbProfile | null);
     },
