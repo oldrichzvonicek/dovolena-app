@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { HelpCircle, Menu, Plus } from "lucide-react";
 import { TOGGLE_NAV_EVENT } from "@/components/layout/Sidebar";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TOGGLE_HELP_EVENT } from "@/components/layout/HelpDrawer";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
         >
           <HelpCircle size={19} />
         </button>
+        <ThemeToggle />
         <div data-tour="header-notifications">
           <NotificationBell />
         </div>

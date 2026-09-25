@@ -25,8 +25,8 @@ const icons = {
   ),
   "home-office": (
     <>
-      <polygon points="32,8 58,30 6,30" fill="#2C2C2A" />
-      <rect x="16" y="28" width="32" height="28" rx="4" fill="#2C2C2A" />
+      <polygon points="32,8 58,30 6,30" className="fill-ink" />
+      <rect x="16" y="28" width="32" height="28" rx="4" className="fill-ink" />
     </>
   ),
   doctor: (
@@ -37,18 +37,18 @@ const icons = {
   ),
   "unpaid-leave": (
     <>
-      <rect x="10" y="14" width="44" height="40" rx="6" fill="none" stroke="#2C2C2A" strokeWidth="3" />
-      <rect x="18" y="8" width="6" height="10" rx="3" fill="#2C2C2A" />
-      <rect x="40" y="8" width="6" height="10" rx="3" fill="#2C2C2A" />
+      <rect x="10" y="14" width="44" height="40" rx="6" fill="none" className="stroke-ink" strokeWidth="3" />
+      <rect x="18" y="8" width="6" height="10" rx="3" className="fill-ink" />
+      <rect x="40" y="8" width="6" height="10" rx="3" className="fill-ink" />
       <rect x="22" y="34" width="20" height="6" rx="3" fill="#F0997B" />
     </>
   ),
   "comp-day": (
     <>
-      <circle cx="32" cy="32" r="22" fill="none" stroke="#2C2C2A" strokeWidth="3" />
-      <line x1="32" y1="32" x2="32" y2="18" stroke="#2C2C2A" strokeWidth="3" strokeLinecap="round" />
-      <line x1="32" y1="32" x2="44" y2="32" stroke="#2C2C2A" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="32" cy="32" r="3" fill="#2C2C2A" />
+      <circle cx="32" cy="32" r="22" fill="none" className="stroke-ink" strokeWidth="3" />
+      <line x1="32" y1="32" x2="32" y2="18" className="stroke-ink" strokeWidth="3" strokeLinecap="round" />
+      <line x1="32" y1="32" x2="44" y2="32" className="stroke-ink" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="3" className="fill-ink" />
     </>
   ),
 } as const;

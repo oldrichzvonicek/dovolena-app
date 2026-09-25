@@ -16,7 +16,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="cs">
+    <html lang="cs" suppressHydrationWarning>
+      <head>
+        {/* Nastaví tmavý vzhled ještě před vykreslením, aby stránka neblikla. */}
+        <script dangerouslySetInnerHTML={{ __html: "try{if(localStorage.getItem('dodio:theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}" }} />
+      </head>
       <body>
         <AuthProvider>{children}</AuthProvider>
       </body>

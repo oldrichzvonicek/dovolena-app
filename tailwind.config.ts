@@ -10,38 +10,27 @@ const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Barvy jsou CSS proměnné (viz globals.css) — světlý i tmavý motiv sdílí názvy tokenů.
       colors: {
-        ink: "#2C2C2A",
-        paper: "#F7F5F0", // Dodio "surface" (page background)
-        surface: "#FFFFFF", // Dodio "surface-card"
-        line: "#D3D1C7", // Dodio "border"
-        muted: "#5F5E5A", // Dodio "ink-muted"
-
-        // Leave-type identity colors. Only two brand hues (teal, coral) plus
-        // neutral ink carry type identity — kept as separate token names for
-        // minimal disruption to existing components, but the hues below are
-        // deliberately restrained: two families + one neutral, not five.
-        teal: { DEFAULT: "#0F9D7C", dark: "#085041", light: "#DCEEE7" }, // dovolená (brand-teal)
-        moss: { DEFAULT: "#4FAF95", dark: "#0B5C49", light: "#E3F3EE" }, // home office (teal family, lighter)
-        rust: { DEFAULT: "#5F5E5A", dark: "#2C2C2A", light: "#EAE8E2" }, // sick day (neutral ink, not a bright color)
-        violet: { DEFAULT: "#F0997B", dark: "#712B13", light: "#FBE4DA" }, // lékař/ošetřovačka (brand-coral)
-        amber: { DEFAULT: "#E0A98A", dark: "#6B3319", light: "#F7E9E0" }, // náhradní volno (coral family, softer)
-
-        // Extra hues for companies that outgrow the original five leave
-        // types — kept muted/warm to stay in the same family, not primary/
-        // saturated colors that would clash with the restrained palette.
-        sky: { DEFAULT: "#5B8DB8", dark: "#1F3F57", light: "#DCE7F0" },
-        plum: { DEFAULT: "#9B72AA", dark: "#3D1F47", light: "#EDE1F0" },
-        sage: { DEFAULT: "#7A8B5E", dark: "#35401F", light: "#E7ECDD" },
-        gold: { DEFAULT: "#C9A227", dark: "#6B5511", light: "#F5EDD1" },
-        wine: { DEFAULT: "#A14E5A", dark: "#4A1F26", light: "#F1DEE1" },
-        slate: { DEFAULT: "#6B7A8F", dark: "#2E3A47", light: "#E2E7EC" },
-        forest: { DEFAULT: "#4C7A52", dark: "#1F3A23", light: "#DEEBE0" },
-
-        // Request-status colors — reserved for status only (pending/rejected),
-        // per Dodio's brand principle of not using state colors decoratively.
-        warning: { DEFAULT: "#EF9F27", dark: "#7A4E0E", light: "#FCEBD3" }, // pending
-        danger: { DEFAULT: "#E24B4A", dark: "#7A1E1D", light: "#FBE0DF" }, // rejected / destructive
+        ink: "rgb(var(--c-ink) / <alpha-value>)",
+        paper: "rgb(var(--c-paper) / <alpha-value>)",
+        surface: "rgb(var(--c-surface) / <alpha-value>)",
+        line: "rgb(var(--c-line) / <alpha-value>)",
+        muted: "rgb(var(--c-muted) / <alpha-value>)",
+        teal: { DEFAULT: "rgb(var(--c-teal) / <alpha-value>)", dark: "rgb(var(--c-teal-dark) / <alpha-value>)", light: "rgb(var(--c-teal-light) / <alpha-value>)" },
+        moss: { DEFAULT: "rgb(var(--c-moss) / <alpha-value>)", dark: "rgb(var(--c-moss-dark) / <alpha-value>)", light: "rgb(var(--c-moss-light) / <alpha-value>)" },
+        rust: { DEFAULT: "rgb(var(--c-rust) / <alpha-value>)", dark: "rgb(var(--c-rust-dark) / <alpha-value>)", light: "rgb(var(--c-rust-light) / <alpha-value>)" },
+        violet: { DEFAULT: "rgb(var(--c-violet) / <alpha-value>)", dark: "rgb(var(--c-violet-dark) / <alpha-value>)", light: "rgb(var(--c-violet-light) / <alpha-value>)" },
+        amber: { DEFAULT: "rgb(var(--c-amber) / <alpha-value>)", dark: "rgb(var(--c-amber-dark) / <alpha-value>)", light: "rgb(var(--c-amber-light) / <alpha-value>)" },
+        sky: { DEFAULT: "rgb(var(--c-sky) / <alpha-value>)", dark: "rgb(var(--c-sky-dark) / <alpha-value>)", light: "rgb(var(--c-sky-light) / <alpha-value>)" },
+        plum: { DEFAULT: "rgb(var(--c-plum) / <alpha-value>)", dark: "rgb(var(--c-plum-dark) / <alpha-value>)", light: "rgb(var(--c-plum-light) / <alpha-value>)" },
+        sage: { DEFAULT: "rgb(var(--c-sage) / <alpha-value>)", dark: "rgb(var(--c-sage-dark) / <alpha-value>)", light: "rgb(var(--c-sage-light) / <alpha-value>)" },
+        gold: { DEFAULT: "rgb(var(--c-gold) / <alpha-value>)", dark: "rgb(var(--c-gold-dark) / <alpha-value>)", light: "rgb(var(--c-gold-light) / <alpha-value>)" },
+        wine: { DEFAULT: "rgb(var(--c-wine) / <alpha-value>)", dark: "rgb(var(--c-wine-dark) / <alpha-value>)", light: "rgb(var(--c-wine-light) / <alpha-value>)" },
+        slate: { DEFAULT: "rgb(var(--c-slate) / <alpha-value>)", dark: "rgb(var(--c-slate-dark) / <alpha-value>)", light: "rgb(var(--c-slate-light) / <alpha-value>)" },
+        forest: { DEFAULT: "rgb(var(--c-forest) / <alpha-value>)", dark: "rgb(var(--c-forest-dark) / <alpha-value>)", light: "rgb(var(--c-forest-light) / <alpha-value>)" },
+        warning: { DEFAULT: "rgb(var(--c-warning) / <alpha-value>)", dark: "rgb(var(--c-warning-dark) / <alpha-value>)", light: "rgb(var(--c-warning-light) / <alpha-value>)" },
+        danger: { DEFAULT: "rgb(var(--c-danger) / <alpha-value>)", dark: "rgb(var(--c-danger-dark) / <alpha-value>)", light: "rgb(var(--c-danger-light) / <alpha-value>)" },
       },
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],

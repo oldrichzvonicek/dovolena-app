@@ -185,7 +185,7 @@ export default function HelpPage() {
           <>
             <div>
               <h2 className="mb-3 text-label uppercase tracking-wide text-muted">Podle oblasti aplikace</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 {audienceSections.map((s) => {
                   const Icon = s.icon;
                   const articles = articlesOf(s);

@@ -5,14 +5,112 @@
 @tailwind utilities;
 
 :root {
+  --c-ink: 44 44 42;
+  --c-paper: 247 245 240;
+  --c-surface: 255 255 255;
+  --c-line: 211 209 199;
+  --c-muted: 95 94 90;
+  --c-teal: 15 157 124;
+  --c-teal-dark: 8 80 65;
+  --c-teal-light: 220 238 231;
+  --c-moss: 79 175 149;
+  --c-moss-dark: 11 92 73;
+  --c-moss-light: 227 243 238;
+  --c-rust: 95 94 90;
+  --c-rust-dark: 44 44 42;
+  --c-rust-light: 234 232 226;
+  --c-violet: 240 153 123;
+  --c-violet-dark: 113 43 19;
+  --c-violet-light: 251 228 218;
+  --c-amber: 224 169 138;
+  --c-amber-dark: 107 51 25;
+  --c-amber-light: 247 233 224;
+  --c-sky: 91 141 184;
+  --c-sky-dark: 31 63 87;
+  --c-sky-light: 220 231 240;
+  --c-plum: 155 114 170;
+  --c-plum-dark: 61 31 71;
+  --c-plum-light: 237 225 240;
+  --c-sage: 122 139 94;
+  --c-sage-dark: 53 64 31;
+  --c-sage-light: 231 236 221;
+  --c-gold: 201 162 39;
+  --c-gold-dark: 107 85 17;
+  --c-gold-light: 245 237 209;
+  --c-wine: 161 78 90;
+  --c-wine-dark: 74 31 38;
+  --c-wine-light: 241 222 225;
+  --c-slate: 107 122 143;
+  --c-slate-dark: 46 58 71;
+  --c-slate-light: 226 231 236;
+  --c-forest: 76 122 82;
+  --c-forest-dark: 31 58 35;
+  --c-forest-light: 222 235 224;
+  --c-warning: 239 159 39;
+  --c-warning-dark: 122 78 14;
+  --c-warning-light: 252 235 211;
+  --c-danger: 226 75 74;
+  --c-danger-dark: 122 30 29;
+  --c-danger-light: 251 224 223;
   --font-display: "Manrope", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
 }
 
+.dark {
+  color-scheme: dark;
+  --c-ink: 236 234 228;
+  --c-paper: 22 22 21;
+  --c-surface: 32 31 29;
+  --c-line: 59 57 54;
+  --c-muted: 169 167 159;
+  --c-teal: 15 157 124;
+  --c-teal-dark: 135 206 190;
+  --c-teal-light: 28 61 52;
+  --c-moss: 79 175 149;
+  --c-moss-dark: 167 215 202;
+  --c-moss-light: 43 66 58;
+  --c-rust: 142 140 134;
+  --c-rust-dark: 183 183 181;
+  --c-rust-light: 43 42 40;
+  --c-violet: 240 153 123;
+  --c-violet-dark: 248 204 189;
+  --c-violet-light: 82 60 52;
+  --c-amber: 224 169 138;
+  --c-amber-dark: 240 212 197;
+  --c-amber-light: 78 64 55;
+  --c-sky: 91 141 184;
+  --c-sky-dark: 173 198 220;
+  --c-sky-light: 46 57 66;
+  --c-plum: 155 114 170;
+  --c-plum-dark: 205 185 213;
+  --c-plum-light: 62 51 63;
+  --c-sage: 122 139 94;
+  --c-sage-dark: 189 197 175;
+  --c-sage-light: 54 57 45;
+  --c-gold: 201 162 39;
+  --c-gold-dark: 228 209 147;
+  --c-gold-light: 73 62 31;
+  --c-wine: 161 78 90;
+  --c-wine-dark: 208 167 173;
+  --c-wine-light: 63 42 44;
+  --c-slate: 107 122 143;
+  --c-slate-dark: 181 189 199;
+  --c-slate-light: 50 53 56;
+  --c-forest: 76 122 82;
+  --c-forest-dark: 166 189 169;
+  --c-forest-light: 43 53 42;
+  --c-warning: 239 159 39;
+  --c-warning-dark: 247 207 147;
+  --c-warning-light: 82 62 31;
+  --c-danger: 226 75 74;
+  --c-danger-dark: 241 165 165;
+  --c-danger-light: 79 42 40;
+}
+
 html,
 body {
-  background-color: #f7f5f0;
-  color: #2c2c2a;
+  background-color: rgb(var(--c-paper));
+  color: rgb(var(--c-ink));
 }
 
 body {
@@ -29,13 +127,13 @@ h3,
 
 /* Dodio card: warm white surface, hairline border, generous radius-lg. */
 .card {
-  background: #ffffff;
-  border: 1px solid #d3d1c7;
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-line));
   border-radius: 16px;
 }
 
 ::selection {
-  background: #dceee7;
+  background: rgb(var(--c-teal-light));
 }
 
 /* Dodio Input spec: focus border in brand-teal-dark (kept even where a
@@ -44,14 +142,14 @@ h3,
 input:not([type="checkbox"]):not([type="radio"]):focus,
 textarea:focus {
   outline: none;
-  border-color: #085041;
-  box-shadow: 0 0 0 1px #085041;
+  border-color: rgb(var(--c-teal-dark));
+  box-shadow: 0 0 0 1px rgb(var(--c-teal-dark));
 }
 
 input:not([type="checkbox"]):not([type="radio"]):disabled,
 textarea:disabled {
-  background: #f7f5f0;
-  color: #5f5e5a;
+  background: rgb(var(--c-paper));
+  color: rgb(var(--c-muted));
   cursor: not-allowed;
 }
 
@@ -89,7 +187,7 @@ textarea:disabled {
   }
   .table-cards tr {
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid #d3d1c7;
+    border-bottom: 1px solid rgb(var(--c-line));
   }
   .table-cards tr:last-child {
     border-bottom: 0;
@@ -103,7 +201,7 @@ textarea:disabled {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #5f5e5a;
+    color: rgb(var(--c-muted));
     margin-bottom: 1px;
   }
   .table-cards td:empty {
@@ -130,6 +228,39 @@ button:focus-visible,
 summary:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid #085041;
+  outline: 2px solid rgb(var(--c-teal-dark));
   outline-offset: 2px;
+}
+
+/* Tmavý motiv — úpravy tříd, které nejdou vyřešit jen změnou proměnných. */
+.dark .bg-white {
+  background-color: rgb(var(--c-surface));
+}
+.dark .hover\:bg-white:hover {
+  background-color: rgb(var(--c-surface));
+}
+/* Plná tlačítka: pozadí zůstává sytě zelené (bílý text), zatímco text v odstínu -dark je světlý. */
+.dark .bg-teal-dark {
+  background-color: #0e7c64;
+}
+.dark .bg-teal-dark\/90:hover,
+.dark .hover\:bg-teal-dark\/90:hover {
+  background-color: #0b6b56;
+}
+.dark .border-teal-dark {
+  border-color: #0e7c64;
+}
+.dark .bg-ink {
+  background-color: #4a4844;
+}
+.dark .border-ink {
+  border-color: #4a4844;
+}
+.dark .bg-ink\/30,
+.dark .bg-ink\/40,
+.dark .bg-ink\/55 {
+  background-color: rgb(0 0 0 / 0.6);
+}
+.dark img {
+  filter: brightness(0.92);
 }
