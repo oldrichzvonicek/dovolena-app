@@ -3,7 +3,7 @@
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Ban, CalendarOff, CheckCircle2, Settings, Trash2 } from "lucide-react";
+import { AlertTriangle, Ban, CalendarOff, CheckCircle2, Settings, Trash2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   createBlackoutPeriod,
@@ -44,6 +44,7 @@ const sections = [
   { id: "sec-kalendar", label: "Kalendář a směny" },
   { id: "sec-pravidla", label: "Pravidla pro žádosti" },
   { id: "sec-kapacita", label: "Kapacita" },
+  { id: "sec-zabezpeceni", label: "Zabezpečení" },
   { id: "sec-blokace", label: "Blokované termíny" },
   { id: "sec-celozavodni", label: "Celozávodní dovolená" },
 ];
@@ -375,7 +376,7 @@ export function CompanySettingsPanel() {
       </div>
 
       <div id="sec-kapacita" className="card scroll-mt-24 p-5">
-        <SectionHeader icon={<AlertTriangle size={15} />} title="Kapacita a upozornění" className="bg-danger-light text-danger" />
+        <SectionHeader icon={<AlertTriangle size={15} />} title="Kapacita a přeposílání žádostí" className="bg-danger-light text-danger" />
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -401,11 +402,15 @@ export function CompanySettingsPanel() {
               className="w-full rounded border border-line px-3 py-2 text-sm"
             />
             <p className="mt-1 text-xs text-muted">
-              Zatím se jen ukládá — automatický e-mail vyžaduje napojení e-mailového providera, což je samostatný krok.
+              Když žádost čeká déle než tolik hodin, denní kontrola ji přepošle zástupci vedoucího oddělení, jinak adminům. Stejně se přepošle, když je schvalovatel dnes nepřítomen (i při prázdném poli).
             </p>
           </div>
         </div>
 
+      </div>
+
+      <div id="sec-zabezpeceni" className="card scroll-mt-24 p-5">
+        <SectionHeader icon={<ShieldCheck size={15} />} title="Zabezpečení a schvalování" />
         <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
           <div>
             <div className="text-sm font-medium">Vyžadovat dvoufázové ověření pro admina, HR a účetní</div>

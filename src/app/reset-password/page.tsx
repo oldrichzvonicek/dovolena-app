@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
               <input
                 required
                 type="password"
-                minLength={6}
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded border border-line px-3 py-2 text-sm"
@@ -78,7 +78,7 @@ export default function ResetPasswordPage() {
               <input
                 required
                 type="password"
-                minLength={6}
+                minLength={8}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 className="w-full rounded border border-line px-3 py-2 text-sm"

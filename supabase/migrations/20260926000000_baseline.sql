@@ -290,7 +290,7 @@ as $$
 declare
   n int;
 begin
-  if current_user_role() <> 'admin' or current_company_id() <> target_company_id then
+  if current_user_role() is distinct from 'admin' or current_company_id() is distinct from target_company_id then
     raise exception 'Jen admin firmy může naplánovat celozávodní dovolenou.';
   end if;
 
@@ -1061,7 +1061,7 @@ as $$
 declare
   n int;
 begin
-  if current_user_role() <> 'admin' and current_user_staff() is distinct from 'hr' then
+  if current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr' then
     raise exception 'Jen admin nebo HR může odeslat hromadnou připomínku.';
   end if;
 
@@ -1090,7 +1090,7 @@ as $$
 declare
   first_name text;
 begin
-  if current_user_role() not in ('manager', 'admin') then
+  if coalesce(current_user_role()::text, '') not in ('manager', 'admin') then
     raise exception 'Jen manažer nebo admin může poslat připomínku.';
   end if;
   select split_part(name, ' ', 1) into first_name from profiles
@@ -1217,7 +1217,7 @@ as $$
 declare
   req record;
 begin
-  if current_user_role() not in ('manager', 'admin') then
+  if coalesce(current_user_role()::text, '') not in ('manager', 'admin') then
     raise exception 'Jen manažer nebo admin může rozhodnout o zrušení.';
   end if;
   select r.* into req from leave_requests r
@@ -1226,7 +1226,7 @@ begin
   if not found then
     raise exception 'Žádost o zrušení nenalezena.';
   end if;
-  if current_user_role() <> 'admin' and not is_superior_of(req.profile_id) then
+  if current_user_role() is distinct from 'admin' and not is_superior_of(req.profile_id) then
     raise exception 'O zrušení může rozhodnout jen nadřízený nebo zástupce zaměstnance, případně admin.';
   end if;
 
@@ -2066,13 +2066,14 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if new.role is distinct from old.role and current_user_role() <> 'admin' then
+  if new.role is distinct from old.role and auth.uid() is not null and current_user_role() is distinct from 'admin' then
     raise exception 'Roli může měnit jen admin.';
   end if;
   if (new.department_id is distinct from old.department_id
       or new.manager_id is distinct from old.manager_id
       or new.substitute_id is distinct from old.substitute_id)
-     and current_user_role() not in ('admin', 'manager')
+     and auth.uid() is not null
+     and coalesce(current_user_role()::text, '') not in ('admin', 'manager')
      and current_user_staff() is distinct from 'hr' then
     raise exception 'Oddělení, nadřízeného a zástupce může měnit jen manažer, HR nebo admin.';
   end if;
@@ -2110,7 +2111,7 @@ begin
       raise exception 'Role Účetní je od tarifu Starter v ceně, u Free jde o doplněk.';
     end if;
   end if;
-  if new.active is distinct from old.active and (current_user_role() <> 'admin' or new.id = auth.uid()) then
+  if new.active is distinct from old.active and auth.uid() is not null and (current_user_role() is distinct from 'admin' or new.id = auth.uid()) then
     raise exception 'Deaktivovat může jen admin, a ne sám sebe.';
   end if;
   -- Firma nikdy nesmí zůstat bez aktivního admina (jinak by ji nikdo nemohl spravovat).
@@ -3295,6 +3296,35 @@ begin
       and not exists (select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) cfg where cfg like 'search_path=%')
   loop
     execute format('alter function %s set search_path = public', f.sig);
+  end loop;
+end
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Oprávnění ke spuštění funkcí security definer: nepřihlášený uživatel (klíč anon) smí volat jen to, co je určené
+-- pro veřejnou stránku (název firmy k registračnímu odkazu). Ostatní funkce smí volat přihlášení a server;
+-- triggerové funkce se spouští samy a k jejich volání zvenčí není důvod. Opakované spuštění nic nemění.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  f record;
+begin
+  for f in
+    select p.oid::regprocedure as sig, p.proname as name
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prosecdef
+  loop
+    if f.name in ('rate_limit_hit', 'security_audit', 'email_decide_request', 'claim_email_outbox') then
+      -- Jen server (service role): tyto funkce nikdy nesmí volat prohlížeč.
+      execute format('revoke execute on function %s from public, anon, authenticated', f.sig);
+      execute format('grant execute on function %s to service_role', f.sig);
+      continue;
+    end if;
+    execute format('revoke execute on function %s from public, anon', f.sig);
+    execute format('grant execute on function %s to authenticated, service_role', f.sig);
+    if f.name = 'public_company_name_by_code' then
+      execute format('grant execute on function %s to anon', f.sig);
+    end if;
   end loop;
 end
 $$;

@@ -56,7 +56,7 @@ function BalanceChip({ total, used }: { total: number; used: number }) {
       title={overdrawn ? "Zaměstnanec je v minusu" : low ? "Dochází dovolená" : undefined}
     >
       {overdrawn && "🔴"}
-      {formatNumber(remaining)} / {formatNumber(total)} dní
+      zbývá {formatNumber(remaining)} z {formatNumber(total)} dní
     </span>
   );
 }

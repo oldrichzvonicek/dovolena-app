@@ -26,7 +26,7 @@ function czechAuthError(message: string): string {
   if (m.includes("invalid login credentials")) return "Nesprávný e-mail nebo heslo.";
   if (m.includes("email not confirmed")) return "E-mail zatím není potvrzený — klikněte na odkaz v potvrzovacím e-mailu.";
   if (m.includes("already registered") || m.includes("already been registered")) return "Tento e-mail už je zaregistrovaný — přihlaste se.";
-  if (m.includes("password should be at least")) return "Heslo musí mít alespoň 6 znaků.";
+  if (m.includes("password should be at least")) return "Heslo musí mít alespoň 8 znaků.";
   if (m.includes("rate limit") || m.includes("too many")) return "Příliš mnoho pokusů. Zkuste to prosím za chvíli.";
   if (m.includes("network") || m.includes("fetch")) return "Nepodařilo se spojit se serverem. Zkontrolujte připojení.";
   return message;
@@ -291,11 +291,11 @@ function LoginForm() {
               <input
                 required
                 type="password"
-                minLength={6}
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded border border-line px-3 py-2 text-sm"
-                placeholder="Minimálně 6 znaků" aria-label="Minimálně 6 znaků"
+                placeholder="Minimálně 8 znaků" aria-label="Minimálně 8 znaků"
               />
             </div>
           )}
