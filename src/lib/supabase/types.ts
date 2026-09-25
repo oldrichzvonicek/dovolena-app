@@ -39,6 +39,7 @@ export interface DbCompany {
   seniority_enabled: boolean;
   seniority_rules: { years: number; extra_days: number }[];
   plan: string;
+  addons: string[];
   logo_url: string | null;
   created_at: string;
 }

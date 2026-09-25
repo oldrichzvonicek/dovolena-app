@@ -103,11 +103,14 @@ alter table companies add column if not exists logo_url text;
 -- měsíců (včetně měsíce nástupu), zaokrouhleno na půl dne.
 alter table companies add column if not exists prorate_new_hires boolean not null default false;
 
--- Tarif firmy (free / starter / pro / enterprise) — názvy, limity a ceny viz src/lib/plans.ts.
+-- Tarif firmy (free / basic = Starter / starter = Team / pro; zastaralé 'enterprise' se bere jako pro) — názvy, limity a ceny viz src/lib/plans.ts.
 alter table companies add column if not exists plan text not null default 'free';
 -- První verze sloupce používala výchozí hodnotu 'start' — přejmenováno na 'free'.
 alter table companies alter column plan set default 'free';
 update companies set plan = 'free' where plan = 'start';
+
+-- Doplňky tarifu (hr_insights, accountant) — cena za firmu, viz src/lib/plans.ts. Mění je jen provozovatel (service role / SQL editor).
+alter table companies add column if not exists addons text[] not null default '{}';
 
 -- Poměrné krácení podle měsíce nástupu (včetně měsíce nástupu), zaokrouhleno na půl dne.
 create or replace function prorate_from(p_days numeric, p_company_id uuid, p_start date)
@@ -505,6 +508,42 @@ set search_path = public
 as $$
   select staff_role from profiles where id = auth.uid() and active;
 $$;
+
+-- Má firma přihlášeného uživatele danou funkci? Pravidla musí odpovídat hasFeature() v src/lib/plans.ts:
+--  hr_insights: doplněk u Free/Starter/Team, v ceně od Pro;  accountant: doplněk u Free/Starter, v ceně od Team.
+create or replace function company_has_feature(feature text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select case feature
+    when 'hr_insights' then c.plan in ('pro', 'enterprise') or 'hr_insights' = any (c.addons)
+    when 'accountant'  then c.plan in ('starter', 'pro', 'enterprise') or 'accountant' = any (c.addons)
+    else false
+  end
+  from companies c
+  where c.id = current_company_id();
+$$;
+
+-- Tarif a doplňky si nesmí měnit sám admin firmy (RLS umožňuje admin update celého řádku firmy).
+create or replace function guard_company_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.uid() is not null and (new.plan is distinct from old.plan or new.addons is distinct from old.addons) then
+    raise exception 'Tarif a doplňky mění provozovatel služby.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists companies_guard_update on companies;
+create trigger companies_guard_update
+  before update on companies
+  for each row execute function guard_company_update();
 
 -- ---------------------------------------------------------------------------
 -- seed_default_leave_types — call this right after creating a company to
@@ -1629,6 +1668,14 @@ begin
   end if;
   if new.staff_role is distinct from old.staff_role and auth.uid() is not null and current_user_role() is distinct from 'admin' then
     raise exception 'Doplňkovou roli (HR / účetní) může nastavit jen admin.';
+  end if;
+  if new.staff_role is distinct from old.staff_role and new.staff_role is not null and auth.uid() is not null then
+    if new.staff_role = 'hr' and not coalesce(company_has_feature('hr_insights'), false) then
+      raise exception 'Role HR je součástí doplňku HR Insights (v tarifu Pro v ceně).';
+    end if;
+    if new.staff_role = 'accountant' and not coalesce(company_has_feature('accountant'), false) then
+      raise exception 'Role Účetní je od tarifu Team v ceně, u Free a Starteru jde o doplněk.';
+    end if;
   end if;
   if new.active is distinct from old.active and (current_user_role() <> 'admin' or new.id = auth.uid()) then
     raise exception 'Deaktivovat může jen admin, a ne sám sebe.';

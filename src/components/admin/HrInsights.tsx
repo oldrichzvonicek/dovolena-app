@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { addDays, format, getISOWeek, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
 import { BatteryCharging, CalendarClock, Clock, HeartPulse, LineChart, Scale, Users, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useFeatures } from "@/lib/use-features";
+import { ADDONS, formatKc } from "@/lib/plans";
+import { InfoTip } from "@/components/ui/info-tip";
 import { createClient } from "@/lib/supabase/client";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS, dayWord } from "@/lib/working-days";
@@ -82,6 +86,8 @@ const hours = (h: number) => (h < 1 ? "do hodiny" : h < 48 ? `${formatNumber(h)}
 export function HrInsights({ departmentId = "all" }: { departmentId?: string }) {
   const { profile } = useAuth();
   const allowed = profile?.role === "admin" || profile?.staff_role === "hr";
+  const features = useFeatures();
+  const unlocked = features.has("hr_insights");
   const isAdmin = profile?.role === "admin";
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +97,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   const [periodKey, setPeriodKey] = useState(MAIN_PERIODS[0].key);
 
   useEffect(() => {
-    if (!profile || !allowed) return;
+    if (!profile || !allowed || features.loading || !unlocked) return;
     const supabase = createClient();
     const now = new Date();
     const todayISO = format(now, "yyyy-MM-dd");
@@ -209,7 +215,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
       console.error("HrInsights failed:", e);
       setError(errorMessage(e));
     });
-  }, [profile, allowed, departmentId]);
+  }, [profile, allowed, departmentId, features.loading, unlocked]);
 
   async function saveCost() {
     if (!profile || !isAdmin) return;
@@ -225,7 +231,8 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
     return { ...d.liability, amount: perDay ? Math.round(d.liability.totalDays * perDay) : null, forfeitAmount: perDay ? Math.round(d.liability.forfeitDays * perDay) : null };
   }
 
-  if (!profile || !allowed) return null;
+  if (!profile || !allowed || features.loading) return null;
+  if (!unlocked) return profile.role === "admin" ? <LockedInsights /> : null;
   if (error) return <p className="text-sm text-danger-dark">HR Insights se nepodařilo načíst: {error}</p>;
   if (!data) return null;
 
@@ -482,6 +489,29 @@ function FairRota({ data, periodKey }: { data: Data; periodKey: string }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Zamčená ukázka pro firmy bez HR Insights (Free / Starter / Team): vysvětlení a cesta k doplňku nebo vyššímu tarifu. */
+function LockedInsights() {
+  const addon = ADDONS.find((a) => a.key === "hr_insights")!;
+  return (
+    <div className="card border-dashed p-5">
+      <div className="flex items-center gap-2 font-display text-h2">
+        <LineChart size={18} className="text-teal-dark" /> HR Insights <InfoTip text={addon.info} label="Co jsou HR Insights" />
+      </div>
+      <p className="mt-1 text-sm text-muted">
+        Předpověď kapacity týmu, trendy, anonymní nemocnost, závazek z dovolené a férové plánování hlavních období. Ve vašem tarifu nejsou zahrnuty.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+        <span>
+          Přikoupit za <strong>{formatKc(addon.monthly)}</strong> měsíčně, nebo v tarifu Pro v ceně.
+        </span>
+        <Link href="/admin/settings?sekce=billing" className="font-medium text-teal-dark underline underline-offset-2">
+          Tarify a doplňky
+        </Link>
+      </div>
     </div>
   );
 }

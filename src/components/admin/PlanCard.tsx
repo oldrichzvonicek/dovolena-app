@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { ArrowDown, Check, Crown } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { PLANS, YEARLY_NOTE, formatKc, planByKey, planPrice, recommendedFor, type Plan } from "@/lib/plans";
+import { ADDONS, PLANS, YEARLY_NOTE, formatKc, planByKey, planPrice, recommendedFor, type Addon, type Plan } from "@/lib/plans";
+import { useFeatures } from "@/lib/use-features";
+import { InfoTip } from "@/components/ui/info-tip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,7 @@ export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
   const [employees, setEmployees] = useState<number | null>(null);
   const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
   const plan = planByKey(planKey);
+  const features = useFeatures();
   const users = employees ?? 0;
 
   useEffect(() => {
@@ -41,6 +44,16 @@ export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
     window.location.href = `mailto:${salesEmail}?subject=${subject}&body=${body}`;
   }
 
+  function orderAddon(a: Addon) {
+    const subject = encodeURIComponent(`Doplněk Dodio: ${a.name}`);
+    const body = encodeURIComponent(`Dobrý den,
+
+chceme si k tarifu ${plan.name} přikoupit doplněk ${a.name} (${period === "yearly" ? formatKc(a.yearly) + " ročně" : formatKc(a.monthly) + " měsíčně"}).
+
+Děkujeme.`);
+    window.location.href = `mailto:${salesEmail}?subject=${subject}&body=${body}`;
+  }
+
   const priceOf = (p: Plan) => {
     const price = planPrice(p, users, period);
     return price === 0 ? "0 Kč" : `${formatKc(price)} / ${period === "monthly" ? "měs." : "rok"}`;
@@ -61,7 +74,7 @@ export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
               <p className="text-xs text-muted">{planPrice(plan, users, "monthly") === 0 ? "0 Kč" : `${formatKc(planPrice(plan, users, "monthly"))} / měs.`}</p>
             </div>
           </div>
-          {plan.key !== "enterprise" && (
+          {plan.key !== "pro" && (
             <Button
               variant="secondary"
               onClick={() => document.getElementById("tarify")?.scrollIntoView({ behavior: "smooth", block: "start" })}
@@ -134,8 +147,8 @@ export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
                 </div>
                 <div className="mt-1 text-lg font-medium">{priceOf(p)}</div>
                 <div className="text-xs text-muted">
-                  {p.employeeLimit === null ? `nad ${p.includedUsers} uživatelů` : `do ${p.employeeLimit} uživatelů`}
-                  {p.key === "enterprise" && p.extraPerUserMonthly && (
+                  {p.employeeLimit === null ? "bez limitu uživatelů" : `do ${p.employeeLimit} uživatelů`}
+                  {p.includedUsers && p.extraPerUserMonthly && (
                     <> · základ {formatKc(period === "monthly" ? p.monthly : p.yearly)} + {formatKc((period === "monthly" ? p.extraPerUserMonthly : p.extraPerUserYearly) ?? 0)} za každého nad {p.includedUsers}</>
                   )}
                 </div>
@@ -158,6 +171,47 @@ export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
               </div>
             );
           })}
+        </div>
+        <div className="mt-6">
+          <h2 className="font-display text-h2">Doplňky</h2>
+          <p className="text-xs text-muted">Cena je za celou firmu, ne za uživatele.</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {ADDONS.map((a) => {
+              const included = a.includedIn.includes(plan.key);
+              const active = features.addons.includes(a.key);
+              const buyable = !included && !active && a.availableOn.includes(plan.key);
+              const price = period === "monthly" ? `${formatKc(a.monthly)} / měs.` : `${formatKc(a.yearly)} / rok`;
+              return (
+                <div key={a.key} className="card flex flex-col p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 font-display text-h2">
+                      {a.name} <InfoTip text={a.info} label={`Co je ${a.name}`} />
+                    </div>
+                    {(included || active) && (
+                      <span className="rounded-full bg-teal-light px-2 py-0.5 text-[11px] font-medium text-teal-dark">{included ? "V ceně tarifu" : "Aktivní"}</span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-lg font-medium">{included ? "0 Kč" : price}</div>
+                  <p className="mt-1 flex-1 text-xs text-muted">
+                    {included
+                      ? "Máte v ceně svého tarifu."
+                      : active
+                        ? "Doplněk máte aktivní."
+                        : buyable
+                          ? a.key === "accountant"
+                            ? "Od tarifu Team je v ceně."
+                            : "V tarifu Pro je v ceně."
+                          : "V tomto tarifu se nedokupuje."}
+                  </p>
+                  {buyable && (
+                    <Button className="mt-3 w-full justify-center" variant="secondary" disabled={!salesEmail} onClick={() => orderAddon(a)}>
+                      Přikoupit
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
         {!salesEmail && <p className="mt-2 text-xs text-warning-dark">Kontaktní e-mail pro objednávku není nastaven (NEXT_PUBLIC_SALES_EMAIL).</p>}
         <p className="mt-2 text-xs text-muted">Volba tarifu otevře e-mail s předvyplněnou objednávkou — tarif se po potvrzení změní na naší straně.</p>

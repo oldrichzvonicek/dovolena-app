@@ -124,7 +124,7 @@ export const sections: HelpSection[] = [
       "Oddělení — vedoucí a zástupce vedoucího, sloučení duplicit.",
       "Typy absencí — barvy, řazení přetažením, z jakého limitu se čerpá, automatické schválení do X dní, poměrné krácení nároku u nových zaměstnanců, výchozí nároky. Nepoužívané typy lze skrýt.",
       "Provoz & kalendář — směny a pracovní dny, pravidla pro žádosti (předstih, zpětné zadávání, mínus), převod dovolenky do dalšího roku (max. dní a datum propadnutí), připomínky, kapacitní varování, blokované termíny, celozávodní dovolená a firemní logo.",
-      "Fakturace & tarify — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Pro, Enterprise), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
+      "Fakturace & tarify — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Team, Pro) a doplňky (HR Insights, Účetní), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
       "Integrace — napojení Slack, Microsoft Teams, Mattermost, Discord, Google Chat nebo libovolného webhooku; vyberete, které události se do kanálu posílají.",
       "Historie změn — kdo, kdy a co v systému změnil.",
     ],

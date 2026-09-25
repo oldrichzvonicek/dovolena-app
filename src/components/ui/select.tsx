@@ -34,11 +34,12 @@ export function SelectContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SelectItem({ value, children }: { value: string; children: React.ReactNode }) {
+export function SelectItem({ value, children, disabled }: { value: string; children: React.ReactNode; disabled?: boolean }) {
   return (
     <SelectPrimitive.Item
       value={value}
-      className="flex cursor-pointer items-center justify-between rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-paper"
+      disabled={disabled}
+      className="flex cursor-pointer data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 items-center justify-between rounded px-3 py-2 text-sm outline-none data-[highlighted]:bg-paper"
     >
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator>

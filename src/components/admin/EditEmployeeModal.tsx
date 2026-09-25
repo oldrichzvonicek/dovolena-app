@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useFeatures } from "@/lib/use-features";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export function EditEmployeeModal({
   const { profile: me } = useAuth();
   const isAdmin = me?.role === "admin";
   const [role, setRole] = useState<Role>(employee.role);
+  const features = useFeatures();
   const [staffRole, setStaffRole] = useState<string>(employee.staff_role ?? "none");
   const [departmentId, setDepartmentId] = useState(employee.department_id ?? "none");
   const [managerId, setManagerId] = useState(employee.manager_id ?? "none");
@@ -173,11 +175,15 @@ export function EditEmployeeModal({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Žádná</SelectItem>
-                <SelectItem value="hr">HR — správa lidí a nároků, vidí všechny absence</SelectItem>
-                <SelectItem value="accountant">Účetní — jen čtení absencí pro mzdy</SelectItem>
+                <SelectItem value="hr" disabled={!features.has("hr_insights") && employee.staff_role !== "hr"}>
+                  HR — správa lidí a nároků, vidí všechny absence{features.has("hr_insights") ? "" : " (doplněk HR Insights)"}
+                </SelectItem>
+                <SelectItem value="accountant" disabled={!features.has("accountant") && employee.staff_role !== "accountant"}>
+                  Účetní — jen čtení absencí pro mzdy{features.has("accountant") ? "" : " (doplněk Účetní)"}
+                </SelectItem>
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-muted">Přidává práva k základní roli. Nastavuje jen admin.</p>
+            <p className="mt-1 text-xs text-muted">Přidává práva k základní roli. Nastavuje jen admin. Role HR patří k HR Insights, role Účetní je od tarifu Team v ceně.</p>
           </div>
 
           <div>

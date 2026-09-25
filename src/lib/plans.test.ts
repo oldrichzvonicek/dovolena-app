@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLANS, planByKey, planPrice, recommendedFor } from "./plans";
+import { ADDONS, PLANS, hasFeature, planByKey, planPrice, recommendedFor } from "./plans";
 
 const plan = (k: string) => PLANS.find((p) => p.key === k)!;
 
@@ -12,21 +12,55 @@ describe("plans", () => {
     expect(planPrice(plan("pro"), 25, "yearly")).toBe(11900);
   });
 
-  it("bills enterprise per user above 30", () => {
-    expect(planPrice(plan("enterprise"), 30, "monthly")).toBe(1190);
-    expect(planPrice(plan("enterprise"), 32, "monthly")).toBe(1190 + 2 * 39);
-    expect(planPrice(plan("enterprise"), 40, "yearly")).toBe(11900 + 10 * 390);
+  it("Pro has no user cap: 30 users included, 39 Kč per additional user", () => {
+    expect(planPrice(plan("basic"), 8, "monthly")).toBe(290);
+    expect(planPrice(plan("pro"), 30, "monthly")).toBe(1190);
+    expect(planPrice(plan("pro"), 32, "monthly")).toBe(1190 + 2 * 39);
+    expect(planPrice(plan("pro"), 40, "yearly")).toBe(11900 + 10 * 390);
   });
 
   it("recommends the cheapest plan that fits", () => {
     expect(recommendedFor(4).key).toBe("free");
+    expect(recommendedFor(8).key).toBe("basic");
     expect(recommendedFor(15).key).toBe("starter");
-    expect(recommendedFor(30).key).toBe("pro");
-    expect(recommendedFor(31).key).toBe("enterprise");
+    expect(recommendedFor(16).key).toBe("pro");
+    expect(recommendedFor(80).key).toBe("pro");
   });
 
   it("falls back to Free for unknown / legacy plan keys", () => {
     expect(planByKey("start").key).toBe("free");
     expect(planByKey(undefined).key).toBe("free");
+    expect(planByKey("enterprise").key).toBe("pro");
+  });
+});
+
+describe("add-ons", () => {
+  it("prices HR Insights at 200 and Účetní at 100 per month", () => {
+    expect(ADDONS.find((a) => a.key === "hr_insights")!.monthly).toBe(200);
+    expect(ADDONS.find((a) => a.key === "accountant")!.monthly).toBe(100);
+  });
+
+  it("HR Insights: add-on for Free, Basic and Starter, included in Pro", () => {
+    expect(hasFeature("basic", ["hr_insights"], "hr_insights")).toBe(true);
+    expect(hasFeature("enterprise", [], "hr_insights")).toBe(true);
+    expect(hasFeature("free", [], "hr_insights")).toBe(false);
+    expect(hasFeature("starter", [], "hr_insights")).toBe(false);
+    expect(hasFeature("free", ["hr_insights"], "hr_insights")).toBe(true);
+    expect(hasFeature("starter", ["hr_insights"], "hr_insights")).toBe(true);
+    expect(hasFeature("pro", [], "hr_insights")).toBe(true);
+  });
+
+  it("Účetní: paid add-on on Free and Basic, included from Starter", () => {
+    expect(hasFeature("basic", [], "accountant")).toBe(false);
+    expect(hasFeature("basic", ["accountant"], "accountant")).toBe(true);
+    expect(hasFeature("free", [], "accountant")).toBe(false);
+    expect(hasFeature("free", ["accountant"], "accountant")).toBe(true);
+    expect(hasFeature("starter", [], "accountant")).toBe(true);
+    expect(hasFeature("pro", null, "accountant")).toBe(true);
+  });
+
+  it("an unknown plan behaves like Free", () => {
+    expect(hasFeature("start", [], "accountant")).toBe(false);
+    expect(hasFeature(undefined, undefined, "hr_insights")).toBe(false);
   });
 });
