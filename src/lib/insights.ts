@@ -296,3 +296,173 @@ export function hrDigest(input: DigestInput): { subject: string; body: string } 
   const header = `Dobré ráno,\n\nzde je týdenní přehled pro HR${input.medianDecisionHours > 0 ? ` (medián rozhodování o žádostech: ${input.medianDecisionHours} h)` : ""}.`;
   return { subject: "Týdenní přehled pro HR — Dodio", body: `${header}\n\n${lines.join("\n")}` };
 }
+
+// ------------------------------------------------------------------------------------------ trendy po měsících
+export interface MonthPoint {
+  month: string; // yyyy-MM
+  absencePct: number;
+  vacationPct: number;
+  homeOfficePct: number;
+  /** Nemocnost jen souhrnně za celou firmu; null, když je lidí méně než MIN_GROUP. */
+  sickPct: number | null;
+}
+
+const monthBounds = (month: string) => {
+  const [y, m] = month.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` };
+};
+const shiftMonth = (month: string, delta: number) => {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+/**
+ * Měsíční trendy za posledních `months` měsíců (včetně `endMonth`). Podíly jsou v % pracovních dnů všech (dnes aktivních) lidí.
+ * Absence přes hranici měsíce se dělí (daysWithin). Rozdělení lidí v minulosti neznáme, proto se počítá se současným stavem.
+ */
+export function monthlyTrend(peopleCount: number, requests: InRequest[], endMonth: string, months = 12, workDays: number[] = DEFAULT_WORK_DAYS): MonthPoint[] {
+  const out: MonthPoint[] = [];
+  const approved = requests.filter((r) => r.status !== "pending");
+  for (let i = months - 1; i >= 0; i--) {
+    const month = shiftMonth(endMonth, -i);
+    const { from, to } = monthBounds(month);
+    const period = countWorkingDays(from, to, workDays);
+    const denom = peopleCount * period;
+    let absence = 0;
+    let vacation = 0;
+    let ho = 0;
+    let sick = 0;
+    for (const r of approved) {
+      if (r.end_date < from || r.start_date > to) continue;
+      const d = daysWithin(r, from, to, workDays);
+      if (reduces(r)) absence += d;
+      if (r.leave_type?.counts_against === "vacation") vacation += d;
+      if (r.leave_type?.key === "home_office") ho += d;
+      if (r.leave_type?.counts_against === "sick") sick += d;
+    }
+    const pct = (x: number) => (denom > 0 ? Math.round((x / denom) * 1000) / 10 : 0);
+    out.push({ month, absencePct: pct(absence), vacationPct: pct(vacation), homeOfficePct: pct(ho), sickPct: peopleCount >= MIN_GROUP ? pct(sick) : null });
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------------------------------ hlavní období (férovost)
+export interface MainPeriod {
+  key: string;
+  label: string;
+  from: string; // MM-DD
+  to: string; // MM-DD (může být v následujícím roce)
+}
+
+export const MAIN_PERIODS: MainPeriod[] = [
+  { key: "xmas", label: "Vánoce", from: "12-22", to: "01-02" },
+  { key: "summer", label: "Léto", from: "07-01", to: "08-31" },
+];
+
+/** Konkrétní okno období pro sezónu začínající v roce `year` (Vánoce 2026 = 22. 12. 2026 – 2. 1. 2027). */
+export function periodWindow(p: MainPeriod, year: number): { from: string; to: string } {
+  const crosses = p.to < p.from;
+  return { from: `${year}-${p.from}`, to: `${crosses ? year + 1 : year}-${p.to}` };
+}
+
+/** Do kterého hlavního období (a které sezóny) žádost spadá; null, když do žádného. */
+export function mainPeriodOf(r: { start_date: string; end_date: string }): { period: MainPeriod; year: number } | null {
+  const y = Number(r.start_date.slice(0, 4));
+  for (const p of MAIN_PERIODS) {
+    for (const year of [y - 1, y]) {
+      const w = periodWindow(p, year);
+      if (r.start_date <= w.to && r.end_date >= w.from) return { period: p, year };
+    }
+  }
+  return null;
+}
+
+export interface RotaPerson {
+  id: string;
+  name: string;
+  department_id: string | null;
+}
+export interface RotaRow {
+  id: string;
+  name: string;
+  /** Dny dovolené v tomtéž období minulé sezóny. */
+  lastSeason: number;
+  /** Už naplánované (schválené i čekající) dny v aktuální sezóně. */
+  thisSeason: number;
+}
+
+/** Kdo měl loni hlavní období a kdo letos už něco plánuje — podklad pro férové schvalování. Jen dovolená (žádné citlivé typy). */
+export function fairRota(people: RotaPerson[], requests: InRequest[], period: MainPeriod, year: number, workDays: number[] = DEFAULT_WORK_DAYS): Map<string | null, RotaRow[]> {
+  const cur = periodWindow(period, year);
+  const prev = periodWindow(period, year - 1);
+  const vac = requests.filter((r) => r.leave_type?.counts_against === "vacation");
+  const byDept = new Map<string | null, RotaRow[]>();
+  for (const p of people) {
+    const mine = vac.filter((r) => r.profile_id === p.id);
+    const row: RotaRow = {
+      id: p.id,
+      name: p.name,
+      lastSeason: Math.round(mine.filter((r) => r.status !== "pending").reduce((s, r) => s + daysWithin(r, prev.from, prev.to, workDays), 0) * 10) / 10,
+      thisSeason: Math.round(mine.reduce((s, r) => s + daysWithin(r, cur.from, cur.to, workDays), 0) * 10) / 10,
+    };
+    byDept.set(p.department_id, [...(byDept.get(p.department_id) ?? []), row]);
+  }
+  for (const rows of byDept.values()) rows.sort((a, b) => a.lastSeason - b.lastSeason || a.thisSeason - b.thisSeason || a.name.localeCompare(b.name, "cs"));
+  return byDept;
+}
+
+/** Krátká poznámka pro schvalovatele: měl(a) žadatel(ka) loni totéž období? null, když žádost není v hlavním období. */
+export function fairnessHint(request: { start_date: string; end_date: string }, personRequests: InRequest[], workDays: number[] = DEFAULT_WORK_DAYS): string | null {
+  const hit = mainPeriodOf(request);
+  if (!hit) return null;
+  const prev = periodWindow(hit.period, hit.year - 1);
+  const days = personRequests
+    .filter((r) => r.leave_type?.counts_against === "vacation" && r.status !== "pending")
+    .reduce((s, r) => s + daysWithin(r, prev.from, prev.to, workDays), 0);
+  const label = hit.period.label;
+  return days > 0 ? `${label}: loni měl(a) ${Math.round(days * 10) / 10} ${days === 1 ? "den" : days < 5 ? "dny" : "dní"} dovolené` : `${label}: loni tohle období neměl(a)`;
+}
+
+// ------------------------------------------------------------------------------------------ dobití baterií
+export interface RechargeScore {
+  dept: string;
+  size: number;
+  /** Podíl lidí, kteří za posledních ~6 měsíců měli souvislou dovolenou aspoň `minDays` pracovních dní. */
+  pct: number;
+}
+
+/**
+ * Skóre „dobití baterií“ po odděleních (jen skupiny ≥ MIN_GROUP) a za firmu — bez jmen. Souvislý blok = jedna schválená žádost
+ * o dovolenou s aspoň `minDays` pracovními dny, která skončila v posledních `windowDays` dnech nebo právě probíhá.
+ */
+export function rechargeScore(
+  people: InPerson[],
+  depts: { id: string; name: string }[],
+  requests: InRequest[],
+  today: string,
+  windowDays = 182,
+  minDays = 5
+): { rows: RechargeScore[]; company: { size: number; pct: number } | null; hiddenDepartments: number } {
+  const since = format(addDays(parseISO(today), -windowDays), "yyyy-MM-dd");
+  const recharged = new Set(
+    requests
+      .filter((r) => r.leave_type?.counts_against === "vacation" && r.status !== "pending" && Number(r.working_days) >= minDays && r.end_date >= since && r.start_date <= today)
+      .map((r) => r.profile_id)
+  );
+  const rows: RechargeScore[] = [];
+  let hidden = 0;
+  for (const d of depts) {
+    const members = people.filter((p) => p.department_id === d.id);
+    if (members.length === 0) continue;
+    if (members.length < MIN_GROUP) {
+      hidden++;
+      continue;
+    }
+    rows.push({ dept: d.name, size: members.length, pct: Math.round((members.filter((m) => recharged.has(m.id)).length / members.length) * 100) });
+  }
+  rows.sort((a, b) => a.pct - b.pct);
+  const company = people.length >= MIN_GROUP ? { size: people.length, pct: Math.round((people.filter((p) => recharged.has(p.id)).length / people.length) * 100) } : null;
+  return { rows, company, hiddenDepartments: hidden };
+}

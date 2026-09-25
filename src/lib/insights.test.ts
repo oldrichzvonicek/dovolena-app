@@ -134,3 +134,73 @@ describe("hrDigest", () => {
     expect(d!.body).toContain("14");
   });
 });
+
+import { MAIN_PERIODS, fairRota, fairnessHint, mainPeriodOf, monthlyTrend, periodWindow, rechargeScore } from "./insights";
+
+describe("monthlyTrend", () => {
+  const reqs = [
+    { profile_id: "a", start_date: "2026-09-28", end_date: "2026-10-02", working_days: 4, status: "approved", leave_type: vac }, // 28. 9. je svátek: září 29., 30. = 2, říjen 1., 2. = 2
+    { profile_id: "b", start_date: "2026-10-05", end_date: "2026-10-05", working_days: 1, status: "approved", leave_type: sick },
+    { profile_id: "c", start_date: "2026-10-06", end_date: "2026-10-06", working_days: 1, status: "approved", leave_type: { key: "home_office" } },
+    { profile_id: "d", start_date: "2026-10-07", end_date: "2026-10-07", working_days: 1, status: "pending", leave_type: vac },
+  ];
+  const t = monthlyTrend(10, reqs, "2026-10", 3);
+  it("vrací požadovaný počet měsíců v pořadí", () => {
+    expect(t.map((x) => x.month)).toEqual(["2026-08", "2026-09", "2026-10"]);
+  });
+  it("dělí absenci přes hranici měsíce a počítá jen schválené", () => {
+    // říjen 2026: 22 pracovních dnů - 1 svátek (28. 10.) = 21; absence = 2 (dovolená) + 1 (nemoc); Home Office se jako absence nepočítá
+    expect(t[2].absencePct).toBeCloseTo((3 / (10 * 21)) * 100, 0);
+    expect(t[2].homeOfficePct).toBeGreaterThan(0);
+    expect(t[1].vacationPct).toBeGreaterThan(0);
+  });
+  it("nemocnost neukazuje u malé firmy", () => {
+    expect(monthlyTrend(3, reqs, "2026-10", 1)[0].sickPct).toBeNull();
+  });
+});
+
+describe("hlavní období a férovost", () => {
+  it("Vánoce přecházejí do dalšího roku", () => {
+    expect(periodWindow(MAIN_PERIODS[0], 2026)).toEqual({ from: "2026-12-22", to: "2027-01-02" });
+  });
+  it("rozpozná období žádosti i přes Nový rok", () => {
+    expect(mainPeriodOf({ start_date: "2027-01-01", end_date: "2027-01-02" })?.period.key).toBe("xmas");
+    expect(mainPeriodOf({ start_date: "2026-07-15", end_date: "2026-07-20" })?.period.key).toBe("summer");
+    expect(mainPeriodOf({ start_date: "2026-10-05", end_date: "2026-10-06" })).toBeNull();
+  });
+  const ppl = [
+    { id: "a", name: "Anna", department_id: "d" },
+    { id: "b", name: "Boris", department_id: "d" },
+  ];
+  const last = { profile_id: "a", start_date: "2025-12-23", end_date: "2025-12-31", working_days: 5, status: "approved", leave_type: vac };
+  const planned = { profile_id: "b", start_date: "2026-12-28", end_date: "2026-12-30", working_days: 3, status: "pending", leave_type: vac };
+  it("řadí nejdřív ty, kdo loni období neměli", () => {
+    const rows = fairRota(ppl, [last, planned], MAIN_PERIODS[0], 2026).get("d")!;
+    expect(rows[0]).toMatchObject({ name: "Boris", lastSeason: 0, thisSeason: 3 });
+    expect(rows[1]).toMatchObject({ name: "Anna", lastSeason: 5 });
+  });
+  it("poznámka schvalovateli", () => {
+    expect(fairnessHint({ start_date: "2026-12-28", end_date: "2026-12-30" }, [last])).toMatch(/loni měl\(a\) 5 dní/);
+    expect(fairnessHint({ start_date: "2026-12-28", end_date: "2026-12-30" }, [])).toMatch(/loni tohle období neměl/);
+    expect(fairnessHint({ start_date: "2026-10-05", end_date: "2026-10-05" }, [last])).toBeNull();
+  });
+});
+
+describe("rechargeScore", () => {
+  const six = people(6, "d");
+  const dps = [{ id: "d", name: "Obchod" }];
+  it("podíl lidí s delší dovolenou za poslední půlrok, bez jmen", () => {
+    const reqs = [
+      { profile_id: "d-0", start_date: "2026-08-03", end_date: "2026-08-14", working_days: 10, status: "approved", leave_type: vac },
+      { profile_id: "d-1", start_date: "2026-09-01", end_date: "2026-09-02", working_days: 2, status: "approved", leave_type: vac },
+      { profile_id: "d-2", start_date: "2025-01-06", end_date: "2025-01-17", working_days: 10, status: "approved", leave_type: vac },
+    ];
+    const r = rechargeScore(six, dps, reqs, "2026-10-01");
+    expect(r.rows[0]).toMatchObject({ dept: "Obchod", size: 6, pct: 17 });
+    expect(r.company?.pct).toBe(17);
+    expect(JSON.stringify(r)).not.toMatch(/d-0/);
+  });
+  it("skryje malé oddělení", () => {
+    expect(rechargeScore(people(3, "x"), [{ id: "x", name: "X" }], [], "2026-10-01").hiddenDepartments).toBe(1);
+  });
+});

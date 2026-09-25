@@ -3,12 +3,29 @@
 import { useEffect, useState } from "react";
 import { addDays, format, getISOWeek, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
-import { CalendarClock, Clock, HeartPulse, Scale, Wallet } from "lucide-react";
+import { BatteryCharging, CalendarClock, Clock, HeartPulse, LineChart, Scale, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS, dayWord } from "@/lib/working-days";
-import { approvalSpeed, capacityHeatmap, sickShareByDepartment, vacationLiability, MIN_GROUP, type ApprovalSpeedRow, type HeatRow, type InRequest, type Liability } from "@/lib/insights";
+import {
+  MAIN_PERIODS,
+  MIN_GROUP,
+  approvalSpeed,
+  capacityHeatmap,
+  fairRota,
+  monthlyTrend,
+  periodWindow,
+  rechargeScore,
+  sickShareByDepartment,
+  vacationLiability,
+  type ApprovalSpeedRow,
+  type HeatRow,
+  type InRequest,
+  type Liability,
+  type MonthPoint,
+  type RotaPerson,
+} from "@/lib/insights";
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
 
 interface Data {
@@ -19,7 +36,21 @@ interface Data {
   dailyCost: number | null;
   overdrawn: { name: string; remaining: number }[];
   forfeit: { name: string; days: number }[];
+  trend: MonthPoint[]; // 24 měsíců (prvních 12 = předchozí rok)
+  recharge: ReturnType<typeof rechargeScore>;
+  rotaPeople: RotaPerson[];
+  rotaRequests: InRequest[];
+  deptNames: Map<string, string>;
+  workDays: number[];
 }
+
+type TrendSeries = "absencePct" | "vacationPct" | "homeOfficePct" | "sickPct";
+const SERIES: { key: TrendSeries; label: string }[] = [
+  { key: "absencePct", label: "Absence celkem" },
+  { key: "vacationPct", label: "Dovolená" },
+  { key: "homeOfficePct", label: "Home Office" },
+  { key: "sickPct", label: "Nemoc (souhrnně)" },
+];
 
 function Card({ icon, title, hint, children, className }: { icon: React.ReactNode; title: string; hint: string; children: React.ReactNode; className?: string }) {
   return (
@@ -56,6 +87,8 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   const [error, setError] = useState<string | null>(null);
   const [costDraft, setCostDraft] = useState("");
   const [costMsg, setCostMsg] = useState<string | null>(null);
+  const [series, setSeries] = useState<TrendSeries>("absencePct");
+  const [periodKey, setPeriodKey] = useState(MAIN_PERIODS[0].key);
 
   useEffect(() => {
     if (!profile || !allowed) return;
@@ -67,7 +100,8 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
 
     (async () => {
       const q = supabase.from("profiles").select("id, name, department_id").eq("company_id", profile.company_id).eq("active", true);
-      const [{ data: people }, { data: depts }, { data: reqs }, { data: company }, { data: hrs }, balances, { data: decisions }] = await Promise.all([
+      const since24m = format(addDays(now, -740), "yyyy-MM-dd");
+      const [{ data: people }, { data: depts }, { data: reqs }, { data: company }, { data: hrs }, balances, { data: decisions }, { data: history }] = await Promise.all([
         departmentId === "all" ? q : q.eq("department_id", departmentId),
         supabase.from("departments").select("id, name, capacity_warning_percent").eq("company_id", profile.company_id),
         supabase
@@ -86,6 +120,13 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           .gte("created_at", `${since90}T00:00:00`)
           .order("created_at", { ascending: false })
           .limit(1000),
+        // Two years of approved / pending requests for trends, seasonal fairness and the "recharge" score.
+        supabase
+          .from("leave_requests")
+          .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against, counts_as_present)")
+          .in("status", ["approved", "pending"])
+          .gte("end_date", since24m)
+          .limit(8000),
       ]);
 
       type P = { id: string; name: string; department_id: string | null };
@@ -144,6 +185,10 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
       forfeit.sort((a, b) => b.days - a.days);
       const dailyCost = hrs?.avg_daily_cost !== null && hrs?.avg_daily_cost !== undefined ? Number(hrs.avg_daily_cost) : null;
 
+      const hist = ((history as unknown as InRequest[]) ?? []).filter((r) => ids.has(r.profile_id));
+      const trend = monthlyTrend(ppl.length, hist, format(now, "yyyy-MM"), 24, workDays);
+      const recharge = rechargeScore(ppl, dps, hist, todayISO);
+
       setCostDraft(dailyCost !== null ? String(dailyCost) : "");
       setData({
         heat,
@@ -153,6 +198,12 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
         dailyCost,
         overdrawn: overdrawn.slice(0, 6),
         forfeit: forfeit.slice(0, 6),
+        trend,
+        recharge,
+        rotaPeople: ppl.map((p) => ({ id: p.id, name: p.name, department_id: p.department_id })),
+        rotaRequests: hist,
+        deptNames: new Map(dps.map((d) => [d.id, d.name])),
+        workDays,
       });
     })().catch((e) => {
       console.error("HrInsights failed:", e);
@@ -287,7 +338,150 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
             <Row key={`f-${p.name}`} left={`${p.name} — propadne při přenosu`} right={`${formatNumber(p.days)} ${dayWord(p.days)}`} tone="warning" />
           ))}
         </Card>
+
+        <Card
+          className="lg:col-span-2"
+          icon={<LineChart size={17} className="text-teal-dark" />}
+          title="Trendy za 12 měsíců"
+          hint="Podíl pracovních dnů všech lidí. Sloupec = poslední rok, čárka = stejný měsíc předchozího roku. Počítá se se současným počtem lidí."
+        >
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Zobrazená řada">
+            {SERIES.map((sr) => (
+              <button
+                key={sr.key}
+                onClick={() => setSeries(sr.key)}
+                aria-pressed={series === sr.key}
+                className={cn("rounded-full border px-3 py-1 text-xs", series === sr.key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
+              >
+                {sr.label}
+              </button>
+            ))}
+          </div>
+          <TrendChart points={data.trend} series={series} />
+          <Seasonality points={data.trend.slice(12)} series={series} />
+        </Card>
+
+        <Card icon={<BatteryCharging size={17} className="text-teal-dark" />} title="Dobití baterií" hint={`Podíl lidí, kteří v posledním půlroce měli souvislou dovolenou aspoň 5 dní. Jen souhrny, oddělení s aspoň ${MIN_GROUP} lidmi.`}>
+          {data.recharge.company === null && data.recharge.rows.length === 0 && <Empty text="Málo lidí na smysluplný souhrn." />}
+          {data.recharge.company && <Row left={`Celá firma (${data.recharge.company.size} lidí)`} right={`${data.recharge.company.pct} %`} tone={data.recharge.company.pct < 50 ? "warning" : undefined} />}
+          {data.recharge.rows.map((r) => (
+            <Row key={r.dept} left={`${r.dept} (${r.size})`} right={`${r.pct} %`} tone={r.pct < 40 ? "warning" : undefined} />
+          ))}
+          {data.recharge.hiddenDepartments > 0 && <p className="text-xs text-muted">Menší oddělení ({data.recharge.hiddenDepartments}) se z důvodu ochrany soukromí nezobrazují.</p>}
+        </Card>
+
+        <Card icon={<Users size={17} className="text-teal-dark" />} title="Férové plánování hlavních období" hint="Kdo měl loni totéž období a kdo letos už něco plánuje. Nahoře jsou ti, kdo loni neměli. Jen dovolená.">
+          <div className="flex gap-1.5" role="group" aria-label="Období">
+            {MAIN_PERIODS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => setPeriodKey(p.key)}
+                aria-pressed={periodKey === p.key}
+                className={cn("rounded-full border px-3 py-1 text-xs", periodKey === p.key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <FairRota data={data} periodKey={periodKey} />
+        </Card>
       </div>
+    </div>
+  );
+}
+
+/** Sloupcový graf (SVG): poslední rok jako sloupce, stejné měsíce loni jako čárky. */
+function TrendChart({ points, series }: { points: MonthPoint[]; series: TrendSeries }) {
+  const cur = points.slice(12);
+  const prev = points.slice(0, 12);
+  const val = (p?: MonthPoint) => (p ? (p[series] as number | null) : null);
+  if (cur.every((p) => val(p) === null)) return <p className="text-muted">U této řady není dost lidí na smysluplný souhrn.</p>;
+  const max = Math.max(1, ...cur.map((p) => val(p) ?? 0), ...prev.map((p) => val(p) ?? 0));
+  const W = 720;
+  const H = 150;
+  const bw = W / 12;
+  const monthLabel = (m: string) => format(parseISO(`${m}-01`), "LLL", { locale: cs });
+  return (
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H + 26}`} className="min-w-[560px]" role="img" aria-label="Měsíční trend za poslední rok ve srovnání s předchozím rokem">
+        {[0.25, 0.5, 0.75, 1].map((t) => (
+          <line key={t} x1={0} x2={W} y1={H - H * t} y2={H - H * t} stroke="currentColor" className="text-line" strokeWidth={0.5} />
+        ))}
+        {cur.map((p, i) => {
+          const v = val(p) ?? 0;
+          const pv = val(prev[i]);
+          const h = (v / max) * H;
+          const x = i * bw + bw * 0.18;
+          return (
+            <g key={p.month}>
+              <title>{`${monthLabel(p.month)} ${p.month.slice(0, 4)}: ${formatNumber(v)} %${pv !== null ? ` (loni ${formatNumber(pv)} %)` : ""}`}</title>
+              <rect x={x} y={H - h} width={bw * 0.64} height={h} rx={3} className="fill-teal" opacity={0.85} />
+              {pv !== null && <line x1={x - 2} x2={x + bw * 0.64 + 2} y1={H - (pv / max) * H} y2={H - (pv / max) * H} stroke="currentColor" className="text-ink" strokeWidth={2} />}
+              <text x={x + bw * 0.32} y={H + 14} textAnchor="middle" className="fill-muted" fontSize={10}>
+                {monthLabel(p.month)}
+              </text>
+              <text x={x + bw * 0.32} y={Math.max(10, H - h - 4)} textAnchor="middle" className="fill-ink" fontSize={9}>
+                {v > 0 ? formatNumber(v) : ""}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/** Nejsilnější a nejslabší měsíce posledního roku + meziroční změna. */
+function Seasonality({ points, series }: { points: MonthPoint[]; series: TrendSeries }) {
+  const vals = points.map((p) => ({ m: p.month, v: p[series] as number | null })).filter((x): x is { m: string; v: number } => x.v !== null);
+  if (vals.length < 6) return null;
+  const sorted = [...vals].sort((a, b) => b.v - a.v);
+  const label = (m: string) => format(parseISO(`${m}-01`), "LLLL", { locale: cs });
+  const total = vals.reduce((s, x) => s + x.v, 0) / vals.length;
+  return (
+    <p className="text-xs text-muted">
+      Nejvíc: <strong className="text-ink">{label(sorted[0].m)}</strong> ({formatNumber(sorted[0].v)} %), {label(sorted[1].m)} ({formatNumber(sorted[1].v)} %). Nejméně:{" "}
+      <strong className="text-ink">{label(sorted[sorted.length - 1].m)}</strong> ({formatNumber(sorted[sorted.length - 1].v)} %). Průměr za rok {formatNumber(Math.round(total * 10) / 10)} %.
+    </p>
+  );
+}
+
+/** Po odděleních: jména seřazená tak, aby nahoře byli lidé, kteří loni hlavní období neměli. */
+function FairRota({ data, periodKey }: { data: Data; periodKey: string }) {
+  const period = MAIN_PERIODS.find((p) => p.key === periodKey) ?? MAIN_PERIODS[0];
+  // sezóna: pokud už jsme po jejím konci, ukazujeme příští
+  const now = new Date();
+  let year = now.getFullYear();
+  if (format(now, "yyyy-MM-dd") > periodWindow(period, year).to) year += 1;
+  const rota = fairRota(data.rotaPeople, data.rotaRequests, period, year, data.workDays);
+  const window = periodWindow(period, year);
+  const entries = Array.from(rota.entries()).filter(([, rows]) => rows.length > 0);
+  if (entries.length === 0) return <p className="text-muted">Žádná data.</p>;
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted">
+        Sezóna {format(parseISO(window.from), "d. M. yyyy", { locale: cs })} – {format(parseISO(window.to), "d. M. yyyy", { locale: cs })}
+      </p>
+      {entries.map(([deptId, rows]) => (
+        <div key={deptId ?? "none"}>
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">{deptId ? data.deptNames.get(deptId) ?? "Oddělení" : "Bez oddělení"}</div>
+          <div className="space-y-1">
+            {rows.slice(0, 8).map((r) => {
+              const priority = r.lastSeason === 0 && r.thisSeason === 0;
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className={cn("min-w-0 truncate", priority && "font-medium")}>{r.name}</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    loni {formatNumber(r.lastSeason)} · letos {formatNumber(r.thisSeason)}
+                    {priority && <span className="ml-1.5 rounded-sm bg-teal-light px-1.5 py-0.5 text-teal-dark">bez loňska</span>}
+                  </span>
+                </div>
+              );
+            })}
+            {rows.length > 8 && <div className="text-xs text-muted">a dalších {rows.length - 8}</div>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

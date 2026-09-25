@@ -17,6 +17,7 @@ import { cn, formatNumber } from "@/lib/utils";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
 import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
+import { fairnessHint, mainPeriodOf, type InRequest } from "@/lib/insights";
 import { computeApprovalWarnings, fetchMyDepartmentIds, hasOtherApprover } from "@/lib/approval-checks";
 import { fetchDecisionScope } from "@/lib/approval-scope";
 import { LoadingCard } from "@/components/ui/skeleton";
@@ -42,6 +43,8 @@ export function PendingApprovals() {
   const { profile } = useAuth();
   const [pending, setPending] = useState<PendingRow[]>([]);
   const [conflicts, setConflicts] = useState<Record<string, string>>({});
+  // Hint for requests in a main period (Christmas, summer): did the person have the same period last year?
+  const [fairness, setFairness] = useState<Record<string, string>>({});
   const [remaining, setRemaining] = useState<Record<string, number>>({});
   const [capacityWarnings, setCapacityWarnings] = useState<Record<string, { percent: number; count: number; size: number }>>({});
   const [loading, setLoading] = useState(true);
@@ -128,6 +131,27 @@ export function PendingApprovals() {
       if (names.length > 0) conflictMap[r.id] = names.length > 1 ? `${names[0]} a dalších ${names.length - 1}` : names[0];
     }
     setConflicts(conflictMap);
+
+    // Fairness of main periods: one query for the last two years of approved vacations of all requesters.
+    const periodRows = rows.filter((r) => mainPeriodOf(r));
+    if (periodRows.length > 0) {
+      const since = `${new Date().getFullYear() - 1}-01-01`;
+      const { data: past } = await supabase
+        .from("leave_requests")
+        .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against)")
+        .eq("status", "approved")
+        .in("profile_id", Array.from(new Set(periodRows.map((r) => r.profile.id))))
+        .gte("end_date", since);
+      const all = (past as unknown as InRequest[]) ?? [];
+      const hints: Record<string, string> = {};
+      for (const r of periodRows) {
+        const h = fairnessHint(r, all.filter((x) => x.profile_id === r.profile.id));
+        if (h) hints[r.id] = h;
+      }
+      setFairness(hints);
+    } else {
+      setFairness({});
+    }
 
     // Remaining balance after approval: entitlement total minus already-approved usage
     // minus this pending request's days, per profile + counts_against category.
@@ -291,6 +315,7 @@ export function PendingApprovals() {
                         · {formatNumber(Number(r.working_days))} {dayWord(Number(r.working_days))}
                       </span>
                     </div>
+                    {fairness[r.id] && <div className="mt-1 text-xs text-muted">🎄 {fairness[r.id]}</div>}
                     {r.leave_type.counts_against !== "none" && remaining[r.id] !== undefined && remaining[r.id] >= 0 && (
                       <div className="mt-1 text-xs text-muted">
                         Po schválení zbude: <span className="font-medium text-ink">{formatNumber(Number(remaining[r.id]))} dní</span>

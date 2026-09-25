@@ -476,6 +476,12 @@ export const faqs: HelpFaq[] = [
     roles: ["admin"],
   },
   {
+    q: "Co je „Férové plánování hlavních období“ a „Dobití baterií“?",
+    a: "Dvě další karty v HR Insights (Analytika). Férové plánování ukazuje pro Vánoce a léto, kdo měl loni totéž období a kdo letos už něco plánuje, takže je vidět, kdo je na řadě. U žádostí v těchto obdobích to vidí i schvalovatel jako krátkou poznámku. Dobití baterií je podíl lidí v oddělení, kteří v posledním půlroce měli souvislou dovolenou aspoň 5 dní. Zobrazuje se jen souhrnně za oddělení s aspoň 5 lidmi. Trendy za 12 měsíců srovnávají absenci, dovolenou, Home Office a nemoc (souhrnně) s minulým rokem.",
+    section: "Analytika a Exporty (admin)",
+    roles: ["admin"],
+  },
+  {
     q: "Jak pošlu hromadnou připomínku o nevyčerpané dovolené?",
     section: "Analytika a Exporty (admin)",
     a: "V Analytice je sekce „Nevyčerpaná dovolená ke konci roku“ — zaškrtněte lidi a klikněte na „Poslat připomínku“. Každému přijde upozornění v aplikaci.",
