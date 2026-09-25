@@ -27,7 +27,17 @@ export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
       .select("id", { count: "exact", head: true })
       .eq("company_id", profile.company_id)
       .eq("active", true)
-      .then(({ count }) => setEmployees(count ?? 0));
+      .eq("is_demo", false)
+      .then(({ count, error }) => {
+        if (!error) return setEmployees(count ?? 0);
+        // Sloupec is_demo vzniká až po spuštění aktualizovaného schema.sql — do té doby počítáme všechny.
+        createClient()
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", profile.company_id)
+          .eq("active", true)
+          .then(({ count: all }) => setEmployees(all ?? 0));
+      });
   }, [profile]);
 
   const limit = plan.employeeLimit;

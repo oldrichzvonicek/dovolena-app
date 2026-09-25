@@ -356,6 +356,10 @@ alter table profiles add column if not exists deactivated_at timestamptz;
 -- cover named on a single request. This is the default that prefills it.
 alter table profiles add column if not exists substitute_id uuid references profiles(id) on delete set null;
 
+-- Ukázkové účty (Nastavení → Uživatelé → Ukázková data): zakládá je a maže jen server; do plánu se nepočítají a nedostávají e-maily.
+alter table profiles add column if not exists is_demo boolean not null default false;
+alter table departments add column if not exists is_demo boolean not null default false;
+
 -- Datum nástupu — základ pro příplatek k dovolené za odpracované roky (companies.seniority_*).
 -- (datum nástupu je v tabulce profile_hr — čte ho jen dotčená osoba, HR a admin; viz konec souboru)
 create table if not exists profile_hr (
@@ -1633,6 +1637,68 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- import_balances — hromadné nastavení zůstatků EXISTUJÍCÍCH zaměstnanců (přechod z Excelu).
+-- Řádek: profile_id + volitelně vacation_total, vacation_used, carryover, sick_total, sick_used.
+-- Převod z minulého roku aplikace počítá jako zbytek loňského nároku, proto se zapíše jako loňský nárok bez čerpání.
+-- Smí admin a HR své firmy; jedna transakce (buď všechno, nebo nic).
+-- ---------------------------------------------------------------------------
+create or replace function import_balances(target_company_id uuid, rows jsonb)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r jsonb;
+  pid uuid;
+  vac_type uuid;
+  sick_type uuid;
+  yr int := extract(year from (now() at time zone 'Europe/Prague'))::int;
+  n int := 0;
+begin
+  if current_company_id() is distinct from target_company_id
+     or (current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr') then
+    raise exception 'Jen admin nebo HR firmy může importovat zůstatky.';
+  end if;
+
+  select id into vac_type from leave_types where company_id = target_company_id and key = 'dovolena';
+  select id into sick_type from leave_types where company_id = target_company_id and key = 'sick';
+
+  for r in select * from jsonb_array_elements(rows) loop
+    pid := nullif(r->>'profile_id', '')::uuid;
+    if pid is null or not exists (select 1 from profiles where id = pid and company_id = target_company_id) then
+      continue;
+    end if;
+
+    if r->>'vacation_total' is not null and vac_type is not null then
+      insert into leave_entitlements (profile_id, leave_type_id, year, total_days, opening_used_days)
+      values (pid, vac_type, yr, greatest(0, (r->>'vacation_total')::numeric), greatest(0, coalesce((r->>'vacation_used')::numeric, 0)))
+      on conflict (profile_id, leave_type_id, year)
+        do update set total_days = excluded.total_days, opening_used_days = excluded.opening_used_days;
+    end if;
+
+    if r->>'carryover' is not null and vac_type is not null then
+      insert into leave_entitlements (profile_id, leave_type_id, year, total_days, opening_used_days)
+      values (pid, vac_type, yr - 1, greatest(0, (r->>'carryover')::numeric), 0)
+      on conflict (profile_id, leave_type_id, year)
+        do update set total_days = excluded.total_days, opening_used_days = 0;
+    end if;
+
+    if r->>'sick_total' is not null and sick_type is not null then
+      insert into leave_entitlements (profile_id, leave_type_id, year, total_days, opening_used_days)
+      values (pid, sick_type, yr, greatest(0, (r->>'sick_total')::numeric), greatest(0, coalesce((r->>'sick_used')::numeric, 0)))
+      on conflict (profile_id, leave_type_id, year)
+        do update set total_days = excluded.total_days, opening_used_days = excluded.opening_used_days;
+    end if;
+
+    n := n + 1;
+  end loop;
+
+  return n;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- guard_profile_update — RLS policies above grant broader UPDATE access on
 -- `profiles` (a user can update their own row; a manager/admin can update
 -- anyone in their company) than should actually apply column-by-column.
@@ -1670,6 +1736,9 @@ begin
   end if;
   if new.company_id is distinct from old.company_id then
     raise exception 'Firmu u profilu nelze změnit.';
+  end if;
+  if new.is_demo is distinct from old.is_demo and auth.uid() is not null then
+    raise exception 'Ukázkové účty spravuje jen systém.';
   end if;
   -- E-mail v profilu smí být jen ten z přihlašovacího účtu (jinak by si šlo nechat posílat upozornění na cizí adresu).
   if new.email is distinct from old.email and auth.uid() is not null

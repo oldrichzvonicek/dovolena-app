@@ -7,8 +7,11 @@ import { InviteBox } from "@/components/shared/InviteBox";
 import { InviteUserModal } from "@/components/admin/InviteUserModal";
 import { EditEmployeeModal } from "@/components/admin/EditEmployeeModal";
 import { ImportEmployeesPanel } from "@/components/admin/ImportEmployeesPanel";
+import { ImportBalancesPanel } from "@/components/admin/ImportBalancesPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { JoinLinkCard } from "@/components/admin/JoinLinkCard";
+import { DemoDataCard } from "@/components/admin/DemoDataCard";
 import { copyJoinLink } from "@/lib/join-link";
 import { fetchDepartments, fetchLeaveTypes } from "@/lib/data";
 import {
@@ -331,10 +334,22 @@ export function UsersPanel() {
       )}
 
       {isAdmin && <JoinLinkCard />}
+      {isAdmin && <DemoDataCard />}
 
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent title="Hromadný import zaměstnanců" className="max-w-3xl">
-          <ImportEmployeesPanel />
+        <DialogContent title="Import z mzdového systému a tabulek" className="max-w-3xl">
+          <Tabs defaultValue="employees">
+            <TabsList className="mb-4">
+              <TabsTrigger value="employees">Noví zaměstnanci</TabsTrigger>
+              <TabsTrigger value="balances">Zůstatky dovolené</TabsTrigger>
+            </TabsList>
+            <TabsContent value="employees">
+              <ImportEmployeesPanel />
+            </TabsContent>
+            <TabsContent value="balances">
+              <ImportBalancesPanel />
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

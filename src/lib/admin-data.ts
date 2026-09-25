@@ -501,3 +501,20 @@ export async function claimInvite(): Promise<string | null> {
   if (error) throw error;
   return data as string | null;
 }
+
+export interface BalanceImportRow {
+  profile_id: string;
+  vacation_total?: number | null;
+  vacation_used?: number | null;
+  carryover?: number | null;
+  sick_total?: number | null;
+  sick_used?: number | null;
+}
+
+/** Hromadné nastavení zůstatků existujících zaměstnanců (jedna transakce, viz import_balances v schema.sql). */
+export async function importBalances(companyId: string, rows: BalanceImportRow[]): Promise<number> {
+  if (rows.length === 0) return 0;
+  const { data, error } = await supabase.rpc("import_balances", { target_company_id: companyId, rows });
+  if (error) throw error;
+  return data as number;
+}

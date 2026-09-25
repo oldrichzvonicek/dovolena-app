@@ -26,6 +26,8 @@ export function renderHtml(subject: string, body: string): string {
 export async function sendEmail(to: string, subject: string, body: string, html?: string): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, skipped: true };
+  // Ukázkové účty mají adresy v doméně .invalid — nikdy se na ně nic neposílá.
+  if (to.toLowerCase().endsWith(".invalid")) return { ok: false, skipped: true };
   const from = process.env.EMAIL_FROM ?? "Dodio <onboarding@resend.dev>";
   try {
     const res = await fetch("https://api.resend.com/emails", {

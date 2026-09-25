@@ -385,6 +385,18 @@ export const faqs: HelpFaq[] = [
     roles: ["admin"],
   },
   {
+    q: "Jak převedu zůstatky dovolené z Excelu?",
+    section: "Nastavení firmy (admin)",
+    a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a přepněte na záložku „Zůstatky dovolené“. Nahrajte tabulku s nárokem, vyčerpanými nebo zbývajícími dny a případným převodem z minulého roku. Lidé se přiřadí ke stávajícím zaměstnancům podle e-mailu, jinak podle jména. V náhledu uvidíte, co se změní; nic se nezapíše, dokud nepotvrdíte. Převod z loňska se uloží jako zbytek loňského nároku, takže pro něj platí pravidla propadnutí z Nastavení. Pokud už jste v Dodiu zadali nějaké absence, nechte zapnuté „Odečíst absence, které už jsou v Dodiu“, aby se dny nepočítaly dvakrát.",
+    roles: ["admin"],
+  },
+  {
+    q: "Můžu si Dodio vyzkoušet na ukázkových datech?",
+    section: "Nastavení firmy (admin)",
+    a: "Ano. V Nastavení firmy → Uživatelé klikněte na „Přidat ukázková data“. Vzniknou tři fiktivní oddělení, 14 fiktivních lidí a jejich absence (dovolená, home office, lékař, nemoc, čekající žádosti i kapacitní kolize), takže si prohlédnete kalendář, Analytiku i schvalování. Ukázkoví lidé se nemohou přihlásit, nedostávají e-maily a nepočítají se do limitu tarifu. Až si aplikaci prohlédnete, klikněte na „Odstranit ukázková data“ a zmizí i se svými absencemi.",
+    roles: ["admin"],
+  },
+  {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
     a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",

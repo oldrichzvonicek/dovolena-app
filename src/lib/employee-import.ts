@@ -19,6 +19,7 @@ export type FieldKey =
   | "vacationTotal"
   | "vacationRemaining"
   | "vacationUsed"
+  | "carryover"
   | "sickTotal"
   | "sickRemaining";
 
@@ -35,6 +36,7 @@ export const FIELD_LABELS: Record<FieldKey, string> = {
   vacationTotal: "Dovolená – nárok celkem",
   vacationRemaining: "Dovolená – zbývá",
   vacationUsed: "Dovolená – vyčerpáno",
+  carryover: "Dovolená – převod z minulého roku",
   sickTotal: "Sick days – celkem",
   sickRemaining: "Sick days – zbývá",
 };
@@ -52,6 +54,7 @@ export const FIELD_ORDER: FieldKey[] = [
   "vacationTotal",
   "vacationRemaining",
   "vacationUsed",
+  "carryover",
   "sickTotal",
   "sickRemaining",
 ];
@@ -137,11 +140,17 @@ function scoreHeader(field: FieldKey, h: string): number {
     case "personalNumber":
       return has(/(osobni cislo|os cislo|cislo zamestnance|evidencni cislo|personal number|employee id|id zamestnance)/) ? 8 : 0;
     case "vacationTotal":
-      return has(/dovolen/) && has(/(celk|narok|rocni)/) && !has(/(zbyv|zustat|cerp)/) ? 9 : 0;
+      if (has(/dovolen/) && has(/(celk|narok|rocni)/) && !has(/(zbyv|zustat|cerp)/)) return 9;
+      // Holá hlavička bez slova „dovolená“ (v tabulce jen se zůstatky dovolené je z kontextu jasné, o co jde).
+      return has(/^(narok|narok dni|rocni narok|celkovy narok|celkem dni)$/) ? 7 : 0;
     case "vacationRemaining":
-      return has(/dovolen/) && has(/(zbyv|zustat)/) ? 9 : 0;
+      if (has(/dovolen/) && has(/(zbyv|zustat)/)) return 9;
+      return has(/^(zbyva|zbyva dni|zbyvajici|zbyvajici dny|zbytek|zustatek|zustatek dni)$/) ? 7 : 0;
     case "vacationUsed":
-      return has(/dovolen/) && has(/cerp/) ? 9 : 0;
+      if (has(/dovolen/) && has(/cerp/)) return 9;
+      return has(/^(vycerpano|vycerpano dni|cerpano|cerpani|vycerpane dny|cerpane dny)$/) ? 7 : 0;
+    case "carryover":
+      return has(/(prevod|preneseno|preneseny|z minuleho roku|zbytek z minul|carry)/) ? 10 : 0;
     case "sickTotal":
       return has(/(sick|nemoc|marodk)/) && has(/(celk|narok|rocni)/) && !has(/(zbyv|zustat)/) ? 9 : 0;
     case "sickRemaining":
@@ -298,6 +307,7 @@ export interface ImportRow {
   personalNumber: string;
   vacationTotal: number;
   vacationUsed: number;
+  carryover: number | null;
   sickTotal: number;
   sickUsed: number;
   issues: Issue[];
@@ -379,6 +389,7 @@ export function buildRows(table: string[][], headerRow: number, mapping: Mapping
       personalNumber: get("personalNumber"),
       vacationTotal: vac.total,
       vacationUsed: vac.used,
+      carryover: parseNumber(get("carryover")),
       sickTotal: sick.total,
       sickUsed: sick.used,
       issues,
@@ -398,4 +409,73 @@ export function isImportable(row: ImportRow, skipEnded: boolean): boolean {
   if (row.issues.some((i) => blocking.includes(i))) return false;
   if (skipEnded && row.issues.includes("ended")) return false;
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Import zůstatků existujících zaměstnanců (přechod z Excelu)
+// ---------------------------------------------------------------------------
+
+export interface BalanceRow {
+  /** Pořadí řádku v souboru. */
+  index: number;
+  name: string;
+  email: string;
+  vacationTotal: number | null;
+  vacationRemaining: number | null;
+  vacationUsed: number | null;
+  carryover: number | null;
+  sickTotal: number | null;
+  sickRemaining: number | null;
+}
+
+export function buildBalanceRows(table: string[][], headerRow: number, mapping: Mapping, nameOrder: "auto" | "first-last" | "last-first"): BalanceRow[] {
+  const headerNorm = (table[headerRow] ?? []).map(normalizeHeader);
+  const nameHeader = mapping.name !== undefined ? headerNorm[mapping.name] ?? "" : "";
+  const lastFirst = nameOrder === "last-first" || (nameOrder === "auto" && /^prijmeni/.test(nameHeader));
+  const rows: BalanceRow[] = [];
+  table.slice(headerRow + 1).forEach((cells, i) => {
+    if (cells.every((c) => c.trim() === "")) return;
+    const get = (f: FieldKey) => (mapping[f] !== undefined ? (cells[mapping[f]!] ?? "").trim() : "");
+    let name: string;
+    if (mapping.firstName !== undefined || mapping.lastName !== undefined) name = stripTitles((get("firstName") + " " + get("lastName")).trim());
+    else {
+      name = stripTitles(get("name"));
+      if (lastFirst) name = swapLastFirst(name);
+    }
+    rows.push({
+      index: i,
+      name: name.replace(/\s+/g, " ").trim(),
+      email: cleanEmail(get("email")),
+      vacationTotal: parseNumber(get("vacationTotal")),
+      vacationRemaining: parseNumber(get("vacationRemaining")),
+      vacationUsed: parseNumber(get("vacationUsed")),
+      carryover: parseNumber(get("carryover")),
+      sickTotal: parseNumber(get("sickTotal")),
+      sickRemaining: parseNumber(get("sickRemaining")),
+    });
+  });
+  return rows;
+}
+
+export interface PersonRef {
+  id: string;
+  name: string;
+  email: string | null;
+}
+
+export type MatchKind = "email" | "name" | "none" | "ambiguous";
+
+const nameKey = (n: string) => normalizeHeader(stripTitles(n)).split(" ").filter(Boolean).sort().join(" ");
+
+/** Přiřazení řádku ze souboru ke stávajícímu zaměstnanci: nejdřív podle e-mailu, jinak podle jména (na pořadí jména a diakritice nezáleží). */
+export function matchPerson(row: { name: string; email: string }, people: PersonRef[]): { kind: MatchKind; person?: PersonRef } {
+  if (row.email) {
+    const hit = people.find((p) => (p.email ?? "").toLowerCase() === row.email);
+    if (hit) return { kind: "email", person: hit };
+  }
+  const key = nameKey(row.name);
+  if (!key) return { kind: "none" };
+  const hits = people.filter((p) => nameKey(p.name) === key);
+  if (hits.length === 1) return { kind: "name", person: hits[0] };
+  return { kind: hits.length > 1 ? "ambiguous" : "none" };
 }
