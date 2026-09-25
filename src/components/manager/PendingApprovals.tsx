@@ -6,7 +6,7 @@ import { cs } from "date-fns/locale";
 import { AlertTriangle, Calendar, Check, Paperclip, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { approveLeaveRequest, leaveAttachmentUrl, rejectLeaveRequest } from "@/lib/data";
+import { approveLeaveRequest, fetchMaskedAbsences, leaveAttachmentUrl, rejectLeaveRequest } from "@/lib/data";
 import { LeaveBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -16,8 +16,9 @@ import { LeaveColor } from "@/lib/supabase/types";
 import { cn, formatNumber } from "@/lib/utils";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
-import { reducesPresence } from "@/lib/leave-kinds";
+import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
 import { computeApprovalWarnings, fetchMyDepartmentIds, hasOtherApprover } from "@/lib/approval-checks";
+import { LoadingCard } from "@/components/ui/skeleton";
 
 interface PendingRow {
   id: string;
@@ -84,20 +85,36 @@ export function PendingApprovals() {
     });
     setPending(rows);
 
-    // For each pending request, check if anyone else already has approved leave overlapping it.
+    // Conflict = colleagues from the SAME department who already have approved leave overlapping the request
+    // (home office doesn't count). Same rule as the capacity warning and the calendar preview below.
     const conflictMap: Record<string, string> = {};
+    // Private absences (sick leave) of people this approver doesn't supervise arrive without a type.
+    const hiddenAll = (await fetchMaskedAbsences()).filter((m) => m.status === "approved");
+    const { data: coProfiles } = hiddenAll.length
+      ? await supabase.from("profiles").select("id, name, department_id").eq("company_id", profile.company_id)
+      : { data: [] as { id: string; name: string; department_id: string | null }[] };
+    const coById = new Map((coProfiles ?? []).map((p) => [p.id, p]));
     for (const r of rows) {
-      if (!reducesPresence(r.leave_type.key)) continue;
+      if (!reducesPresence(r.leave_type.key) || !r.profile.department_id) continue;
       const { data: overlap } = await supabase
         .from("leave_requests")
-        .select("leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(name)")
+        .select("leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(name, department_id)")
         .eq("status", "approved")
         .neq("profile_id", r.profile.id)
         .lte("start_date", r.end_date)
-        .gte("end_date", r.start_date)
-        ;
-      const name = (overlap as unknown as { leave_type: { key: string } | null; profile: { name: string } | null }[])?.find((o) => reducesPresence(o.leave_type?.key))?.profile?.name;
-      if (name) conflictMap[r.id] = name;
+        .gte("end_date", r.start_date);
+      const hiddenNames = hiddenAll
+        .filter((m) => m.profile_id !== r.profile.id && m.start_date <= r.end_date && m.end_date >= r.start_date && coById.get(m.profile_id)?.department_id === r.profile.department_id)
+        .map((m) => coById.get(m.profile_id)!.name);
+      const names = Array.from(
+        new Set([
+          ...((overlap as unknown as { leave_type: { key: string } | null; profile: { name: string; department_id: string | null } | null }[]) ?? [])
+            .filter((o) => reducesPresence(o.leave_type?.key) && o.profile?.department_id === r.profile.department_id)
+            .map((o) => o.profile!.name),
+          ...hiddenNames,
+        ])
+      );
+      if (names.length > 0) conflictMap[r.id] = names.length > 1 ? `${names[0]} a dalších ${names.length - 1}` : names[0];
     }
     setConflicts(conflictMap);
 
@@ -195,7 +212,7 @@ export function PendingApprovals() {
   }
 
   if (loading) {
-    return <div className="card p-8 text-center text-sm text-muted">Načítám…</div>;
+    return <LoadingCard rows={5} />;
   }
 
   if (pending.length === 0) {
@@ -356,18 +373,28 @@ function OverlapPreview({ request }: { request: PendingRow }) {
       setRows([]);
       return;
     }
-    createClient()
-      .from("leave_requests")
-      .select("id, start_date, end_date, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id)")
-      .eq("status", "approved")
-      .lte("start_date", isos[isos.length - 1])
-      .gte("end_date", isos[0])
-      .then(({ data }) => {
+    const sb = createClient();
+    Promise.all([
+      sb
+        .from("leave_requests")
+        .select("id, start_date, end_date, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id)")
+        .eq("status", "approved")
+        .lte("start_date", isos[isos.length - 1])
+        .gte("end_date", isos[0]),
+      fetchMaskedAbsences(isos[0], isos[isos.length - 1]),
+    ]).then(async ([{ data }, masked]) => {
+        const hiddenIds = Array.from(new Set(masked.filter((m) => m.status === "approved").map((m) => m.profile_id)));
+        const { data: hp } = hiddenIds.length ? await sb.from("profiles").select("id, name, department_id").in("id", hiddenIds) : { data: [] as { id: string; name: string; department_id: string | null }[] };
+        const hpById = new Map((hp ?? []).map((p) => [p.id, p]));
+        const hiddenRows = masked
+          .filter((m) => m.status === "approved" && hpById.get(m.profile_id)?.department_id === request.profile.department_id && m.profile_id !== request.profile.id)
+          .map((m) => ({ id: m.id, name: hpById.get(m.profile_id)!.name, start_date: m.start_date, end_date: m.end_date, color: ABSENT_TYPE.color as LeaveColor, label: ABSENT_TYPE.label }));
         type R = { id: string; start_date: string; end_date: string; leave_type: { key: string; label: string; color: LeaveColor } | null; profile: { id: string; name: string; department_id: string | null } | null };
         setRows(
           ((data as unknown as R[]) ?? [])
             .filter((r) => r.profile?.department_id === request.profile.department_id && r.profile.id !== request.profile.id && r.leave_type && reducesPresence(r.leave_type.key))
             .map((r) => ({ id: r.id, name: r.profile!.name, start_date: r.start_date, end_date: r.end_date, color: r.leave_type!.color, label: r.leave_type!.label }))
+            .concat(hiddenRows)
         );
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps

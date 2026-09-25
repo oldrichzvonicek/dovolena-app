@@ -18,6 +18,7 @@ import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { cancelLeaveRequest, requestLeaveCancellation } from "@/lib/data";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { LeaveColor, RequestStatus } from "@/lib/supabase/types";
+import { LoadingLines } from "@/components/ui/skeleton";
 
 interface Row {
   id: string;
@@ -302,7 +303,7 @@ export default function RequestsPage() {
         )}
         {actionError && <p className="mb-3 rounded bg-danger-light px-3 py-2 text-sm text-danger">{actionError}</p>}
 
-        {loading && <p className="text-sm text-muted">Načítám…</p>}
+        {loading && <LoadingLines rows={4} />}
         {!loading && rows.length === 0 && <div className="card p-8 text-center text-sm text-muted">Zatím jste nepodal žádnou žádost.</div>}
         {!loading && rows.length > 0 && filteredRows.length === 0 && (
           <div className="card p-8 text-center text-sm text-muted">Žádné žádosti pro zvolený filtr.</div>

@@ -66,6 +66,7 @@ export function BookForEmployeeModal({
       .from("leave_types")
       .select("*")
       .eq("company_id", profile.company_id)
+      .order("sort_order", { ascending: true })
       .then(({ data }) => {
         const rows = (data as DbLeaveType[]) ?? [];
         setLeaveTypes(rows);

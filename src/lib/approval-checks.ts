@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchCompany } from "@/lib/admin-data";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { reducesPresence } from "@/lib/leave-kinds";
+import { fetchMaskedAbsences } from "@/lib/data";
 
 export interface ApprovalCheckRow {
   id: string;
@@ -46,7 +47,11 @@ export async function computeApprovalWarnings(companyId: string, rows: ApprovalC
   for (const p of (allProfiles as unknown as { id: string; department_id: string | null }[]) ?? []) {
     if (p.department_id) sizes.set(p.department_id, (sizes.get(p.department_id) ?? 0) + 1);
   }
-  const approved = ((deptApproved as unknown as DeptReq[]) ?? []).filter((a) => reducesPresence(a.leave_type?.key));
+  const profileDept = new Map(((allProfiles as unknown as { id: string; department_id: string | null }[]) ?? []).map((p) => [p.id, p.department_id]));
+  const hiddenApproved: DeptReq[] = (await fetchMaskedAbsences())
+    .filter((m) => m.status === "approved")
+    .map((m) => ({ profile_id: m.profile_id, start_date: m.start_date, end_date: m.end_date, leave_type: { key: "absent" }, profile: { department_id: profileDept.get(m.profile_id) ?? null } }));
+  const approved = [...((deptApproved as unknown as DeptReq[]) ?? []), ...hiddenApproved].filter((a) => reducesPresence(a.leave_type?.key));
 
   const capacity: ApprovalWarnings["capacity"] = {};
   for (const r of rows) {

@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   let escalated = 0;
   let digests = 0;
 
-  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent");
+  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last");
 
   for (const company of companies ?? []) {
     const [{ data: profiles }, { data: depts }, { data: pending }, { data: away }] = await Promise.all([
@@ -86,18 +86,39 @@ export async function GET(req: Request) {
       escalated++;
     }
 
+    // 1b) chat digest "who is out today" (Mon–Fri, once per company per day, only if a webhook subscribes)
+    const weekday = now.getUTCDay();
+    if (weekday >= 1 && weekday <= 5 && company.integration_digest_last !== today) {
+      const { data: hooks } = await supabase.from("webhook_integrations").select("events").eq("company_id", company.id).eq("active", true);
+      if ((hooks ?? []).some((h) => (h.events as string[]).includes("daily_digest"))) {
+        const { data: outToday } = await supabase
+          .from("leave_requests")
+          .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(name, company_id), leave_type:leave_types(label, key, hide_from_colleagues)")
+          .eq("status", "approved")
+          .lte("start_date", today)
+          .gte("end_date", today);
+        type O = { profile: { name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean } | null };
+        const list = ((outToday as unknown as O[]) ?? []).filter((o) => o.profile?.company_id === company.id && reducesPresence(o.leave_type?.key));
+        const text = list.length
+          ? `🌴 Dnes chybí (${list.length}): ${list.map((o) => `${o.profile!.name} (${o.leave_type?.hide_from_colleagues ? "nepřítomen" : o.leave_type?.label})`).join(", ")}`
+          : "✅ Dnes je celý tým přítomen.";
+        await supabase.from("integration_outbox").insert({ company_id: company.id, event: "daily_digest", text });
+        await supabase.from("companies").update({ integration_digest_last: today }).eq("id", company.id);
+      }
+    }
+
     // 2) Monday digest (once per company per day)
     if (now.getUTCDay() === 1 && company.digest_last_sent !== today) {
       const weekEnd = iso(addDays(now, 6));
       const { data: week } = await supabase
         .from("leave_requests")
-        .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(id, name, company_id), leave_type:leave_types(label, key)")
+        .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(id, name, company_id), leave_type:leave_types(label, key, hide_from_colleagues)")
         .eq("status", "approved")
         .lte("start_date", weekEnd)
         .gte("end_date", today);
-      type W = { start_date: string; end_date: string; profile: { id: string; name: string; company_id: string } | null; leave_type: { label: string; key: string } | null };
+      type W = { start_date: string; end_date: string; profile: { id: string; name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean } | null };
       const weekRows = ((week as unknown as W[]) ?? []).filter((w) => w.profile?.company_id === company.id);
-      const lines = weekRows.slice(0, 12).map((w) => `• ${w.profile!.name} — ${w.leave_type?.label} (${w.start_date} – ${w.end_date})`);
+      const lines = weekRows.slice(0, 12).map((w) => `• ${w.profile!.name} — ${w.leave_type?.hide_from_colleagues ? "Nepřítomen" : w.leave_type?.label} (${w.start_date} – ${w.end_date})`);
       const pendingCount = ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id).length;
 
       const rows = people

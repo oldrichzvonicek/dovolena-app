@@ -1,37 +1,95 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Building2, Download, FileArchive, Image as ImageIcon, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Banknote, Building2, Check, CreditCard, Download, FileArchive, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { deleteCompanyLogo, fetchCompany, fetchCompanyInvoices, invoiceFileUrl, updateCompany, uploadCompanyLogo } from "@/lib/admin-data";
+import { fetchCompany, fetchCompanyInvoices, invoiceFileUrl, updateCompany } from "@/lib/admin-data";
 import { Button } from "@/components/ui/button";
+import { PlanCard } from "@/components/admin/PlanCard";
+import { planByKey } from "@/lib/plans";
 import { DbCompany, DbCompanyInvoice } from "@/lib/supabase/types";
-import { errorMessage } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
+import { LoadingCard, LoadingLines } from "@/components/ui/skeleton";
+
+interface Draft {
+  billing_name: string;
+  billing_ico: string;
+  billing_dic: string;
+  billing_street: string;
+  billing_city: string;
+  billing_zip: string;
+  billing_email: string;
+}
+
+const toDraft = (c: DbCompany): Draft => ({
+  billing_name: c.billing_name ?? "",
+  billing_ico: c.billing_ico ?? "",
+  billing_dic: c.billing_dic ?? "",
+  billing_street: c.billing_street ?? "",
+  billing_city: c.billing_city ?? "",
+  billing_zip: c.billing_zip ?? "",
+  billing_email: c.billing_email ?? "",
+});
 
 export function BillingPanel() {
   const { profile } = useAuth();
   const [company, setCompany] = useState<DbCompany | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [loading, setLoading] = useState(true);
   const [icoLookup, setIcoLookup] = useState("");
   const [aresLoading, setAresLoading] = useState(false);
   const [aresError, setAresError] = useState<string | null>(null);
-  const [logoUploading, setLogoUploading] = useState(false);
-  const [logoError, setLogoError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ text: string; error: boolean } | null>(null);
 
   useEffect(() => {
     if (!profile) return;
     fetchCompany(profile.company_id).then((c) => {
       setCompany(c);
+      setDraft(toDraft(c));
       setIcoLookup(c.billing_ico ?? "");
       setLoading(false);
     });
   }, [profile]);
 
-  async function patch(fields: Partial<DbCompany>) {
+  const dirty = !!company && !!draft && JSON.stringify(draft) !== JSON.stringify(toDraft(company));
+
+  // Explicit-save form: warn before the browser tab is closed with unsaved changes.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  function setField(key: keyof Draft, value: string) {
+    setSaveMsg(null);
+    setDraft((d) => (d ? { ...d, [key]: value } : d));
+  }
+
+  async function saveBilling() {
+    if (!profile || !company || !draft) return;
+    setSaving(true);
+    setSaveMsg(null);
+    const fields = Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, v.trim() || null])) as Partial<DbCompany>;
+    try {
+      await updateCompany(profile.company_id, fields);
+      setCompany({ ...company, ...fields });
+      setSaveMsg({ text: "Fakturační údaje uloženy.", error: false });
+    } catch (e) {
+      setSaveMsg({ text: `Uložení se nezdařilo: ${errorMessage(e)}`, error: true });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setPaymentMethod(method: "invoice" | "card") {
     if (!profile || !company) return;
-    setCompany({ ...company, ...fields });
-    await updateCompany(profile.company_id, fields);
+    setCompany({ ...company, payment_method: method });
+    await updateCompany(profile.company_id, { payment_method: method });
   }
 
   async function handleAresLookup() {
@@ -46,14 +104,17 @@ export function BillingPanel() {
       const res = await fetch(`/api/ares/${ico}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Vyhledání v ARES se nezdařilo.");
-      await patch({
-        billing_name: data.name,
-        billing_ico: data.ico,
-        billing_dic: data.dic || null,
-        billing_street: data.street || null,
-        billing_city: data.city || null,
-        billing_zip: data.zip || null,
-      });
+      setSaveMsg(null);
+      // Fills the form only — nothing is stored until "Uložit fakturační údaje".
+      setDraft((d) => ({
+        ...(d as Draft),
+        billing_name: data.name ?? "",
+        billing_ico: data.ico ?? ico,
+        billing_dic: data.dic ?? "",
+        billing_street: data.street ?? "",
+        billing_city: data.city ?? "",
+        billing_zip: data.zip ?? "",
+      }));
     } catch (e) {
       setAresError(errorMessage(e));
     } finally {
@@ -61,38 +122,19 @@ export function BillingPanel() {
     }
   }
 
-  async function handleLogoChange(file: File) {
-    if (!profile) return;
-    setLogoError(null);
-    setLogoUploading(true);
-    try {
-      const url = await uploadCompanyLogo(profile.company_id, file);
-      setCompany((c) => (c ? { ...c, logo_url: url } : c));
-    } catch (e) {
-      setLogoError(errorMessage(e));
-    } finally {
-      setLogoUploading(false);
-    }
-  }
+  if (loading || !company || !draft) return <LoadingCard rows={6} />;
 
-  async function handleLogoDelete() {
-    if (!profile) return;
-    setLogoError(null);
-    setLogoUploading(true);
-    try {
-      await deleteCompanyLogo(profile.company_id);
-      setCompany((c) => (c ? { ...c, logo_url: null } : c));
-    } catch (e) {
-      setLogoError(errorMessage(e));
-    } finally {
-      setLogoUploading(false);
-    }
-  }
-
-  if (loading || !company) return <div className="card p-8 text-center text-sm text-muted">Načítám…</div>;
+  const field = (label: string, key: keyof Draft, span2 = false, type = "text") => (
+    <div className={span2 ? "sm:col-span-2" : ""}>
+      <label className="mb-1.5 block text-sm font-medium">{label}</label>
+      <input type={type} value={draft[key]} onChange={(e) => setField(key, e.target.value)} className="w-full rounded border border-line px-3 py-2 text-sm" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
+      <PlanCard planKey={company.plan} />
+
       <div className="card p-5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-light text-sky-dark">
@@ -108,7 +150,7 @@ export function BillingPanel() {
               value={icoLookup}
               onChange={(e) => setIcoLookup(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAresLookup()}
-              placeholder="25596641" aria-label="25596641"
+              placeholder="25596641" aria-label="IČO pro načtení z ARES"
               className="w-40 rounded border border-line px-3 py-2 text-sm"
             />
           </div>
@@ -118,104 +160,58 @@ export function BillingPanel() {
           {aresError && <p className="text-sm text-danger">{aresError}</p>}
         </div>
 
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="col-span-2">
-            <label className="mb-1.5 block text-sm font-medium">Obchodní název</label>
-            <input
-              defaultValue={company.billing_name ?? ""}
-              onBlur={(e) => patch({ billing_name: e.target.value || null })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-              key={`name-${company.billing_name}`}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">IČO</label>
-            <input
-              defaultValue={company.billing_ico ?? ""}
-              onBlur={(e) => patch({ billing_ico: e.target.value || null })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-              key={`ico-${company.billing_ico}`}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">DIČ</label>
-            <input
-              defaultValue={company.billing_dic ?? ""}
-              onBlur={(e) => patch({ billing_dic: e.target.value || null })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-              key={`dic-${company.billing_dic}`}
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="mb-1.5 block text-sm font-medium">Ulice a číslo</label>
-            <input
-              defaultValue={company.billing_street ?? ""}
-              onBlur={(e) => patch({ billing_street: e.target.value || null })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-              key={`street-${company.billing_street}`}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Město</label>
-            <input
-              defaultValue={company.billing_city ?? ""}
-              onBlur={(e) => patch({ billing_city: e.target.value || null })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-              key={`city-${company.billing_city}`}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">PSČ</label>
-            <input
-              defaultValue={company.billing_zip ?? ""}
-              onBlur={(e) => patch({ billing_zip: e.target.value || null })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-              key={`zip-${company.billing_zip}`}
-            />
-          </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {field("Obchodní název", "billing_name", true)}
+          {field("IČO", "billing_ico")}
+          {field("DIČ", "billing_dic")}
+          {field("Ulice a číslo", "billing_street", true)}
+          {field("Město", "billing_city")}
+          {field("PSČ", "billing_zip")}
+          {field("E-mail pro faktury", "billing_email", true, "email")}
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+          <Button onClick={saveBilling} disabled={!dirty || saving}>
+            {saving ? "Ukládám…" : "Uložit fakturační údaje"}
+          </Button>
+          {dirty && !saving && <span className="text-sm text-warning-dark">Máte neuložené změny.</span>}
+          {saveMsg && (
+            <span className={cn("flex items-center gap-1.5 text-sm", saveMsg.error ? "text-danger-dark" : "text-teal-dark")}>
+              {!saveMsg.error && <Check size={14} />} {saveMsg.text}
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="card p-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plum-light text-plum-dark">
-            <ImageIcon size={15} />
-          </div>
-          <h2 className="font-display text-h2">Logo firmy</h2>
-        </div>
-        <p className="mt-1 text-sm text-muted">Zobrazí se v hlavičce administrace.</p>
-
-        <div className="mt-4 flex items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-line bg-paper">
-            {company.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={company.logo_url} alt="Logo firmy" className="h-full w-full object-contain" />
-            ) : (
-              <ImageIcon size={20} className="text-muted" />
-            )}
-          </div>
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/svg+xml,image/webp"
-              className="hidden"
-              onChange={(e) => e.target.files?.[0] && handleLogoChange(e.target.files[0])}
-            />
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={logoUploading}>
-                {logoUploading ? "Pracuji…" : company.logo_url ? "Nahradit logo" : "Nahrát logo"}
-              </Button>
-              {company.logo_url && (
-                <Button variant="ghost" onClick={handleLogoDelete} disabled={logoUploading}>
-                  Smazat
-                </Button>
-              )}
+      {planByKey(company.plan).key !== "free" && (
+        <div className="card p-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-moss-light text-moss-dark">
+              <CreditCard size={15} />
             </div>
-            {logoError && <p className="mt-1.5 text-sm text-danger">{logoError}</p>}
+            <h2 className="font-display text-h2">Platební metoda</h2>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => setPaymentMethod("invoice")}
+              className={cn("flex items-start gap-3 rounded border p-4 text-left", (company.payment_method ?? "invoice") === "invoice" ? "border-teal ring-1 ring-teal" : "border-line hover:bg-paper")}
+            >
+              <Banknote size={18} className="mt-0.5 shrink-0 text-teal-dark" />
+              <span>
+                <span className="block text-sm font-medium">Faktura / bankovní převod</span>
+                <span className="block text-xs text-muted">Fakturu posíláme na e-mail pro faktury, splatnost podle smlouvy.</span>
+              </span>
+            </button>
+            <div className="flex items-start gap-3 rounded border border-dashed border-line p-4 opacity-70" aria-disabled="true">
+              <CreditCard size={18} className="mt-0.5 shrink-0 text-muted" />
+              <span>
+                <span className="block text-sm font-medium">Platební karta</span>
+                <span className="block text-xs text-muted">Uložení a správa karty (Stripe) připravujeme — zatím není dostupné.</span>
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <InvoiceArchiveSection companyId={company.id} />
     </div>
@@ -250,7 +246,7 @@ function InvoiceArchiveSection({ companyId }: { companyId: string }) {
       <p className="mt-1 text-sm text-muted">Faktury, které vám Dodio vystavilo za používání služby.</p>
 
       {loading ? (
-        <p className="mt-4 text-sm text-muted">Načítám…</p>
+        <div className="mt-4"><LoadingLines rows={2} /></div>
       ) : invoices.length === 0 ? (
         <p className="mt-4 text-sm text-muted">Zatím žádné faktury.</p>
       ) : (

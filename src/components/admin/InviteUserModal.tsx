@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { Link2, UserPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,19 @@ const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Ma
 
 /** Targeted invite for one specific email — role/department/manager set up front, unlike
  * the generic company-wide link, which anyone who gets forwarded it can use to join. */
-export function InviteUserModal({ onInvited }: { onInvited?: () => void }) {
+const EMAIL_RE = /^[^s@,;]+@[^s@,;]+.[^s@,;]+$/;
+
+/** "jana.novakova@firma.cz" -> "Jana Novakova" — used when several addresses are pasted at once. */
+function nameFromEmail(email: string) {
+  return email
+    .split("@")[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
+}
+
+export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => void; onCopyLink?: () => void }) {
   const { profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
@@ -52,16 +64,21 @@ export function InviteUserModal({ onInvited }: { onInvited?: () => void }) {
     setError(null);
   }
 
+  const emails = Array.from(new Set(email.split(/[s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
+  const invalid = emails.filter((e) => !EMAIL_RE.test(e));
+  const canSubmit = emails.length > 0 && invalid.length === 0;
+
   async function handleSubmit() {
-    if (!profile || !email.trim() || !name.trim()) return;
+    if (!profile || !canSubmit) return;
     setSubmitting(true);
     setError(null);
     try {
       const dept = departments.find((d) => d.id === departmentId);
-      await importEmployees(profile.company_id, [
-        {
-          email: email.trim(),
-          name: name.trim(),
+      await importEmployees(
+        profile.company_id,
+        emails.map((em) => ({
+          email: em,
+          name: (emails.length === 1 && name.trim()) || nameFromEmail(em),
           department_name: dept?.name ?? null,
           manager_id: managerId === "none" ? null : managerId,
           manager_invite_email: null,
@@ -70,8 +87,8 @@ export function InviteUserModal({ onInvited }: { onInvited?: () => void }) {
           sick_total: defaultSick,
           sick_opening_used: 0,
           role,
-        },
-      ]);
+        }))
+      );
       setOpen(false);
       reset();
       onInvited?.();
@@ -98,29 +115,38 @@ export function InviteUserModal({ onInvited }: { onInvited?: () => void }) {
       <DialogContent title="Pozvat uživatele">
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            Pozvánka je vázaná na tento e-mail — použít ji může jen ten, kdo se zaregistruje se stejnou adresou.
+            Pozvánka je vázaná na e-mail — použít ji může jen ten, kdo se zaregistruje se stejnou adresou. Role, oddělení a nadřízený se nastaví všem pozvaným.
           </p>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium">E-mail</label>
-            <input
-              type="email"
+            <label className="mb-1.5 block text-sm font-medium">E-mailové adresy</label>
+            <textarea
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="jana@firma.cz" aria-label="jana@firma.cz"
+              rows={3}
+              placeholder="jana@firma.cz, petr@firma.cz"
+              aria-label="E-mailové adresy"
               className="w-full rounded border border-line px-3 py-2 text-sm"
             />
+            {invalid.length > 0 ? (
+              <p className="mt-1 text-xs text-danger">Neplatná adresa: {invalid.join(", ")}</p>
+            ) : (
+              <p className="mt-1 text-xs text-muted">Můžete vložit víc adres najednou — oddělte je čárkou, mezerou nebo novým řádkem.{emails.length > 1 && ` Pozvete ${emails.length} lidí.`}</p>
+            )}
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Jméno</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Jana Nováková" aria-label="Jana Nováková"
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-            />
-          </div>
+          {emails.length === 1 && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Jméno (volitelné)</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={nameFromEmail(emails[0])}
+                aria-label="Jméno"
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -175,13 +201,20 @@ export function InviteUserModal({ onInvited }: { onInvited?: () => void }) {
 
           {error && <p className="text-sm text-danger">{error}</p>}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Zrušit
-            </Button>
-            <Button variant="primary" onClick={handleSubmit} disabled={submitting || !email.trim() || !name.trim()}>
-              {submitting ? "Odesílám…" : "Odeslat pozvánku"}
-            </Button>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            {onCopyLink && (
+              <Button variant="secondary" onClick={onCopyLink}>
+                <Link2 size={14} /> Kopírovat registrační odkaz
+              </Button>
+            )}
+            <div className="ml-auto flex gap-2">
+              <Button variant="secondary" onClick={() => setOpen(false)}>
+                Zrušit
+              </Button>
+              <Button variant="primary" onClick={handleSubmit} disabled={submitting || !canSubmit}>
+                {submitting ? "Odesílám…" : emails.length > 1 ? `Pozvat (${emails.length})` : "Odeslat pozvánku"}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

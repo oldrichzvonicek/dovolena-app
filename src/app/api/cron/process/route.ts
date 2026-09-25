@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCron, sendEmail } from "@/lib/email";
+import { dispatchIntegrationEvents } from "@/lib/integration-dispatch";
 
 export const dynamic = "force-dynamic";
 
@@ -35,5 +36,6 @@ export async function GET(req: Request) {
       await supabase.from("email_outbox").update({ attempts: m.attempts + 1, error: r.error ?? "unknown" }).eq("id", m.id);
     }
   }
-  return NextResponse.json({ pending: pending?.length ?? 0, sent, failed, skipped, note: skipped > 0 ? "RESEND_API_KEY není nastaven — nic se neodeslalo" : undefined });
+  const integrations = await dispatchIntegrationEvents();
+  return NextResponse.json({ pending: pending?.length ?? 0, sent, failed, skipped, integrations, note: skipped > 0 ? "RESEND_API_KEY není nastaven — nic se neodeslalo" : undefined });
 }

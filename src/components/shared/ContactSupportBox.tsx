@@ -32,7 +32,7 @@ export function ContactSupportBox() {
   }
 
   return (
-    <div className="card p-5">
+    <div id="podpora" className="rounded-lg border border-teal/30 bg-teal-light/50 p-6">
       <h2 className="font-display text-h2">Nenašli jste odpověď?</h2>
       <p className="mt-0.5 text-xs text-muted">Napište na HR / podporu — zpráva přijde manažerům a adminům vaší firmy jako notifikace.</p>
       <textarea
@@ -44,8 +44,8 @@ export function ContactSupportBox() {
       />
       <div className="mt-2 flex items-center justify-between gap-3">
         <span className={cn("text-sm", result?.error ? "text-danger-dark" : "text-teal-dark")}>{result?.text}</span>
-        <Button onClick={send} disabled={sending || !message.trim()}>
-          <Send size={15} /> Odeslat
+        <Button onClick={send} disabled={sending || !message.trim()} className="px-6 py-3 text-base">
+          <Send size={16} /> Napsat na podporu
         </Button>
       </div>
     </div>

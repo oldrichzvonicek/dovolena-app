@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -24,9 +24,34 @@ const managerNav = [
 ];
 
 const adminNav = [
-  { href: "/admin/overview", label: "Přehled", icon: BarChart3 },
+  { href: "/admin/overview", label: "Analytika", icon: BarChart3 },
   { href: "/admin/exports", label: "Exporty", icon: Download },
-  { href: "/admin/settings", label: "Nastavení firmy", icon: Settings },
+];
+
+// Nastavení firmy — sekce přímo v hlavním menu (stránka /admin/settings?sekce=…).
+const settingsGroups = [
+  {
+    title: "Lidé & Organizace",
+    items: [
+      { key: "users", label: "Uživatelé", icon: Users2 },
+      { key: "departments", label: "Oddělení", icon: Building2 },
+    ],
+  },
+  {
+    title: "Pravidla & Absence",
+    items: [
+      { key: "leave-types", label: "Typy absencí", icon: Tags },
+      { key: "general", label: "Provoz & kalendář", icon: SlidersHorizontal },
+    ],
+  },
+  {
+    title: "Správa účtu",
+    items: [
+      { key: "billing", label: "Fakturace & tarify", icon: CreditCard },
+      { key: "integrations", label: "Integrace", icon: Plug },
+      { key: "audit", label: "Historie změn", icon: History },
+    ],
+  },
 ];
 
 function NavLink({
@@ -35,19 +60,24 @@ function NavLink({
   icon: Icon,
   badge,
   active,
+  tourId,
+  indent,
 }: {
   href: string;
   label: string;
   icon: React.ElementType;
   badge?: number;
   active: boolean;
+  tourId?: string;
+  indent?: boolean;
 }) {
   return (
     <Link
       href={href}
-      data-tour={`nav-${href.replace(/^\//, "").replace(/\//g, "-")}`}
+      data-tour={tourId ?? `nav-${href.replace(/^\//, "").replace(/\//g, "-")}`}
       className={cn(
-        "flex items-center justify-between rounded px-3 py-2 text-sm transition-colors",
+        "flex items-center justify-between rounded py-2 pr-3 text-sm transition-colors",
+        indent ? "pl-7" : "pl-3",
         active ? "bg-teal-light text-teal-dark font-medium" : "text-ink hover:bg-paper"
       )}
     >
@@ -66,10 +96,13 @@ function NavLink({
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const settingsSection = pathname === "/admin/settings" ? searchParams.get("sekce") ?? "users" : null;
   const { profile, signOut } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const isManager = profile?.role === "manager" || profile?.role === "admin";
   const isAdmin = profile?.role === "admin";
@@ -113,7 +146,7 @@ export function Sidebar() {
 
   const inner = (
     <>
-      <div className="flex items-center border-b border-line px-5 py-5">
+      <Link href="/dashboard" aria-label="Přejít na Nástěnku" className="flex items-center border-b border-line px-5 py-5 hover:bg-paper">
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="Logo firmy" className="h-9 max-w-full object-contain" />
@@ -123,7 +156,7 @@ export function Sidebar() {
             <div className="font-display text-base leading-tight">Dodio</div>
           </div>
         )}
-      </div>
+      </Link>
 
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
         <div className="space-y-1">
@@ -160,6 +193,35 @@ export function Sidebar() {
                 <NavLink key={item.href} {...item} active={pathname === item.href} />
               ))}
             </div>
+            <button
+              onClick={() => setSettingsOpen((v) => !v)}
+              aria-expanded={settingsOpen || settingsSection !== null}
+              aria-controls="sidebar-settings"
+              className="mt-1 flex w-full items-center justify-between rounded px-3 py-2 text-sm text-ink transition-colors hover:bg-paper"
+            >
+              <span className="flex items-center gap-2.5">
+                <Settings size={17} strokeWidth={2} />
+                Nastavení firmy
+              </span>
+              <ChevronDown size={15} className={cn("text-muted transition-transform", (settingsOpen || settingsSection !== null) && "rotate-180")} />
+            </button>
+            {(settingsOpen || settingsSection !== null) && (
+              <div id="sidebar-settings" className="mt-0.5 space-y-0.5">
+                {settingsGroups
+                  .flatMap((g) => g.items)
+                  .map((i) => (
+                    <NavLink
+                      key={i.key}
+                      href={`/admin/settings?sekce=${i.key}`}
+                      label={i.label}
+                      icon={i.icon}
+                      indent
+                      active={settingsSection === i.key}
+                      tourId={i.key === "users" ? "nav-admin-settings" : undefined}
+                    />
+                  ))}
+              </div>
+            )}
           </div>
         )}
       </nav>

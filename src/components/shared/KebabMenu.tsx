@@ -12,7 +12,7 @@ export interface KebabItem {
 }
 
 /** "•••" menu. The list is position:fixed so it isn't clipped by scrolling table wrappers. */
-export function KebabMenu({ items, label = "Další akce" }: { items: KebabItem[]; label?: string }) {
+export function KebabMenu({ items, label = "Další akce", icon, className }: { items: KebabItem[]; label?: string; icon?: React.ReactNode; className?: string }) {
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -55,9 +55,9 @@ export function KebabMenu({ items, label = "Další akce" }: { items: KebabItem[
           const r = btnRef.current!.getBoundingClientRect();
           setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
         }}
-        className="rounded border border-line p-1.5 text-muted hover:bg-paper hover:text-ink"
+        className={className ?? "rounded border border-line p-1.5 text-muted hover:bg-paper hover:text-ink"}
       >
-        <MoreHorizontal size={14} />
+        {icon ?? <MoreHorizontal size={14} />}
       </button>
       {pos && (
         <div

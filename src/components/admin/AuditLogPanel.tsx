@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { formatRange } from "@/lib/working-days";
+import { LoadingCard } from "@/components/ui/skeleton";
 
 interface Entry {
   id: string;
@@ -50,7 +51,7 @@ export function AuditLogPanel() {
   }, [profile]);
 
   if (failed) return <div className="card p-6 text-sm text-muted">Historie změn není k dispozici — spusťte aktuální schema.sql.</div>;
-  if (!entries) return <div className="card p-8 text-center text-sm text-muted">Načítám…</div>;
+  if (!entries) return <LoadingCard rows={6} />;
 
   const describe = (e: Entry) => {
     const d = e.details as Record<string, string | boolean | string[] | null>;

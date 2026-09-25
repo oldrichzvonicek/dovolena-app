@@ -346,6 +346,7 @@ export async function updateLeaveType(
     requires_attachment: boolean;
     allow_half_day: boolean;
     allow_hours: boolean;
+    hide_from_colleagues: boolean;
   }>
 ) {
   const { error } = await supabase.from("leave_types").update(payload).eq("id", id);
@@ -358,6 +359,13 @@ export async function deleteLeaveType(id: string) {
 }
 
 /** Swaps sort_order between two leave types (move up/down in Typy absencí and request pickers). */
+/** Persists a full manual ordering (drag & drop): sort_order = position in the given id list. */
+export async function setLeaveTypeOrder(ids: string[]) {
+  const results = await Promise.all(ids.map((id, i) => supabase.from("leave_types").update({ sort_order: i }).eq("id", id)));
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
+}
+
 export async function swapLeaveTypeOrder(a: { id: string; sort_order: number }, b: { id: string; sort_order: number }) {
   const [{ error: e1 }, { error: e2 }] = await Promise.all([
     supabase.from("leave_types").update({ sort_order: b.sort_order }).eq("id", a.id),

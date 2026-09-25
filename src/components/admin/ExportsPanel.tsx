@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchDepartments } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DbDepartment } from "@/lib/supabase/types";
+import { LoadingLines } from "@/components/ui/skeleton";
 
 const formats = [
   { key: "csv", label: "CSV pro Pohodu", icon: FileText, bookType: "csv" as const },
@@ -154,9 +155,9 @@ export function ExportsPanel() {
           <h2 className="font-display text-h2">Měsíční souhrn — náhled ({filteredRows.length})</h2>
         </div>
         {loading ? (
-          <div className="p-5 text-sm text-muted">Načítám…</div>
+          <div className="p-5"><LoadingLines rows={5} /></div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="table-cards w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-muted">
                 <th className="px-5 py-3 font-medium">Jméno</th>
@@ -169,11 +170,11 @@ export function ExportsPanel() {
             <tbody>
               {filteredRows.map((e) => (
                 <tr key={e.id} className="border-b border-line last:border-0">
-                  <td className="px-5 py-3 font-medium">{e.name}</td>
-                  <td className="px-5 py-3 text-muted">{e.departmentName}</td>
-                  <td className="px-5 py-3">{e.vacationUsed}</td>
-                  <td className="px-5 py-3">{e.sickUsed}</td>
-                  <td className="px-5 py-3">{e.homeOffice}</td>
+                  <td className="cell-title px-5 py-3 font-medium">{e.name}</td>
+                  <td className="px-5 py-3 text-muted" data-label="Oddělení">{e.departmentName}</td>
+                  <td className="px-5 py-3" data-label="Vyčerpaná dovolená">{e.vacationUsed}</td>
+                  <td className="px-5 py-3" data-label="Sick Days">{e.sickUsed}</td>
+                  <td className="px-5 py-3" data-label="Home Office">{e.homeOffice}</td>
                 </tr>
               ))}
             </tbody>

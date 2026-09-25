@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { reducesPresence } from "@/lib/leave-kinds";
+import { fetchMaskedAbsences } from "@/lib/data";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -31,11 +32,13 @@ export function TeamCapacity() {
         .lte("start_date", today)
         .gte("end_date", today);
 
-      const outCount = new Set(
-        ((outRows as unknown as { profile_id: string; leave_type: { key: string } | null }[]) ?? [])
+      const hiddenToday = (await fetchMaskedAbsences(today, today)).filter((m) => m.status === "approved");
+      const outCount = new Set([
+        ...((outRows as unknown as { profile_id: string; leave_type: { key: string } | null }[]) ?? [])
           .filter((r) => teamIds.has(r.profile_id) && reducesPresence(r.leave_type?.key))
-          .map((r) => r.profile_id)
-      ).size;
+          .map((r) => r.profile_id),
+        ...hiddenToday.filter((m) => teamIds.has(m.profile_id)).map((m) => m.profile_id),
+      ]).size;
 
       setTeamSize(count ?? 0);
       setOutToday(outCount);

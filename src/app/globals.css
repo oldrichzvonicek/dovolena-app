@@ -74,3 +74,62 @@ textarea:disabled {
     background: white;
   }
 }
+
+/* Responsive tables: below md every row becomes a card; cells carrying data-label show it as a prefix. */
+@media (max-width: 767px) {
+  .table-cards,
+  .table-cards tbody,
+  .table-cards tr,
+  .table-cards td {
+    display: block;
+    width: 100%;
+  }
+  .table-cards thead {
+    display: none;
+  }
+  .table-cards tr {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #d3d1c7;
+  }
+  .table-cards tr:last-child {
+    border-bottom: 0;
+  }
+  .table-cards td {
+    padding: 0.2rem 0 !important;
+  }
+  .table-cards td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #5f5e5a;
+    margin-bottom: 1px;
+  }
+  .table-cards td:empty {
+    display: none;
+  }
+  .table-cards td.cell-title {
+    font-size: 15px;
+  }
+}
+
+/* Touch devices: 16px inputs stop iOS from zooming the page on focus; comfortable tap targets. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Keyboard users always see where they are (mouse clicks don't trigger it). */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #085041;
+  outline-offset: 2px;
+}

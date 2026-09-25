@@ -25,6 +25,7 @@ import { fetchLeaveTypes } from "@/lib/data";
 import { loadBalances } from "@/lib/balances";
 import { DbDepartment, DbLeaveType } from "@/lib/supabase/types";
 import { cn, formatNumber } from "@/lib/utils";
+import { LoadingLines } from "@/components/ui/skeleton";
 
 interface Row {
   id: string;
@@ -238,7 +239,7 @@ export default function TeamPage() {
 
         {!loading && <BurnoutWatch employees={rows.map((r) => ({ id: r.id, name: r.name }))} />}
 
-        {loading && <p className="text-sm text-muted">Načítám…</p>}
+        {loading && <LoadingLines rows={4} />}
         {!loading && (
           <>
             <div className="flex flex-wrap items-center gap-2">
@@ -272,7 +273,7 @@ export default function TeamPage() {
 
             <div className="card overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="table-cards w-full text-sm">
                   <thead>
                     <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-muted">
                       <th className="px-5 py-3 font-medium">Jméno</th>
@@ -288,8 +289,8 @@ export default function TeamPage() {
                       const others = people.filter((p) => p.id !== e.id);
                       return (
                         <tr key={e.id} className="border-b border-line last:border-0">
-                          <td className="px-5 py-3 font-medium">{e.name}</td>
-                          <td className="px-3 py-2">
+                          <td className="cell-title px-5 py-3 font-medium">{e.name}</td>
+                          <td className="px-3 py-2" data-label="Oddělení">
                             <EditableCell
                               row={e}
                               field="department"
@@ -300,7 +301,7 @@ export default function TeamPage() {
                               onChange={(v) => handleDepartmentChange(e.id, v)}
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2" data-label="Nadřízený">
                             <EditableCell
                               row={e}
                               field="manager"
@@ -311,7 +312,7 @@ export default function TeamPage() {
                               onChange={(v) => handleManagerChange(e.id, v)}
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2" data-label="Zástup">
                             <EditableCell
                               row={e}
                               field="substitute"
@@ -322,7 +323,7 @@ export default function TeamPage() {
                               onChange={(v) => handleSubstituteChange(e.id, v)}
                             />
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="px-3 py-3" data-label="Dovolená">
                             <BalanceChip total={e.vacationTotal} used={e.vacationUsed} />
                           </td>
                           <td className="px-3 py-3">

@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, Gift, Lock, Plus, Settings2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Gift, GripVertical, Lock, Plus, Settings2, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchLeaveTypes } from "@/lib/data";
-import { createLeaveType, deleteLeaveType, fetchCompany, swapLeaveTypeOrder, updateCompany, updateLeaveType } from "@/lib/admin-data";
+import { createLeaveType, deleteLeaveType, fetchCompany, setLeaveTypeOrder, updateCompany, updateLeaveType } from "@/lib/admin-data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { DbCompany, DbLeaveType, LeaveColor } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
+import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
+import { LoadingCard } from "@/components/ui/skeleton";
 
 // These two keys are load-bearing (hardcoded into onboarding, invite-claim
 // and every balance calculation) — protected from deletion at the DB level
@@ -71,9 +73,13 @@ export function LeaveTypesPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
+  const save = useSaveStatus();
 
   const [newLabel, setNewLabel] = useState("");
-  const [newColor, setNewColor] = useState<LeaveColor>("teal");
+  const [newColor, setNewColor] = useState<LeaveColor | null>(null); // null = automaticky první nepoužitá
   const [newCounts, setNewCounts] = useState<"vacation" | "sick" | "none">("none");
 
   async function load() {
@@ -87,7 +93,7 @@ export function LeaveTypesPanel() {
   async function patchDefaults(fields: Partial<DbCompany>) {
     if (!profile || !company) return;
     setCompany({ ...company, ...fields });
-    await updateCompany(profile.company_id, fields);
+    await save.run(() => updateCompany(profile.company_id, fields));
   }
 
   useEffect(() => {
@@ -102,11 +108,11 @@ export function LeaveTypesPanel() {
       await createLeaveType(profile.company_id, {
         key: slugify(newLabel) || `typ_${Date.now()}`,
         label: newLabel.trim(),
-        color: newColor,
+        color: effectiveNewColor,
         counts_against: newCounts,
       });
       setNewLabel("");
-      setNewColor("teal");
+      setNewColor(null);
       setNewCounts("none");
       load();
     } catch {
@@ -116,7 +122,7 @@ export function LeaveTypesPanel() {
 
   async function handleUpdate(t: DbLeaveType, patch: Partial<DbLeaveType>) {
     setTypes((prev) => prev.map((x) => (x.id === t.id ? { ...x, ...patch } : x)));
-    await updateLeaveType(t.id, patch);
+    await save.run(() => updateLeaveType(t.id, patch));
   }
 
   async function handleDelete(id: string) {
@@ -132,21 +138,38 @@ export function LeaveTypesPanel() {
     }
   }
 
-  async function handleMove(index: number, direction: -1 | 1) {
-    const other = types[index + direction];
-    const current = types[index];
-    if (!other) return;
-    const reordered = [...types];
-    reordered[index] = other;
-    reordered[index + direction] = current;
-    setTypes(reordered);
-    await swapLeaveTypeOrder(current, other);
+  /** Moves one type to the position of another; the resulting order is what employees see in the request dropdown. */
+  async function reorder(fromId: string, toId: string) {
+    if (fromId === toId) return;
+    const from = types.findIndex((t) => t.id === fromId);
+    const to = types.findIndex((t) => t.id === toId);
+    if (from < 0 || to < 0) return;
+    const next = [...types];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setTypes(next);
+    try {
+      await save.run(() => setLeaveTypeOrder(next.map((t) => t.id)));
+    } catch (e) {
+      setError(errorMessage(e));
+      load();
+    }
   }
 
-  if (loading || !company) return <div className="card p-8 text-center text-sm text-muted">Načítám…</div>;
+  function handleMove(index: number, direction: -1 | 1) {
+    const other = visibleTypes[index + direction];
+    if (other) reorder(visibleTypes[index].id, other.id);
+  }
+
+  if (loading || !company) return <LoadingCard rows={8} />;
+
+  const inactiveTypes = types.filter((t) => !t.active);
+  const visibleTypes = showInactive ? types : types.filter((t) => t.active);
 
   const usedColors = new Set(types.map((t) => t.color));
   const availableForNew = colors.filter((c) => !usedColors.has(c));
+  const effectiveNewColor: LeaveColor = newColor ?? availableForNew[0] ?? "teal";
+  const usedBy = (c: LeaveColor, exceptId?: string) => types.filter((t) => t.color === c && t.id !== exceptId && t.active).map((t) => t.label);
 
   return (
     <div className="space-y-6">
@@ -210,12 +233,43 @@ export function LeaveTypesPanel() {
         <h2 className="font-display text-h2">Typy absencí</h2>
 
         <div className="mt-4 space-y-2">
-          {types.map((t, i) => {
+          {visibleTypes.map((t, i) => {
             const locked = PROTECTED_KEYS.has(t.key);
             const expanded = expandedId === t.id;
             return (
-              <div key={t.id} className={cn("rounded border", locked ? "border-line bg-paper" : "border-line")}>
+              <div
+                key={t.id}
+                draggable
+                onDragStart={(e) => {
+                  setDragId(t.id);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (overId !== t.id) setOverId(t.id);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragId) reorder(dragId, t.id);
+                  setDragId(null);
+                  setOverId(null);
+                }}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setOverId(null);
+                }}
+                className={cn(
+                  "rounded border",
+                  locked ? "border-line bg-paper" : "border-line",
+                  !t.active && "opacity-50",
+                  dragId === t.id && "opacity-40",
+                  overId === t.id && dragId && dragId !== t.id && "border-teal ring-1 ring-teal"
+                )}
+              >
                 <div className="flex flex-wrap items-center gap-2 p-3">
+                  <span className="cursor-grab text-muted active:cursor-grabbing" title="Přetažením změníte pořadí" aria-hidden="true">
+                    <GripVertical size={16} />
+                  </span>
                   <div className="flex shrink-0 flex-col">
                     <button
                       onClick={() => handleMove(i, -1)}
@@ -227,7 +281,7 @@ export function LeaveTypesPanel() {
                     </button>
                     <button
                       onClick={() => handleMove(i, 1)}
-                      disabled={i === types.length - 1}
+                      disabled={i === visibleTypes.length - 1}
                       className="rounded text-muted hover:text-ink disabled:opacity-30"
                       aria-label={`Posunout ${t.label} dolů`}
                     >
@@ -275,21 +329,25 @@ export function LeaveTypesPanel() {
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-muted">Barva v kalendáři</label>
                       <div className="flex flex-wrap gap-1.5">
-                        {colors
-                          .filter((c) => c === t.color || !usedColors.has(c))
-                          .map((c) => (
+                        {colors.map((c) => {
+                          const others = usedBy(c, t.id);
+                          return (
                             <button
                               key={c}
                               onClick={() => handleUpdate(t, { color: c })}
-                              title={colorLabel[c]}
+                              title={others.length ? `${colorLabel[c]} — používá také: ${others.join(", ")}` : colorLabel[c]}
+                              aria-label={colorLabel[c]}
                               className={cn(
-                                "h-6 w-6 rounded-full transition-transform",
+                                "relative h-6 w-6 rounded-full transition-transform",
                                 colorDot[c],
-                                t.color === c ? "ring-2 ring-ink ring-offset-2" : "hover:scale-110"
+                                t.color === c ? "ring-2 ring-ink ring-offset-2" : "hover:scale-110",
+                                others.length > 0 && t.color !== c && "opacity-50"
                               )}
                             />
-                          ))}
+                          );
+                        })}
                       </div>
+                      <p className="mt-1.5 text-xs text-muted">Zvýrazněné barvy jsou volné, zesvětlené už používá jiný typ (můžete je použít i tak).</p>
                     </div>
 
                     <div>
@@ -333,7 +391,7 @@ export function LeaveTypesPanel() {
                         />
                       </label>
                       <label className="flex items-center justify-between gap-2 text-sm">
-                        Placené volno
+                        Placená absence
                         <Switch checked={t.paid} onCheckedChange={(v) => handleUpdate(t, { paid: v })} />
                       </label>
                       <label className="flex items-center justify-between gap-2 text-sm">
@@ -343,6 +401,10 @@ export function LeaveTypesPanel() {
                       <label className="flex items-center justify-between gap-2 text-sm">
                         Povolit půlden
                         <Switch checked={t.allow_half_day} onCheckedChange={(v) => handleUpdate(t, { allow_half_day: v })} />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 text-sm" title="Kolegové uvidí jen „Nepřítomen“. Konkrétní typ uvidí dotčený zaměstnanec, jeho nadřízený a admin.">
+                        Ostatním zobrazit jen „Nepřítomen“
+                        <Switch checked={t.hide_from_colleagues} onCheckedChange={(v) => handleUpdate(t, { hide_from_colleagues: v })} />
                       </label>
                       <label className="flex items-center justify-between gap-2 text-sm">
                         Povolit hodiny
@@ -355,6 +417,16 @@ export function LeaveTypesPanel() {
             );
           })}
         </div>
+
+        {inactiveTypes.length > 0 && (
+          <button
+            onClick={() => setShowInactive((v) => !v)}
+            aria-expanded={showInactive}
+            className="mt-3 flex items-center gap-1.5 text-sm text-muted hover:text-ink"
+          >
+            {showInactive ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Neaktivní typy absencí ({inactiveTypes.length})
+          </button>
+        )}
 
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
@@ -371,18 +443,24 @@ export function LeaveTypesPanel() {
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted">Barva</label>
             <div className="flex flex-wrap gap-1.5 rounded border border-line px-2 py-2">
-              {availableForNew.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setNewColor(c)}
-                  title={colorLabel[c]}
-                  className={cn(
-                    "h-5 w-5 rounded-full transition-transform",
-                    colorDot[c],
-                    (availableForNew.includes(newColor) ? newColor : availableForNew[0]) === c ? "ring-2 ring-ink ring-offset-1" : "hover:scale-110"
-                  )}
-                />
-              ))}
+              {colors.map((c) => {
+                const others = usedBy(c);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setNewColor(c)}
+                    title={others.length ? `${colorLabel[c]} — používá také: ${others.join(", ")}` : colorLabel[c]}
+                    aria-label={colorLabel[c]}
+                    className={cn(
+                      "h-5 w-5 rounded-full transition-transform",
+                      colorDot[c],
+                      effectiveNewColor === c ? "ring-2 ring-ink ring-offset-1" : "hover:scale-110",
+                      others.length > 0 && effectiveNewColor !== c && "opacity-50"
+                    )}
+                  />
+                );
+              })}
             </div>
           </div>
           <Select value={newCounts} onValueChange={(v) => setNewCounts(v as "vacation" | "sick" | "none")}>
@@ -402,6 +480,8 @@ export function LeaveTypesPanel() {
           </Button>
         </div>
       </div>
+
+      <SaveStatusBar status={save.status} error={save.error} />
     </div>
   );
 }

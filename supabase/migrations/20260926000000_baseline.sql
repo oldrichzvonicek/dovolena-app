@@ -110,6 +110,14 @@ alter table companies add column if not exists logo_url text;
 -- měsíců (včetně měsíce nástupu), zaokrouhleno na půl dne.
 alter table companies add column if not exists prorate_new_hires boolean not null default false;
 
+-- Tarif firmy (free / starter / pro / enterprise) — názvy, limity a ceny viz src/lib/plans.ts.
+alter table companies add column if not exists plan text not null default 'free';
+-- První verze sloupce používala výchozí hodnotu 'start' — přejmenováno na 'free'.
+alter table companies alter column plan set default 'free';
+update companies set plan = 'free' where plan = 'start';
+alter table companies add column if not exists payment_method text not null default 'invoice';
+alter table companies add column if not exists billing_email text;
+
 create or replace function prorate_days(p_days numeric, p_company_id uuid)
 returns numeric
 language sql
@@ -235,6 +243,9 @@ create policy "admins manage blackout_periods" on blackout_periods
 -- security definer because a plain admin has no RLS insert privilege on
 -- other people's leave_requests rows (see "create own leave_requests").
 -- ---------------------------------------------------------------------------
+-- Starý podpis bez target_department_ids by kolidoval s novým (PostgREST by nevěděl, kterou verzi volat).
+drop function if exists create_company_wide_leave(uuid, uuid, date, date, numeric, text);
+
 create or replace function create_company_wide_leave(
   target_company_id uuid,
   target_leave_type_id uuid,
@@ -1228,9 +1239,11 @@ language plpgsql
 security definer
 as $$
 declare
-  owner_id uuid := coalesce(new.profile_id, old.profile_id);
+  owner_id uuid;
   cid uuid;
 begin
+  -- NEW is not assigned in DELETE triggers, so it must not be touched there.
+  if tg_op = 'DELETE' then owner_id := old.profile_id; else owner_id := new.profile_id; end if;
   select company_id into cid from profiles where id = owner_id;
   if tg_op = 'INSERT' then
     insert into audit_log (company_id, actor_id, action, entity_id, details)
@@ -1252,7 +1265,8 @@ begin
     values (cid, auth.uid(), 'request.deleted', old.id,
       jsonb_build_object('employee', owner_id, 'status', old.status, 'start', old.start_date, 'end', old.end_date));
   end if;
-  return coalesce(new, old);
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
 end;
 $$;
 
@@ -1334,6 +1348,99 @@ drop trigger if exists leave_requests_guard_insert on leave_requests;
 create trigger leave_requests_guard_insert
   before insert on leave_requests
   for each row execute function guard_leave_request_insert();
+
+-- ---------------------------------------------------------------------------
+-- Integrace do chatů (Slack, Microsoft Teams, Mattermost, Discord, Google Chat,
+-- obecný webhook): admin vloží URL příchozího webhooku a vybere události.
+-- Události z leave_requests se řadí do integration_outbox (jen když firma má
+-- aktivní webhook na danou událost); odeslání dělá server (/api/cron/process).
+-- URL webhooku je tajná — čte a spravuje ji jen admin firmy.
+-- ---------------------------------------------------------------------------
+create table if not exists webhook_integrations (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  provider text not null check (provider in ('slack', 'teams', 'mattermost', 'discord', 'google_chat', 'webhook')),
+  name text not null,
+  url text not null,
+  events text[] not null default '{request_created,request_decided,daily_digest}',
+  active boolean not null default true,
+  last_status text,
+  last_sent_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table webhook_integrations enable row level security;
+
+drop policy if exists "admins manage webhook integrations" on webhook_integrations;
+create policy "admins manage webhook integrations" on webhook_integrations
+  for all using (company_id = current_company_id() and current_user_role() = 'admin')
+  with check (company_id = current_company_id() and current_user_role() = 'admin');
+
+create table if not exists integration_outbox (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references companies(id) on delete cascade,
+  event text not null,
+  text text not null,
+  attempts int not null default 0,
+  error text,
+  sent_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table integration_outbox enable row level security;
+
+create index if not exists integration_outbox_pending_idx on integration_outbox (created_at) where sent_at is null;
+
+alter table companies add column if not exists integration_digest_last date;
+
+create or replace function queue_integration_events()
+returns trigger
+language plpgsql
+security definer
+as $$
+declare
+  cid uuid;
+  who text;
+  lt text;
+  rng text;
+  ev text;
+  msg text;
+begin
+  select company_id, name into cid, who from profiles where id = new.profile_id;
+  select label into lt from leave_types where id = new.leave_type_id;
+  rng := case
+    when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
+    else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
+  end;
+
+  if tg_op = 'INSERT' and new.status = 'pending' then
+    ev := 'request_created';
+    msg := '🆕 ' || who || ' žádá o ' || lt || ' (' || rng || ')';
+  elsif tg_op = 'UPDATE' and new.status is distinct from old.status and new.status in ('approved', 'rejected') then
+    ev := 'request_decided';
+    msg := case when new.status = 'approved' then '✅ Schváleno: ' else '❌ Zamítnuto: ' end
+      || who || ' — ' || lt || ' (' || rng || ')'
+      || case when new.status = 'rejected' and coalesce(new.rejection_reason, '') <> '' then ' — důvod: ' || new.rejection_reason else '' end;
+  elsif tg_op = 'UPDATE' and new.cancellation_requested_at is not null and old.cancellation_requested_at is null then
+    ev := 'cancellation_requested';
+    msg := '↩️ ' || who || ' žádá o zrušení absence: ' || lt || ' (' || rng || ')';
+  else
+    return new;
+  end if;
+
+  if cid is not null and exists (
+    select 1 from webhook_integrations w where w.company_id = cid and w.active and ev = any(w.events)
+  ) then
+    insert into integration_outbox (company_id, event, text) values (cid, ev, msg);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists leave_requests_queue_integrations on leave_requests;
+create trigger leave_requests_queue_integrations
+  after insert or update on leave_requests
+  for each row execute function queue_integration_events();
 
 -- ---------------------------------------------------------------------------
 -- import_employees — bulk-create/update company_invites (and any missing
@@ -1576,3 +1683,139 @@ begin
   return found_company_name;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- search_path funkcí — triggery a funkce běží i pod rolí Supabase Auth
+-- (např. při smazání uživatele kaskádou přes profiles), která nemá schéma
+-- public v search_path; bez toho by odkazy na tabulky/funkce bez prefixu
+-- selhaly ("Database error deleting user"). Nastavíme ho všem našim funkcím.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  f record;
+begin
+  for f in
+    select p.oid::regprocedure as sig
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prokind = 'f'
+      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+  loop
+    execute format('alter function %s set search_path = public', f.sig);
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Soukromí absencí — typy s hide_from_colleagues (výchozí: nemoc) vidí jen
+-- dotčený zaměstnanec, jeho nadřízený (manager_id nebo vedoucí/zástupce
+-- oddělení) a admin. Ostatním se místo typu ukáže jen "Nepřítomen":
+--  * RLS na leave_requests skryje takové řádky ostatním,
+--  * masked_absences() vrátí jen termíny (bez typu, poznámky, přílohy), aby
+--    kalendář a kapacity dál fungovaly.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'leave_types' and column_name = 'hide_from_colleagues'
+  ) then
+    alter table leave_types add column hide_from_colleagues boolean not null default false;
+    update leave_types set hide_from_colleagues = true where counts_against = 'sick';
+  end if;
+end $$;
+
+-- Nový typ čerpaný z limitu nemoci je ve výchozím stavu soukromý (admin to může změnit).
+create or replace function default_hide_sick_type()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.counts_against = 'sick' and tg_op = 'INSERT' then
+    new.hide_from_colleagues := true;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists default_hide_sick_type on leave_types;
+create trigger default_hide_sick_type
+  before insert on leave_types
+  for each row execute function default_hide_sick_type();
+
+create or replace function is_superior_of(target uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from profiles p
+    where p.id = target
+      and p.company_id = current_company_id()
+      and (
+        p.manager_id = auth.uid()
+        or exists (
+          select 1 from departments d
+          where d.id = p.department_id
+            and (d.head_profile_id = auth.uid() or d.deputy_head_profile_id = auth.uid())
+        )
+      )
+  );
+$$;
+
+create or replace function request_type_hidden(type_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select coalesce((select hide_from_colleagues from leave_types where id = type_id), false);
+$$;
+
+create or replace function can_view_request(req_profile uuid, req_type uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select req_profile = auth.uid()
+    or current_user_role() = 'admin'
+    or not request_type_hidden(req_type)
+    or is_superior_of(req_profile);
+$$;
+
+drop policy if exists "select leave_requests in company" on leave_requests;
+create policy "select leave_requests in company" on leave_requests
+  for select using (
+    exists (
+      select 1 from profiles p
+      where p.id = leave_requests.profile_id and p.company_id = current_company_id()
+    )
+    and can_view_request(leave_requests.profile_id, leave_requests.leave_type_id)
+  );
+
+-- Skryté absence pro kolegy: jen kdo a kdy (žádný typ, poznámka ani příloha).
+create or replace function masked_absences(p_from date default '1900-01-01', p_to date default '2999-12-31')
+returns table (id uuid, profile_id uuid, start_date date, end_date date, half_day boolean, working_days numeric, status request_status)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select r.id, r.profile_id, r.start_date, r.end_date, r.half_day, r.working_days, r.status
+  from leave_requests r
+  join profiles p on p.id = r.profile_id
+  where p.company_id = current_company_id()
+    and r.status in ('approved', 'pending')
+    and r.start_date <= p_to
+    and r.end_date >= p_from
+    and request_type_hidden(r.leave_type_id)
+    and not can_view_request(r.profile_id, r.leave_type_id);
+$$;
+
+grant execute on function masked_absences(date, date) to authenticated;

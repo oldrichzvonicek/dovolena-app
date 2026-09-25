@@ -18,7 +18,10 @@ import { countWorkingDays, dayWord } from "@/lib/working-days";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { DbBlackoutPeriod, DbCompany, DbDepartment, DbLeaveType, ShiftPattern } from "@/lib/supabase/types";
-import { errorMessage } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
+import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
+import { LogoCard } from "@/components/admin/LogoCard";
+import { LoadingCard } from "@/components/ui/skeleton";
 
 const shiftLabel: Record<ShiftPattern, string> = {
   none: "Jednosměnný (standardní pracovní doba)",
@@ -35,6 +38,100 @@ const weekDays = [
   { iso: 6, label: "So" },
   { iso: 7, label: "Ne" },
 ];
+
+const sections = [
+  { id: "sec-logo", label: "Logo firmy" },
+  { id: "sec-kalendar", label: "Kalendář a směny" },
+  { id: "sec-pravidla", label: "Pravidla pro žádosti" },
+  { id: "sec-kapacita", label: "Kapacita" },
+  { id: "sec-blokace", label: "Blokované termíny" },
+  { id: "sec-celozavodni", label: "Celozávodní dovolená" },
+];
+
+/** Sticky in-page index: jumps to a section and highlights the one currently in view. */
+function SectionIndex({ sections, active, onActive }: { sections: { id: string; label: string }[]; active: string; onActive: (id: string) => void }) {
+  useEffect(() => {
+    const els = sections.map((s) => document.getElementById(s.id)).filter((e): e is HTMLElement => !!e);
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) onActive(visible.target.id);
+      },
+      { rootMargin: "-96px 0px -60% 0px" }
+    );
+    els.forEach((e) => obs.observe(e));
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <nav aria-label="Sekce provozu" className="sticky top-0 z-20 -mx-1 flex gap-1.5 overflow-x-auto bg-paper/95 px-1 py-2 backdrop-blur">
+      {sections.map((s) => (
+        <a
+          key={s.id}
+          href={`#${s.id}`}
+          onClick={(e) => {
+            e.preventDefault();
+            document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+            onActive(s.id);
+          }}
+          className={cn(
+            "shrink-0 rounded-full border px-3 py-1 text-xs font-medium",
+            active === s.id ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-white hover:text-ink"
+          )}
+        >
+          {s.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+const MONTHS = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"];
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** Month + day pickers storing "MM-DD" — no typing of separators. */
+function MonthDayPicker({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const [mm, dd] = value ? value.split("-") : ["", ""];
+  const month = mm ? Number(mm) : 0;
+  const day = dd ? Number(dd) : 0;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <select
+        aria-label="Měsíc expirace"
+        value={month || ""}
+        onChange={(e) => {
+          const m = Number(e.target.value);
+          if (!m) return onChange(null);
+          onChange(`${pad(m)}-${pad(Math.min(day || 1, DAYS_IN_MONTH[m - 1]))}`);
+        }}
+        className="rounded border border-line bg-white px-3 py-2 text-sm"
+      >
+        <option value="">Nikdy nepropadá</option>
+        {MONTHS.map((name, i) => (
+          <option key={name} value={i + 1}>
+            {name}
+          </option>
+        ))}
+      </select>
+      {month > 0 && (
+        <select
+          aria-label="Den expirace"
+          value={day || 1}
+          onChange={(e) => onChange(`${pad(month)}-${pad(Number(e.target.value))}`)}
+          className="rounded border border-line bg-white px-3 py-2 text-sm"
+        >
+          {Array.from({ length: DAYS_IN_MONTH[month - 1] }, (_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}.
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
 
 function SectionHeader({ icon, title, className }: { icon: React.ReactNode; title: string; className?: string }) {
   return (
@@ -53,6 +150,8 @@ export function CompanySettingsPanel() {
   const [leaveTypes, setLeaveTypes] = useState<DbLeaveType[]>([]);
   const [blackouts, setBlackouts] = useState<DbBlackoutPeriod[]>([]);
   const [loading, setLoading] = useState(true);
+  const save = useSaveStatus();
+  const [activeSection, setActiveSection] = useState("sec-kalendar");
 
   async function load() {
     if (!profile) return;
@@ -75,7 +174,7 @@ export function CompanySettingsPanel() {
   async function patch(fields: Partial<DbCompany>) {
     if (!profile || !company) return;
     setCompany({ ...company, ...fields });
-    await updateCompany(profile.company_id, fields);
+    await save.run(() => updateCompany(profile.company_id, fields));
   }
 
   function toggleWorkDay(iso: number) {
@@ -85,11 +184,15 @@ export function CompanySettingsPanel() {
     patch({ work_days: next });
   }
 
-  if (loading || !company) return <div className="card p-8 text-center text-sm text-muted">Načítám…</div>;
+  if (loading || !company) return <LoadingCard rows={8} />;
 
   return (
     <div className="space-y-6">
-      <div className="card p-5">
+      <SectionIndex sections={sections} active={activeSection} onActive={setActiveSection} />
+
+      <LogoCard />
+
+      <div id="sec-kalendar" className="card scroll-mt-24 p-5">
         <SectionHeader icon={<Settings size={15} />} title="Kalendář a směny" />
 
         <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
@@ -158,7 +261,7 @@ export function CompanySettingsPanel() {
         </div>
       </div>
 
-      <div className="card p-5">
+      <div id="sec-pravidla" className="card scroll-mt-24 p-5">
         <SectionHeader icon={<CalendarOff size={15} />} title="Pravidla pro žádosti" className="bg-warning-light text-warning-dark" />
 
         <div className="mt-4 space-y-4">
@@ -249,14 +352,7 @@ export function CompanySettingsPanel() {
             <p className="mt-0.5 text-sm text-muted">
               Nevyčerpaná dovolená z minulého roku propadne k tomuto datu (prázdné = nikdy nepropadá).
             </p>
-            <input
-              type="text"
-              placeholder="MM-DD, např. 06-30" aria-label="MM-DD, např. 06-30"
-              pattern="\d{2}-\d{2}"
-              defaultValue={company.carryover_expiry_md ?? ""}
-              onBlur={(e) => patch({ carryover_expiry_md: e.target.value.trim() || null })}
-              className="mt-2 w-40 rounded border border-line px-3 py-2 text-sm"
-            />
+            <MonthDayPicker value={company.carryover_expiry_md} onChange={(v) => patch({ carryover_expiry_md: v })} />
 
             <div className="mt-3 border-t border-line pt-3">
               <div className="text-sm font-medium">Maximální počet dní k převodu</div>
@@ -278,7 +374,7 @@ export function CompanySettingsPanel() {
         </div>
       </div>
 
-      <div className="card p-5">
+      <div id="sec-kapacita" className="card scroll-mt-24 p-5">
         <SectionHeader icon={<AlertTriangle size={15} />} title="Kapacita a upozornění" className="bg-danger-light text-danger" />
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -314,6 +410,8 @@ export function CompanySettingsPanel() {
       <BlackoutPeriodsSection companyId={profile!.company_id} blackouts={blackouts} onReload={load} />
 
       <CompanyWideLeaveSection companyId={profile!.company_id} leaveTypes={leaveTypes} />
+
+      <SaveStatusBar status={save.status} error={save.error} />
     </div>
   );
 }
@@ -352,7 +450,7 @@ function BlackoutPeriodsSection({
   }
 
   return (
-    <div className="card p-5">
+    <div id="sec-blokace" className="card scroll-mt-24 p-5">
       <SectionHeader icon={<Ban size={15} />} title="Blokované termíny" className="bg-danger-light text-danger" />
       <p className="mt-1 text-sm text-muted">
         Během těchto dat nejde podat běžnou žádost o absenci (např. celofiremní inventura, uzávěrka).
@@ -478,7 +576,7 @@ function CompanyWideLeaveSection({ companyId, leaveTypes }: { companyId: string;
   }
 
   return (
-    <div className="card p-5">
+    <div id="sec-celozavodni" className="card scroll-mt-24 p-5">
       <SectionHeader icon={<CheckCircle2 size={15} />} title="Celozávodní dovolená" />
       <p className="mt-1 text-sm text-muted">
         Naplánuje schválenou dovolenou rovnou všem (nebo vybraným) zaměstnancům firmy (např. vánoční odstávka) — u

@@ -1,49 +1,50 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsersPanel } from "@/components/admin/UsersPanel";
 import { DepartmentsPanel } from "@/components/admin/DepartmentsPanel";
 import { LeaveTypesPanel } from "@/components/admin/LeaveTypesPanel";
 import { CompanySettingsPanel } from "@/components/admin/CompanySettingsPanel";
 import { BillingPanel } from "@/components/admin/BillingPanel";
 import { AuditLogPanel } from "@/components/admin/AuditLogPanel";
+import { IntegrationsPanel } from "@/components/admin/IntegrationsPanel";
+
+const titles: Record<string, string> = {
+  users: "Uživatelé",
+  departments: "Oddělení",
+  "leave-types": "Typy absencí",
+  general: "Provoz & kalendář",
+  billing: "Fakturace & tarify",
+  integrations: "Integrace",
+  audit: "Historie změn",
+};
+
+function SettingsContent() {
+  const section = useSearchParams().get("sekce") ?? "users";
+  const active = section in titles ? section : "users";
+
+  return (
+    <div>
+      <Header title={`Nastavení firmy — ${titles[active]}`} subtitle="Sekce nastavení najdete v menu vlevo" />
+      <div className="p-4 sm:p-8">
+        {active === "users" && <UsersPanel />}
+        {active === "departments" && <DepartmentsPanel />}
+        {active === "leave-types" && <LeaveTypesPanel />}
+        {active === "general" && <CompanySettingsPanel />}
+        {active === "billing" && <BillingPanel />}
+        {active === "integrations" && <IntegrationsPanel />}
+        {active === "audit" && <AuditLogPanel />}
+      </div>
+    </div>
+  );
+}
 
 export default function AdminSettingsPage() {
   return (
-    <div>
-      <Header title="Nastavení firmy" subtitle="Uživatelé, nároky, typy absencí, provoz, fakturace" />
-      <div className="p-4 sm:p-8">
-        <Tabs defaultValue="users">
-          <TabsList>
-            <TabsTrigger value="users">Uživatelé</TabsTrigger>
-            <TabsTrigger value="departments">Oddělení</TabsTrigger>
-            <TabsTrigger value="leave-types">Typy absencí</TabsTrigger>
-            <TabsTrigger value="general">Provoz</TabsTrigger>
-            <TabsTrigger value="billing">Fakturace</TabsTrigger>
-            <TabsTrigger value="audit">Historie</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="users" className="pt-6">
-            <UsersPanel />
-          </TabsContent>
-          <TabsContent value="departments" className="pt-6">
-            <DepartmentsPanel />
-          </TabsContent>
-          <TabsContent value="leave-types" className="pt-6">
-            <LeaveTypesPanel />
-          </TabsContent>
-          <TabsContent value="general" className="pt-6">
-            <CompanySettingsPanel />
-          </TabsContent>
-          <TabsContent value="billing" className="pt-6">
-            <BillingPanel />
-          </TabsContent>
-          <TabsContent value="audit" className="pt-6">
-            <AuditLogPanel />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <SettingsContent />
+    </Suspense>
   );
 }

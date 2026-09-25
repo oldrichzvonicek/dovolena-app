@@ -7,7 +7,10 @@ import { formatRange } from "@/lib/working-days";
 import { addDays, format, isWeekend, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { ABSENT_TYPE } from "@/lib/leave-kinds";
+import { fetchMaskedAbsences } from "@/lib/data";
 import { TeamCapacity } from "@/components/dashboard/TeamCapacity";
+import { LoadingLines } from "@/components/ui/skeleton";
 
 interface Row {
   id: string;
@@ -30,6 +33,16 @@ export function WhoIsOutToday() {
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [coverNames, setCoverNames] = useState<Record<string, string>>({});
   const [tip, setTip] = useState<{ x: number; y: number; name: string; req: Row } | null>(null);
+  useEffect(() => {
+    if (!tip) return;
+    const close = () => setTip(null);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [tip !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const supabase = createClient();
@@ -48,7 +61,28 @@ export function WhoIsOutToday() {
       .lte("start_date", horizon)
       .gte("end_date", weekStartISO)
       .order("start_date", { ascending: true })
-      .then(({ data }) => {
+      .then(async ({ data }) => {
+        // Private absences of colleagues (e.g. sick leave) come without a type — shown as "Nepřítomen".
+        const masked = (await fetchMaskedAbsences(weekStartISO, horizon)).filter((m) => m.status === "approved");
+        let maskedProfiles: Record<string, { id: string; name: string; avatar_initials: string | null; department: { name: string } | null }> = {};
+        if (masked.length > 0) {
+          const { data: ps } = await supabase
+            .from("profiles")
+            .select("id, name, avatar_initials, department:departments!profiles_department_id_fkey(name)")
+            .in("id", Array.from(new Set(masked.map((m) => m.profile_id))));
+          maskedProfiles = Object.fromEntries(((ps as unknown as { id: string; name: string; avatar_initials: string | null; department: { name: string } | null }[]) ?? []).map((p) => [p.id, p]));
+        }
+        const hiddenRows = masked
+          .filter((m) => maskedProfiles[m.profile_id])
+          .map((m) => ({
+            id: m.id,
+            start_date: m.start_date,
+            end_date: m.end_date,
+            covering_profile_id: null,
+            leave_type: ABSENT_TYPE as unknown as Row["leave_type"],
+            profile: maskedProfiles[m.profile_id],
+            department: maskedProfiles[m.profile_id].department,
+          }));
         const mapped = ((data as unknown[]) ?? []).map((r) => {
           const row = r as {
             id: string;
@@ -68,7 +102,7 @@ export function WhoIsOutToday() {
             department: row.profile?.department ?? null,
           };
         });
-        setAllRows(mapped);
+        setAllRows([...mapped, ...hiddenRows].sort((a, b) => a.start_date.localeCompare(b.start_date)));
         setLoading(false);
         const coverIds = Array.from(new Set(mapped.map((m) => m.covering_profile_id).filter((x): x is string => !!x)));
         if (coverIds.length > 0) {
@@ -163,7 +197,7 @@ export function WhoIsOutToday() {
       )}
 
       <div className="mt-4 space-y-3">
-        {loading && <p className="text-sm text-muted">Načítám…</p>}
+        {loading && <LoadingLines rows={2} />}
         {!loading && rows.length === 0 && (
           <div>
             <p className="text-sm text-muted">Dnes je celý tým přítomen.</p>
@@ -234,6 +268,7 @@ export function WhoIsOutToday() {
                     onMouseLeave={c ? () => setTip(null) : undefined}
                     onFocus={c ? (e) => { const b = e.currentTarget.getBoundingClientRect(); setTip({ x: b.left, y: b.bottom - 8, name: p.name, req: c }); } : undefined}
                     onBlur={c ? () => setTip(null) : undefined}
+                    onClick={c ? (e) => { const b = e.currentTarget.getBoundingClientRect(); setTip({ x: b.left, y: b.bottom - 8, name: p.name, req: c }); } : undefined}
                     className={cn("h-4 rounded-sm", c ? colorDot[c.leave_type?.color ?? "teal"] : week.isos[i] === todayISO ? "bg-teal/10" : "bg-paper")}
                   />
                 ))}

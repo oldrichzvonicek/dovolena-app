@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchDepartments } from "@/lib/data";
@@ -22,6 +22,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DbDepartment, LeaveColor } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
+import { LoadingCard } from "@/components/ui/skeleton";
 
 const colorDot: Record<LeaveColor, string> = {
   teal: "bg-teal",
@@ -60,6 +61,7 @@ export function DepartmentsPanel() {
   const [companyCapacityDefault, setCompanyCapacityDefault] = useState(70);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
+  const nameInput = useRef<HTMLInputElement>(null);
   const [newHeadId, setNewHeadId] = useState("none");
   const [error, setError] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
@@ -89,11 +91,21 @@ export function DepartmentsPanel() {
   }
 
   async function handleAdd() {
-    if (!profile || !newName.trim()) return;
-    await createDepartment(profile.company_id, newName.trim(), newHeadId === "none" ? null : newHeadId);
-    setNewName("");
-    setNewHeadId("none");
-    load();
+    if (!profile) return;
+    if (!newName.trim()) {
+      setError("Nejdřív napište název oddělení.");
+      nameInput.current?.focus();
+      return;
+    }
+    setError(null);
+    try {
+      await createDepartment(profile.company_id, newName.trim(), newHeadId === "none" ? null : newHeadId);
+      setNewName("");
+      setNewHeadId("none");
+      load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
   }
 
   async function handleMerge() {
@@ -110,7 +122,7 @@ export function DepartmentsPanel() {
     }
   }
 
-  if (loading) return <div className="card p-8 text-center text-sm text-muted">Načítám…</div>;
+  if (loading) return <LoadingCard rows={4} />;
 
   const duplicateNames = new Set<string>();
   const seen = new Set<string>();
@@ -159,13 +171,13 @@ export function DepartmentsPanel() {
               </div>
               <button
                 onClick={() => setEditing(d)}
-                className="invisible flex shrink-0 items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark group-hover:visible"
+                className="flex shrink-0 items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark"
               >
                 <Pencil size={12} /> Upravit
               </button>
               <button
                 onClick={() => (count > 0 ? setDeletingDept(d) : deleteDepartment(d.id, null).then(load))}
-                className="invisible shrink-0 rounded p-2 text-muted hover:bg-danger-light hover:text-danger group-hover:visible"
+                className="shrink-0 rounded p-2 text-muted hover:bg-danger-light hover:text-danger"
                 aria-label={`Smazat ${d.name}`}
               >
                 <Trash2 size={16} />
@@ -173,15 +185,21 @@ export function DepartmentsPanel() {
             </div>
           );
         })}
-        {departments.length === 0 && <p className="py-3 text-sm text-muted">Zatím žádná oddělení.</p>}
+        {departments.length === 0 && (
+          <p className="py-3 text-sm text-muted">Zatím žádná oddělení. Napište název (např. „Obchod“ nebo „Výroba“) do pole níže a klikněte na „Přidat oddělení“.</p>
+        )}
       </div>
 
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
         <input
+          ref={nameInput}
           value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          onChange={(e) => {
+            setNewName(e.target.value);
+            setError(null);
+          }}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
           placeholder="Název nového oddělení" aria-label="Název nového oddělení"
           className="w-56 rounded border border-line px-3 py-2 text-sm"
@@ -199,7 +217,7 @@ export function DepartmentsPanel() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="secondary" onClick={handleAdd} disabled={!newName.trim()}>
+        <Button variant="secondary" onClick={handleAdd}>
           <Plus size={16} /> Přidat oddělení
         </Button>
       </div>

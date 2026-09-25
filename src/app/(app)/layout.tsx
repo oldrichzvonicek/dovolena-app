@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -50,8 +50,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex">
-      <Sidebar />
-      <div className="min-h-screen flex-1">{children}</div>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded focus:bg-teal-dark focus:px-4 focus:py-2 focus:text-sm focus:text-white"
+      >
+        Přeskočit na obsah
+      </a>
+      <Suspense fallback={null}>
+        <Sidebar />
+      </Suspense>
+      <main id="main" tabIndex={-1} className="min-h-screen min-w-0 flex-1 outline-none">
+        {children}
+      </main>
       <CommandPalette />
       <HelpDrawer />
       <ProductTour />

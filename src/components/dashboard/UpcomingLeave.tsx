@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { LeaveBadge } from "@/components/ui/badge";
 import { formatRange } from "@/lib/working-days";
+import { LoadingLines } from "@/components/ui/skeleton";
 
 interface UpcomingRow {
   id: string;
@@ -47,7 +48,7 @@ export function UpcomingLeave() {
     <div className="card p-5">
       <h2 className="font-display text-h2">Moje nadcházející absence</h2>
       <div className="mt-3">
-        {loading && <p className="text-sm text-muted">Načítám…</p>}
+        {loading && <LoadingLines rows={2} />}
         {!loading && rows.length === 0 && <p className="text-sm text-muted">Žádná naplánovaná absence.</p>}
         <ul className="divide-y divide-line">
           {shown.map((r) => (

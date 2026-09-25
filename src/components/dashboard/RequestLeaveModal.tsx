@@ -9,7 +9,7 @@ import { countWorkingDays, dayWord, workingDaysPhrase } from "@/lib/working-days
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { DbBlackoutPeriod, DbCompany, DbLeaveType, DbProfile } from "@/lib/supabase/types";
-import { createLeaveRequest, leaveAttachmentUrl, updateLeaveRequest, uploadLeaveAttachment } from "@/lib/data";
+import { createLeaveRequest, fetchMaskedAbsences, leaveAttachmentUrl, updateLeaveRequest, uploadLeaveAttachment } from "@/lib/data";
 import { fetchBlackoutPeriods, fetchCompany } from "@/lib/admin-data";
 import { errorMessage } from "@/lib/utils";
 import { loadBalances, remainingOf } from "@/lib/balances";
@@ -96,6 +96,7 @@ export function RequestLeaveModal({
       .from("leave_types")
       .select("*")
       .eq("company_id", profile.company_id)
+      .order("sort_order", { ascending: true })
       .then(({ data }) => {
         const rows = (data as DbLeaveType[]) ?? [];
         setLeaveTypes(rows);
@@ -258,10 +259,15 @@ export function RequestLeaveModal({
       .neq("profile_id", profile.id);
     if (isEditing) query = query.neq("id", editingRequest!.id);
 
-    query.then(({ data }) => {
-      const rows = ((data as unknown as { profile_id: string; leave_type: { key: string } | null; profile: { id: string; name: string } | null }[]) ?? []).filter(
-        (r) => reducesPresence(r.leave_type?.key) && reducesPresence(selectedType?.key)
-      );
+    Promise.all([query, fetchMaskedAbsences(startDate, endDate)]).then(([{ data }, masked]) => {
+      const names = new Map(team.colleagues.map((c) => [c.id, c.name]));
+      const hidden = masked
+        .filter((m) => m.status === "approved" && m.profile_id !== profile.id && m.id !== editingRequest?.id)
+        .map((m) => ({ profile_id: m.profile_id, leave_type: { key: "absent" }, profile: { id: m.profile_id, name: names.get(m.profile_id) ?? "" } }));
+      const rows = [
+        ...((data as unknown as { profile_id: string; leave_type: { key: string } | null; profile: { id: string; name: string } | null }[]) ?? []),
+        ...hidden,
+      ].filter((r) => reducesPresence(r.leave_type?.key) && reducesPresence(selectedType?.key));
       if (rows.length === 0) {
         setConflict(null);
         return;
@@ -427,7 +433,7 @@ export function RequestLeaveModal({
           <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning-light px-3 py-2 text-sm text-ink">
             <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning-dark" />
             <span>
-              Ve stejném termínu má volno <strong>{conflict.teamCount} z {conflict.teamSize}</strong> členů vašeho
+              Ve stejném termínu chybí <strong>{conflict.teamCount} z {conflict.teamSize}</strong> členů vašeho
               týmu: {conflict.names.slice(0, 3).join(", ")}
               {conflict.names.length > 3 ? ` a další` : ""}.
             </span>

@@ -55,6 +55,7 @@ function BalanceCard({
   total,
   unit,
   color,
+  carryover = 0,
 }: {
   label: string;
   used: number;
@@ -62,7 +63,9 @@ function BalanceCard({
   total: number;
   unit: string;
   color: Color;
+  carryover?: number;
 }) {
+  const [explain, setExplain] = useState(false);
   const remaining = total - used - upcoming;
   const fmt = formatNumber;
   const remainingPct = total > 0 ? (remaining / total) * 100 : 0;
@@ -89,7 +92,7 @@ function BalanceCard({
         </div>
       </div>
       <SegmentedBar used={used} upcoming={upcoming} total={total} color={color} />
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
         <span className="flex items-center gap-1">
           <span className={cn("h-2 w-2 rounded-sm", solidClass[color])} /> Vyčerpáno {fmt(used)}
         </span>
@@ -98,7 +101,37 @@ function BalanceCard({
             <span className={cn("h-2 w-2 rounded-sm", lightClass[color])} /> Schváleno do budoucna {fmt(upcoming)}
           </span>
         )}
+        <button onClick={() => setExplain((v) => !v)} aria-expanded={explain} className="ml-auto underline hover:text-ink">
+          {explain ? "Skrýt výpočet" : "Jak se to počítá?"}
+        </button>
       </div>
+      {explain && (
+        <dl className="mt-2 space-y-1 rounded border border-line bg-paper p-3 text-xs">
+          <div className="flex justify-between">
+            <dt>Roční nárok</dt>
+            <dd>{fmt(total - carryover)}</dd>
+          </div>
+          {carryover > 0 && (
+            <div className="flex justify-between">
+              <dt>Převedeno z loňska</dt>
+              <dd>+ {fmt(carryover)}</dd>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <dt>Už vyčerpáno</dt>
+            <dd>− {fmt(used)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt>Schváleno do budoucna</dt>
+            <dd>− {fmt(upcoming)}</dd>
+          </div>
+          <div className="flex justify-between border-t border-line pt-1 font-medium">
+            <dt>Zbývá</dt>
+            <dd>{fmt(remaining)} {unit}</dd>
+          </div>
+          <p className="pt-1 text-muted">Žádosti čekající na schválení se do zůstatku nepočítají, dokud je nikdo neschválí. Polodny se počítají jako 0,5 dne, víkendy a svátky se neodečítají.</p>
+        </dl>
+      )}
     </div>
   );
 }
@@ -107,7 +140,7 @@ export function BalanceCards() {
   const now = new Date();
   const workingDaysThisMonth = countWorkingDays(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`, new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString("sv-SE"));
   const { profile } = useAuth();
-  const [vacation, setVacation] = useState({ used: 0, upcoming: 0, total: 0 });
+  const [vacation, setVacation] = useState({ used: 0, upcoming: 0, total: 0, carryover: 0 });
   const [sick, setSick] = useState({ used: 0, upcoming: 0, total: 0 });
   const [homeOffice, setHomeOffice] = useState<HomeOfficeYear>({ used: 0, thisMonth: 0, limit: null });
   const [loading, setLoading] = useState(true);
@@ -145,7 +178,7 @@ export function BalanceCards() {
 
   return (
     <div className="flex flex-col gap-4 md:flex-row">
-      <BalanceCard label="Dovolená" used={vacation.used} upcoming={vacation.upcoming} total={vacation.total} unit="dní" color="teal" />
+      <BalanceCard label="Dovolená" used={vacation.used} upcoming={vacation.upcoming} total={vacation.total} carryover={vacation.carryover} unit="dní" color="teal" />
       <BalanceCard label="Sick Days" used={sick.used} upcoming={sick.upcoming} total={sick.total} unit="dní" color="rust" />
       <div className={cn("card flex-1 p-5", homeOffice.limit !== null && homeOffice.used > homeOffice.limit && "border-warning/40")}>
         <div className="text-sm text-muted">Home Office letos</div>

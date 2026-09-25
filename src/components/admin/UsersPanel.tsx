@@ -15,6 +15,8 @@ import {
   EntitlementMap,
   deleteEmployee,
   deleteInvite,
+  updateEmployeeDepartment,
+  updateEmployeeManager,
   setEmployeeActive,
   fetchCompanyEmployees,
   fetchCompanyEntitlements,
@@ -26,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { DbDepartment, DbLeaveType, Role } from "@/lib/supabase/types";
 import { errorMessage } from "@/lib/utils";
+import { LoadingCard } from "@/components/ui/skeleton";
 
 const roleLabel: Record<Role, string> = {
   employee: "Zaměstnanec",
@@ -58,6 +61,11 @@ export function UsersPanel() {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [bulk, setBulk] = useState<null | "dept" | "manager" | "entitlement">(null);
+  const [bulkTarget, setBulkTarget] = useState("");
+  const [bulkSick, setBulkSick] = useState("");
 
   async function load() {
     if (!profile) return;
@@ -183,38 +191,81 @@ export function UsersPanel() {
     }
   }
 
-  if (loading) return <div className="card p-8 text-center text-sm text-muted">Načítám…</div>;
+  async function copyGenericLink() {
+    if (!profile) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/login?company=${profile.company_id}`);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      // clipboard access denied
+    }
+  }
+
+  async function applyBulk() {
+    if (!bulk) return;
+    setBulkApplying(true);
+    try {
+      const ids = [...selected];
+      if (bulk === "dept") await Promise.all(ids.map((id) => updateEmployeeDepartment(id, bulkTarget === "none" ? null : bulkTarget)));
+      if (bulk === "manager") await Promise.all(ids.map((id) => updateEmployeeManager(id, bulkTarget === "none" ? null : bulkTarget)));
+      if (bulk === "entitlement") {
+        await Promise.all(
+          ids.flatMap((id) => [
+            vacationType && bulkVacation !== "" ? upsertEntitlement(id, vacationType.id, year, Number(bulkVacation)) : null,
+            sickType && bulkSick !== "" ? upsertEntitlement(id, sickType.id, year, Number(bulkSick)) : null,
+          ])
+        );
+      }
+      setBulk(null);
+      setBulkTarget("");
+      setBulkVacation("");
+      setBulkSick("");
+      setSelected(new Set());
+      load();
+    } catch (e) {
+      alert(errorMessage(e));
+    } finally {
+      setBulkApplying(false);
+    }
+  }
+
+  async function bulkDeactivate() {
+    const ids = [...selected].filter((id) => id !== profile?.id);
+    if (ids.length === 0) return;
+    if (!(await confirmDialog(`Deaktivovat ${ids.length} vybraných uživatelů? Ztratí přístup, historie absencí zůstane.`, { confirmLabel: "Deaktivovat", danger: true }))) return;
+    setBulkApplying(true);
+    try {
+      await Promise.all(ids.map((id) => setEmployeeActive(id, false)));
+      setSelected(new Set());
+      load();
+    } catch (e) {
+      alert(errorMessage(e));
+    } finally {
+      setBulkApplying(false);
+    }
+  }
+
+  if (loading) return <LoadingCard rows={8} />;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
-        <InviteUserModal onInvited={load} />
-
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="secondary">
-              <Upload size={16} /> Import / Export
-            </Button>
-          </DialogTrigger>
-          <DialogContent title="Hromadný import zaměstnanců" className="max-w-3xl">
-            <ImportEmployeesPanel />
-          </DialogContent>
-        </Dialog>
-
-        <button
-          onClick={() => setShowGenericLink((v) => !v)}
-          className="flex items-center gap-1.5 rounded px-3 py-2 text-sm text-muted hover:bg-paper hover:text-ink"
-        >
-          <Link2 size={14} /> Obecný pozvánkový odkaz
-        </button>
+        <InviteUserModal onInvited={load} onCopyLink={copyGenericLink} />
+        <Button variant="secondary" onClick={copyGenericLink}>
+          <Link2 size={14} /> Kopírovat registrační odkaz
+        </Button>
+        <Button variant="secondary" onClick={() => setImportOpen(true)}>
+          <Upload size={14} /> Hromadný CSV import / export
+        </Button>
+        {linkCopied && <span className="text-xs text-teal-dark">Odkaz zkopírován</span>}
       </div>
 
-      {showGenericLink && <InviteBox />}
-
-      <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
-        <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="h-3.5 w-3.5" />
-        Zobrazit deaktivované
-      </label>
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent title="Hromadný import zaměstnanců" className="max-w-3xl">
+          <ImportEmployeesPanel />
+        </DialogContent>
+      </Dialog>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
@@ -227,7 +278,7 @@ export function UsersPanel() {
           />
         </div>
         <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-44" aria-label="Filtr podle oddělení">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -240,7 +291,7 @@ export function UsersPanel() {
           </SelectContent>
         </Select>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40" aria-label="Filtr podle role">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -252,29 +303,92 @@ export function UsersPanel() {
             ))}
           </SelectContent>
         </Select>
+        <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-muted">
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="h-3.5 w-3.5" />
+          Zobrazit deaktivované
+        </label>
       </div>
 
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded border border-teal/30 bg-teal-light p-3">
           <span className="text-sm font-medium text-teal-dark">Vybráno {selected.size}</span>
-          <input
-            type="number"
-            min={0}
-            step={0.5}
-            value={bulkVacation}
-            onChange={(e) => setBulkVacation(e.target.value)}
-            placeholder="Dní dovolené" aria-label="Dní dovolené"
-            disabled={!vacationType}
-            className="w-32 rounded border border-line px-3 py-1.5 text-sm disabled:bg-paper"
-          />
-          <Button variant="primary" onClick={handleBulkVacation} disabled={bulkApplying || !bulkVacation || !vacationType}>
-            {bulkApplying ? "Ukládám…" : "Nastavit dovolenou"}
+          <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => setBulk("dept")}>
+            Změnit oddělení
+          </Button>
+          <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => setBulk("manager")}>
+            Změnit nadřízeného
+          </Button>
+          <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => setBulk("entitlement")}>
+            Upravit nárok
+          </Button>
+          <Button variant="danger" className="px-3 py-1.5 text-sm" onClick={bulkDeactivate} disabled={bulkApplying}>
+            Deaktivovat vybrané
           </Button>
           <button onClick={() => setSelected(new Set())} className="ml-auto flex items-center gap-1 text-sm text-teal-dark hover:underline">
             <X size={14} /> Zrušit výběr
           </button>
         </div>
       )}
+
+      <Dialog open={bulk !== null} onOpenChange={(o) => !o && setBulk(null)}>
+        <DialogContent title={bulk === "dept" ? "Změnit oddělení" : bulk === "manager" ? "Změnit nadřízeného" : "Upravit roční nárok"}>
+          <div className="space-y-4">
+            <p className="text-sm text-muted">Platí pro {selected.size} vybraných zaměstnanců.</p>
+            {bulk === "dept" && (
+              <Select value={bulkTarget} onValueChange={setBulkTarget}>
+                <SelectTrigger aria-label="Nové oddělení">
+                  <SelectValue placeholder="Vyberte oddělení" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Bez oddělení</SelectItem>
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {bulk === "manager" && (
+              <Select value={bulkTarget} onValueChange={setBulkTarget}>
+                <SelectTrigger aria-label="Nový nadřízený">
+                  <SelectValue placeholder="Vyberte nadřízeného" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Bez nadřízeného</SelectItem>
+                  {employees
+                    .filter((e) => e.active !== false && !selected.has(e.id))
+                    .map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            )}
+            {bulk === "entitlement" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted">Dovolená / rok (prázdné = beze změny)</label>
+                  <input type="number" min={0} step={0.5} value={bulkVacation} onChange={(e) => setBulkVacation(e.target.value)} disabled={!vacationType} className="w-full rounded border border-line px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted">Sick days / rok (prázdné = beze změny)</label>
+                  <input type="number" min={0} step={0.5} value={bulkSick} onChange={(e) => setBulkSick(e.target.value)} disabled={!sickType} className="w-full rounded border border-line px-3 py-2 text-sm" />
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setBulk(null)}>
+                Zrušit
+              </Button>
+              <Button onClick={applyBulk} disabled={bulkApplying || (bulk !== "entitlement" && !bulkTarget) || (bulk === "entitlement" && !bulkVacation && !bulkSick)}>
+                {bulkApplying ? "Ukládám…" : "Použít"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="card overflow-hidden">
         <div className="border-b border-line p-5">
@@ -286,7 +400,7 @@ export function UsersPanel() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="table-cards w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-muted">
                 <th className="w-10 px-5 py-3">
@@ -320,10 +434,10 @@ export function UsersPanel() {
                         />
                       )}
                     </td>
-                    <td className="px-3 py-3 font-medium">{r.name}</td>
+                    <td className="cell-title px-3 py-3 font-medium">{r.name}</td>
                     <td className="px-3 py-3 text-muted">{r.email ?? "—"}</td>
-                    <td className="px-3 py-3 text-muted">{roleLabel[r.role]}</td>
-                    <td className="px-3 py-3 text-muted">{dept?.name ?? "—"}</td>
+                    <td className="px-3 py-3 text-muted" data-label="Role">{roleLabel[r.role]}</td>
+                    <td className="px-3 py-3 text-muted" data-label="Oddělení">{dept?.name ?? "—"}</td>
                     <td className="px-3 py-3">
                       {r.status === "active" && r.employee.active === false ? (
                         <span className="inline-flex items-center gap-1.5 rounded-sm bg-paper px-2 py-0.5 text-xs font-medium text-muted ring-1 ring-line">
@@ -341,7 +455,7 @@ export function UsersPanel() {
                     </td>
                     <td className="px-3 py-3">
                       {r.status === "active" ? (
-                        <div className="flex items-center gap-1 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => setEditingEmployee(r.employee)}
                             className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark"
@@ -381,7 +495,7 @@ export function UsersPanel() {
                       ) : (
                         <button
                           onClick={() => handleCancelInvite(r.id)}
-                          className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted opacity-0 hover:border-danger/40 hover:bg-danger-light hover:text-danger focus:opacity-100 group-hover:opacity-100"
+                          className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-danger/40 hover:bg-danger-light hover:text-danger"
                         >
                           <X size={12} /> Zrušit
                         </button>

@@ -36,6 +36,9 @@ export interface DbCompany {
   default_sick_days: number;
   default_home_office_days: number;
   prorate_new_hires: boolean;
+  plan: string;
+  payment_method: "invoice" | "card" | null;
+  billing_email: string | null;
   // Billing details (Fakturační údaje) — all optional, filled in from ARES or by hand.
   billing_name: string | null;
   billing_ico: string | null;
@@ -105,6 +108,7 @@ export interface DbLeaveType {
   requires_attachment: boolean;
   allow_half_day: boolean;
   allow_hours: boolean;
+  hide_from_colleagues: boolean;
   sort_order: number;
 }
 

@@ -9,6 +9,7 @@ import { formatNumber } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { Balance, loadBalances } from "@/lib/balances";
 import { LeaveColor, RequestStatus } from "@/lib/supabase/types";
+import { LoadingLines } from "@/components/ui/skeleton";
 
 interface Row {
   id: string;
@@ -58,7 +59,7 @@ export function EmployeeDetailModal({ employee, onClose }: { employee: { id: str
             </span>
           </div>
         )}
-        {rows === null && <p className="text-sm text-muted">Načítám…</p>}
+        {rows === null && <LoadingLines rows={4} />}
         {rows && rows.length === 0 && <p className="text-sm text-muted">Zatím žádné žádosti.</p>}
         {rows && rows.length > 0 && (
           <div className="divide-y divide-line">

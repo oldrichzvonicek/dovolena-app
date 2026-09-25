@@ -138,3 +138,24 @@ export async function updateLeaveRequest(
   const { error } = await supabase.from("leave_requests").update(payload).eq("id", id).eq("status", "pending");
   if (error) throw error;
 }
+
+/** A colleague's private absence (e.g. sick leave): only who and when — the type is hidden by RLS. */
+export interface MaskedAbsence {
+  id: string;
+  profile_id: string;
+  start_date: string;
+  end_date: string;
+  half_day: boolean;
+  working_days: number;
+  status: "approved" | "pending";
+}
+
+/** Dates-only absences the caller may not see in full. Empty for admins/superiors of the person. */
+export async function fetchMaskedAbsences(from?: string, to?: string): Promise<MaskedAbsence[]> {
+  const args: { p_from?: string; p_to?: string } = {};
+  if (from) args.p_from = from;
+  if (to) args.p_to = to;
+  const { data, error } = await supabase.rpc("masked_absences", args);
+  if (error) return []; // function not deployed yet — behave as before
+  return ((data as MaskedAbsence[]) ?? []).map((r) => ({ ...r, working_days: Number(r.working_days) }));
+}

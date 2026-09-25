@@ -24,7 +24,8 @@ import { cn, formatNumber } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useOnDataChanged } from "@/lib/events";
 import { useSearchParams } from "next/navigation";
-import { reducesPresence } from "@/lib/leave-kinds";
+import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
+import { fetchMaskedAbsences } from "@/lib/data";
 import { createClient } from "@/lib/supabase/client";
 import { DbDepartment, DbProfile, LeaveColor } from "@/lib/supabase/types";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
@@ -71,19 +72,30 @@ export function TeamCalendar() {
   const { profile } = useAuth();
   const [department, setDepartment] = useState("all");
   const [leaveTypeFilter, setLeaveTypeFilter] = useState("all");
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get("hledat") ?? "");
   const [viewMode, setViewMode] = useState<CalendarViewMode>(() => (typeof window !== "undefined" && window.innerWidth < 640 ? "week" : "month"));
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
   const [employees, setEmployees] = useState<DbProfile[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [leaveTypesLegend, setLeaveTypesLegend] = useState<LegendType[]>([]);
   const [weekendOperations, setWeekendOperations] = useState(true);
-  const searchParams = useSearchParams();
   const [onlyAbsentToday, setOnlyAbsentToday] = useState(searchParams.get("filter") === "today");
   const [groupByDept, setGroupByDept] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [hover, setHover] = useState<{ x: number; y: number; req: RequestRow; name: string } | null>(null);
+  // A tap anywhere closes the detail opened by a previous tap (touch has no mouseleave).
+  useEffect(() => {
+    if (!hover) return;
+    const close = () => setHover(null);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [hover !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [anchor, setAnchor] = useState(() => new Date());
   const today = new Date();
@@ -104,6 +116,28 @@ export function TeamCalendar() {
     viewMode === "month"
       ? format(anchor, "LLLL yyyy", { locale: cs })
       : `${format(days[0] ?? anchor, "d. M.")} – ${format(days[days.length - 1] ?? anchor, "d. M. yyyy")}`;
+
+  // Keyboard: ← → move by the current period, T = today, M / 2 / W = month / 2 weeks / week.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      const k = e.key.toLowerCase();
+      if (k === "arrowleft") goPrev();
+      else if (k === "arrowright") goNext();
+      else if (k === "t") setAnchor(new Date());
+      else if (k === "m") setViewMode("month");
+      else if (k === "2") setViewMode("2weeks");
+      else if (k === "w") setViewMode("week");
+      else return;
+      e.preventDefault();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
 
   function goPrev() {
     setAnchor((d) => (viewMode === "month" ? subMonths(d, 1) : viewMode === "2weeks" ? subWeeks(d, 2) : subWeeks(d, 1)));
@@ -141,11 +175,17 @@ export function TeamCalendar() {
 
   function loadRequests() {
     if (!profile) return;
-    createClient()
-      .from("leave_requests")
-      .select("id, start_date, end_date, profile_id, covering_profile_id, working_days, note, status, leave_type:leave_types(key, label, color)")
-      .in("status", ["approved", "pending"])
-      .then(({ data }) => setRequests((data as unknown as RequestRow[]) ?? []));
+    Promise.all([
+      createClient()
+        .from("leave_requests")
+        .select("id, start_date, end_date, profile_id, covering_profile_id, working_days, note, status, leave_type:leave_types(key, label, color)")
+        .in("status", ["approved", "pending"]),
+      fetchMaskedAbsences(),
+    ]).then(([{ data }, masked]) => {
+      // Private absences (e.g. sick leave) of colleagues arrive without a type — shown as "Nepřítomen".
+      const hidden: RequestRow[] = masked.map((m) => ({ ...m, covering_profile_id: null, note: null, leave_type: ABSENT_TYPE }));
+      setRequests([...((data as unknown as RequestRow[]) ?? []), ...hidden]);
+    });
   }
 
   useOnDataChanged(loadRequests);
@@ -314,6 +354,11 @@ export function TeamCalendar() {
                   setHover({ x: b.left, y: b.bottom - 14, req: r, name: emp.name });
                 }}
                 onBlur={() => setHover(null)}
+                onClick={(e) => {
+                  // Touch screens have no hover — a tap opens the same detail.
+                  const b = e.currentTarget.getBoundingClientRect();
+                  setHover({ x: b.left, y: b.bottom - 14, req: r, name: emp.name });
+                }}
                 onMouseMove={isOwnRow ? undefined : (e) => setHover({ x: e.clientX, y: e.clientY, req: r, name: emp.name })}
                 onMouseLeave={isOwnRow ? undefined : () => setHover(null)}
                 className={cn(
@@ -389,6 +434,9 @@ export function TeamCalendar() {
               </span>
             );
           })}
+          <span className="flex items-center gap-1.5" title="U soukromých absencí (např. nemoc) kolegové důvod nevidí">
+            <span className="h-2.5 w-2.5 rounded-sm bg-slate" /> Nepřítomen
+          </span>
           <span className="flex items-center gap-1.5 border-l border-line pl-4" title="Schválená absence — plná barva">
             <span className="h-2.5 w-5 rounded-sm bg-slate" /> Schváleno
           </span>
@@ -397,6 +445,13 @@ export function TeamCalendar() {
           </span>
           <span className="flex items-center gap-1.5" title="Dny, na které admin/manažer nemůže naplánovat běžnou dovolenou">
             <span className="h-2.5 w-2.5 rounded-sm bg-warning" /> Státní svátek
+          </span>
+          <span className="hidden items-center gap-1 lg:flex" title="Klávesové zkratky kalendáře">
+            <kbd className="rounded border border-line bg-white px-1">←</kbd>
+            <kbd className="rounded border border-line bg-white px-1">→</kbd> posun · <kbd className="rounded border border-line bg-white px-1">T</kbd> dnes ·
+            <kbd className="rounded border border-line bg-white px-1">M</kbd>
+            <kbd className="rounded border border-line bg-white px-1">2</kbd>
+            <kbd className="rounded border border-line bg-white px-1">W</kbd> pohled
           </span>
           <span className="ml-auto flex items-center gap-1.5" title="Dnešní datum">
             <span className="h-2.5 w-2.5 rounded-sm border-2 border-teal" /> Dnes

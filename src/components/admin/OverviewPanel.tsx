@@ -16,6 +16,7 @@ import { LeaveColor } from "@/lib/supabase/types";
 import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationReport";
 import { SmartInsights } from "@/components/admin/SmartInsights";
 import { reducesPresence } from "@/lib/leave-kinds";
+import { LoadingCard } from "@/components/ui/skeleton";
 
 interface State {
   employeeCount: number;
@@ -240,7 +241,7 @@ export function OverviewPanel() {
   function exportCsv() {
     if (!state) return;
     const q = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-    const lines: string[] = [`Přehled;${q(monthLabel)}`, "", "Absence podle typu;Počet;Dny"];
+    const lines: string[] = [`Analytika;${q(monthLabel)}`, "", "Absence podle typu;Počet;Dny"];
     state.byType.forEach((t) => lines.push(`${q(t.label)};${t.count};${String(t.days).replace(".", ",")}`));
     lines.push("", "Absence podle oddělení;Zaměstnanec;Dny");
     state.byDepartment.forEach((d) => d.people.forEach((p) => lines.push(`${q(d.name)};${q(p.name)};${String(p.days).replace(".", ",")}`)));
@@ -336,7 +337,7 @@ export function OverviewPanel() {
         )}
 
         {loading || !state || !kpis ? (
-          <div className="card mt-6 p-8 text-center text-sm text-muted">Načítám…</div>
+          <LoadingCard rows={6} className="mt-6" />
         ) : (
           <div className="mt-6 space-y-6">
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
@@ -460,7 +461,7 @@ export function OverviewPanel() {
               <p className="mt-0.5 text-xs text-muted">Vždy od dneška, bez ohledu na zvolené období výše.</p>
             </div>
             {state.upcoming.length === 0 ? (
-              <div className="p-5 text-sm text-muted">V dalších 30 dnech nikdo nemá naplánované volno.</div>
+              <div className="p-5 text-sm text-muted">V dalších 30 dnech nikdo nemá naplánovanou absenci.</div>
             ) : (
               <div className={cn(showAllUpcoming && "max-h-[380px] overflow-y-auto")}>
                 {upcomingGroups.map((g) => (

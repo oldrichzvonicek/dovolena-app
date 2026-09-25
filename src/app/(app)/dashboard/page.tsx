@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { BalanceCards } from "@/components/dashboard/BalanceCards";
 import { WhoIsOutToday } from "@/components/dashboard/WhoIsOutToday";
 import { UpcomingLeave } from "@/components/dashboard/UpcomingLeave";
+import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
 import { NewRequestButton } from "@/components/dashboard/NewRequestButton";
 import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsWidget";
 import { CancellationRequests } from "@/components/manager/CancellationRequests";
@@ -32,6 +33,7 @@ export default function DashboardPage() {
       <div className="p-4 pb-0 sm:p-8 sm:pb-0">
         {/* Upper tier: my own absences */}
         <div className="space-y-6">
+          <OnboardingChecklist />
           <BalanceCards />
           <NewRequestButton onSaved={() => setRefreshKey((k) => k + 1)} />
           <UpcomingLeave />
