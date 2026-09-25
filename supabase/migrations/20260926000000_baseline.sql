@@ -366,6 +366,9 @@ create table if not exists profile_hr (
   profile_id uuid primary key references profiles(id) on delete cascade,
   hire_date date
 );
+-- Datum ukončení pracovního poměru (podklad pro vyrovnání dovolené) a osobní číslo z mzdového systému (klíč pro mzdové exporty).
+alter table profile_hr add column if not exists termination_date date;
+alter table profile_hr add column if not exists personal_number text;
 
 -- Doplňková role vedle role zaměstnanec / manažer / admin (nastavuje jen admin, viz guard_profile_update):
 --   hr         — personalistika: vidí všechna data o absencích a nárocích, spravuje lidi (oddělení, nadřízený,
@@ -875,7 +878,8 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if old.key in ('dovolena', 'sick') then
+  -- Při mazání celé firmy (kaskáda) už firma neexistuje — to blokovat nesmíme, jinak by firmu nešlo nikdy smazat.
+  if old.key in ('dovolena', 'sick') and exists (select 1 from companies where id = old.company_id) then
     raise exception 'Výchozí typ absence "%" nelze smazat.', old.label;
   end if;
   return old;
@@ -1697,6 +1701,175 @@ begin
   return n;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Schvalování z e-mailu: server (service role) po ověření podepsaného odkazu zavolá tuto funkci. Ta znovu ověří, že
+-- schvalovatel smí rozhodnout (admin, nebo manažer, který je nadřízeným žadatele; ne sám sobě; aktivní; ve stejné firmě)
+-- a že je žádost pořád čekající. Rozhodnutí proběhne "jako" schvalovatel, takže approved_by, audit i ochranné triggery
+-- (důvod zamítnutí, soukromí) fungují stejně jako ve schvalování v aplikaci.
+-- Vrací: ok | already_decided | not_found | forbidden | reason_required | invalid
+-- ---------------------------------------------------------------------------
+alter table companies add column if not exists email_approval_enabled boolean not null default true;
+
+create or replace function email_decide_request(p_request uuid, p_approver uuid, p_decision text, p_reason text default null)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r leave_requests%rowtype;
+  a profiles%rowtype;
+  requester_company uuid;
+  enabled boolean;
+begin
+  if p_decision not in ('approved', 'rejected') then
+    return 'invalid';
+  end if;
+
+  select * into r from leave_requests where id = p_request for update;
+  if not found then
+    return 'not_found';
+  end if;
+  if r.status <> 'pending' then
+    return 'already_decided';
+  end if;
+
+  select * into a from profiles where id = p_approver;
+  select company_id into requester_company from profiles where id = r.profile_id;
+  select coalesce(email_approval_enabled, true) into enabled from companies where id = requester_company;
+  if a.id is null or not a.active or a.company_id is distinct from requester_company or a.id = r.profile_id or not coalesce(enabled, true) then
+    return 'forbidden';
+  end if;
+  if a.role <> 'admin' and not (a.role = 'manager' and superior_check(a.id, r.profile_id)) then
+    return 'forbidden';
+  end if;
+  if p_decision = 'rejected' and coalesce(trim(p_reason), '') = '' then
+    return 'reason_required';
+  end if;
+
+  perform set_config('request.jwt.claim.sub', a.id::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', a.id, 'role', 'authenticated')::text, true);
+
+  update leave_requests
+     set status = p_decision::request_status,
+         approved_by = a.id,
+         rejection_reason = case when p_decision = 'rejected' then trim(p_reason) else rejection_reason end
+   where id = p_request;
+  return 'ok';
+end;
+$$;
+
+revoke all on function email_decide_request(uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function email_decide_request(uuid, uuid, text, text) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- Mzdové podklady: kód typu absence pro mzdový systém a uzávěrka měsíce.
+-- Uzavřený měsíc už nikdo nemění: schválené absence, které ho zasahují, nejde přidat, upravit ani smazat
+-- (dokud měsíc někdo z admina / HR / účetních znovu neotevře). Server (service role) se nekontroluje.
+-- ---------------------------------------------------------------------------
+alter table leave_types add column if not exists payroll_code text;
+
+create table if not exists payroll_closures (
+  company_id uuid not null references companies(id) on delete cascade,
+  month date not null,
+  closed_by uuid references profiles(id) on delete set null,
+  closed_at timestamptz not null default now(),
+  primary key (company_id, month)
+);
+
+alter table payroll_closures enable row level security;
+drop policy if exists "read payroll closures" on payroll_closures;
+create policy "read payroll closures" on payroll_closures
+  for select using (company_id = current_company_id());
+
+create or replace function close_payroll_month(p_month date)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  m date := date_trunc('month', p_month)::date;
+  cid uuid := current_company_id();
+begin
+  if cid is null or (current_user_role() is distinct from 'admin' and current_user_staff() is null) then
+    raise exception 'Měsíc smí uzavřít admin, HR nebo účetní.';
+  end if;
+  if m >= date_trunc('month', (now() at time zone 'Europe/Prague')::date)::date then
+    raise exception 'Uzavřít lze jen měsíc, který už skončil.';
+  end if;
+  insert into payroll_closures (company_id, month, closed_by) values (cid, m, auth.uid()) on conflict do nothing;
+end;
+$$;
+
+create or replace function reopen_payroll_month(p_month date)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cid uuid := current_company_id();
+begin
+  if cid is null or (current_user_role() is distinct from 'admin' and current_user_staff() is null) then
+    raise exception 'Měsíc smí znovu otevřít admin, HR nebo účetní.';
+  end if;
+  delete from payroll_closures where company_id = cid and month = date_trunc('month', p_month)::date;
+end;
+$$;
+
+create or replace function assert_payroll_month_open(p_profile uuid, p_start date, p_end date)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  closed date;
+begin
+  select c.month into closed
+  from payroll_closures c
+  where c.company_id = (select company_id from profiles where id = p_profile)
+    and c.month between date_trunc('month', p_start)::date and date_trunc('month', p_end)::date
+  order by c.month
+  limit 1;
+  if closed is not null then
+    raise exception 'Měsíc % je uzavřen pro mzdy. Požádejte HR nebo účetní o jeho znovuotevření.', to_char(closed, 'MM/YYYY');
+  end if;
+end;
+$$;
+
+create or replace function guard_closed_payroll_month()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    return coalesce(new, old);
+  end if;
+  -- Úprava, která nemění nic podstatného pro mzdy (poznámka, žádost o zrušení…), měsíc neřeší.
+  if tg_op = 'UPDATE'
+     and (new.start_date, new.end_date, new.half_day, new.working_days, new.leave_type_id, new.status, new.profile_id)
+         is not distinct from (old.start_date, old.end_date, old.half_day, old.working_days, old.leave_type_id, old.status, old.profile_id) then
+    return new;
+  end if;
+  if tg_op in ('UPDATE', 'DELETE') and old.status = 'approved' then
+    perform assert_payroll_month_open(old.profile_id, old.start_date, old.end_date);
+  end if;
+  if tg_op in ('INSERT', 'UPDATE') and new.status = 'approved' then
+    perform assert_payroll_month_open(new.profile_id, new.start_date, new.end_date);
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists a_guard_closed_payroll_month on leave_requests;
+create trigger a_guard_closed_payroll_month
+  before insert or update or delete on leave_requests
+  for each row execute function guard_closed_payroll_month();
 
 -- ---------------------------------------------------------------------------
 -- guard_profile_update — RLS policies above grant broader UPDATE access on
@@ -2785,7 +2958,7 @@ create policy "read own or hr hire date" on profile_hr
     profile_id = auth.uid()
     or (
       exists (select 1 from profiles p where p.id = profile_hr.profile_id and p.company_id = current_company_id())
-      and (current_user_role() = 'admin' or current_user_staff() = 'hr')
+      and (current_user_role() = 'admin' or current_user_staff() in ('hr', 'accountant'))
     )
   );
 

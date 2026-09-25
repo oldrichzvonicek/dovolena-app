@@ -405,6 +405,21 @@ export function CompanySettingsPanel() {
             </p>
           </div>
         </div>
+
+        <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
+          <div>
+            <div className="text-sm font-medium">Schvalování přímo z e-mailu</div>
+            <p className="mt-0.5 text-sm text-muted">
+              E-mail o nové žádosti obsahuje tlačítka Schválit a Zamítnout. Vedou na potvrzovací stránku (rozhodnutí se nikdy neuloží samo kliknutím z náhledu e-mailu), odkaz platí 7 dní a jde použít jen pro čekající žádost. Vypněte, pokud chcete, aby se schvalovalo jen po přihlášení.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={company.email_approval_enabled !== false}
+            onChange={(e) => patch({ email_approval_enabled: e.target.checked })}
+            className="h-5 w-5 shrink-0 rounded border-line accent-teal"
+          />
+        </label>
       </div>
 
       <BlackoutPeriodsSection companyId={profile!.company_id} blackouts={blackouts} onReload={load} />

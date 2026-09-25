@@ -12,13 +12,14 @@ async function call(action: "status" | "create" | "remove") {
   const res = await fetch("/api/admin/demo-data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.error ?? "Požadavek selhal.");
-  return json as { exists?: boolean; people?: number; requests?: number; removed?: number };
+  return json as { exists?: boolean; eligible?: boolean; people?: number; requests?: number; removed?: number };
 }
 
 /** Ukázková data (jen admin): fiktivní oddělení, lidé a absence k prohlédnutí aplikace; jedním kliknutím se odstraní. */
 export function DemoDataCard() {
   const { profile } = useAuth();
   const [exists, setExists] = useState<boolean | null>(null);
+  const [eligible, setEligible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -26,11 +27,15 @@ export function DemoDataCard() {
   useEffect(() => {
     if (!profile || profile.role !== "admin") return;
     call("status")
-      .then((r) => setExists(!!r.exists))
+      .then((r) => {
+        setExists(!!r.exists);
+        setEligible(!!r.eligible);
+      })
       .catch(() => setExists(null));
   }, [profile]);
 
-  if (!profile || profile.role !== "admin" || exists === null) return null;
+  // Nabízí se jen v prázdné firmě; když ukázková data už jsou, zůstane možnost je odstranit.
+  if (!profile || profile.role !== "admin" || exists === null || (!exists && !eligible)) return null;
 
   async function run(action: "create" | "remove") {
     setBusy(true);

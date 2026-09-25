@@ -399,6 +399,17 @@ export function LeaveTypesPanel() {
                         Počítá se jako práce (nesnižuje kapacitu)
                         <Switch checked={t.counts_as_present} onCheckedChange={(v) => handleUpdate(t, { counts_as_present: v })} />
                       </label>
+                      <label className="flex items-center justify-between gap-2 text-sm" title="Kód nebo zkratka tohoto druhu nepřítomnosti ve vašem mzdovém systému. Uvádí se v mzdovém podkladu (Exporty).">
+                        Kód pro mzdy
+                        <input
+                          maxLength={20}
+                          placeholder="např. D"
+                          aria-label="Kód pro mzdy"
+                          defaultValue={t.payroll_code ?? ""}
+                          onBlur={(e) => handleUpdate(t, { payroll_code: e.target.value.trim() || null })}
+                          className="w-24 rounded border border-line px-2 py-1 text-right text-sm"
+                        />
+                      </label>
                       <label className="flex items-center justify-between gap-2 text-sm">
                         Placená absence
                         <Switch checked={t.paid} onCheckedChange={(v) => handleUpdate(t, { paid: v })} />

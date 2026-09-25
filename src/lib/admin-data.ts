@@ -173,6 +173,10 @@ export interface AdminEmployeeRow {
   avatar_initials: string | null;
   active?: boolean;
   hire_date?: string | null;
+  /** Datum ukončení pracovního poměru (podklad pro vyrovnání dovolené). */
+  termination_date?: string | null;
+  /** Osobní číslo z mzdového systému. */
+  personal_number?: string | null;
   staff_role?: "hr" | "accountant" | null;
   join_pending?: boolean;
 }
@@ -185,9 +189,15 @@ export async function fetchCompanyEmployees(companyId: string): Promise<AdminEmp
     .order("name", { ascending: true });
   if (error) throw error;
   // Datum nástupu je v samostatné tabulce, kterou čte jen admin a HR (ostatním se vrátí prázdný seznam).
-  const { data: hr } = await supabase.from("profile_hr").select("profile_id, hire_date");
-  const hire = new Map((hr ?? []).map((h) => [h.profile_id as string, h.hire_date as string | null]));
-  return (data ?? []).map((e) => ({ ...e, hire_date: hire.get(e.id as string) ?? null })) as AdminEmployeeRow[];
+  // Sloupce termination_date a personal_number vznikají až po spuštění aktualizovaného schema.sql — do té doby stačí datum nástupu.
+  type HrRow = { profile_id: string; hire_date: string | null; termination_date?: string | null; personal_number?: string | null };
+  const full = await supabase.from("profile_hr").select("profile_id, hire_date, termination_date, personal_number");
+  const hrRows: HrRow[] = !full.error ? (full.data as HrRow[]) : (((await supabase.from("profile_hr").select("profile_id, hire_date")).data ?? []) as HrRow[]);
+  const hr = new Map(hrRows.map((h) => [h.profile_id, h]));
+  return (data ?? []).map((e) => {
+    const h = hr.get(e.id as string);
+    return { ...e, hire_date: h?.hire_date ?? null, termination_date: h?.termination_date ?? null, personal_number: h?.personal_number ?? null };
+  }) as AdminEmployeeRow[];
 }
 
 /** Admin schválí registraci z odkazu: účet se aktivuje a dotyčný se může přihlásit. */
@@ -198,6 +208,12 @@ export async function approveJoiner(id: string) {
 
 export async function updateEmployeeStaffRole(id: string, staffRole: "hr" | "accountant" | null) {
   const { error } = await supabase.from("profiles").update({ staff_role: staffRole }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Datum ukončení pracovního poměru a osobní číslo (tabulka profile_hr; mění jen HR a admin). */
+export async function updateEmployeeHrData(id: string, patch: { termination_date?: string | null; personal_number?: string | null }) {
+  const { error } = await supabase.from("profile_hr").upsert({ profile_id: id, ...patch }, { onConflict: "profile_id" });
   if (error) throw error;
 }
 
@@ -403,6 +419,7 @@ export async function updateLeaveType(
     allow_hours: boolean;
     hide_from_colleagues: boolean;
     counts_as_present: boolean;
+    payroll_code: string | null;
   }>
 ) {
   const { error } = await supabase.from("leave_types").update(payload).eq("id", id);

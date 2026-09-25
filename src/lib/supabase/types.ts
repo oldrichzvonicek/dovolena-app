@@ -19,6 +19,8 @@ export interface DbCompany {
   id: string;
   name: string;
   weekend_operations: boolean;
+  /** Tlačítka Schválit / Zamítnout v e-mailu schvalovateli (výchozí zapnuto). */
+  email_approval_enabled?: boolean;
   shift_pattern: ShiftPattern;
   standard_daily_hours: number;
   work_days: number[];
@@ -104,6 +106,8 @@ export interface DbLeaveType {
   allow_hours: boolean;
   hide_from_colleagues: boolean;
   counts_as_present: boolean;
+  /** Kód typu absence ve mzdovém systému (uvádí se v mzdovém podkladu). */
+  payroll_code?: string | null;
   sort_order: number;
 }
 

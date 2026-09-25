@@ -15,7 +15,7 @@ import { DbDepartment } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
 
 const formats = [
-  { key: "csv", label: "CSV pro Pohodu", icon: FileText, bookType: "csv" as const },
+  { key: "csv", label: "CSV", icon: FileText, bookType: "csv" as const },
   { key: "xlsx", label: "Excel (XLSX)", icon: FileSpreadsheet, bookType: "xlsx" as const },
   { key: "ods", label: "OpenDocument (ODS)", icon: FileType, bookType: "ods" as const },
 ] as const;

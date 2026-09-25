@@ -63,15 +63,27 @@ const initials = (name: string) =>
 export interface DemoStatus {
   exists: boolean;
   people: number;
+  /** Ukázková data lze přidat jen do prázdné firmy (žádní další lidé, žádosti, pozvánky ani oddělení). */
+  eligible: boolean;
 }
 
 export async function demoStatus(admin: SupabaseClient, companyId: string): Promise<DemoStatus> {
-  const { count } = await admin.from("profiles").select("id", { count: "exact", head: true }).eq("company_id", companyId).eq("is_demo", true);
-  return { exists: (count ?? 0) > 0, people: count ?? 0 };
+  const count = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0;
+  const people = await count(admin.from("profiles").select("id", { count: "exact", head: true }).eq("company_id", companyId).eq("is_demo", true));
+  if (people > 0) return { exists: true, people, eligible: false };
+
+  const { data: real } = await admin.from("profiles").select("id").eq("company_id", companyId).eq("is_demo", false);
+  const realIds = (real ?? []).map((p) => p.id as string);
+  const requests = realIds.length > 0 ? await count(admin.from("leave_requests").select("id", { count: "exact", head: true }).in("profile_id", realIds)) : 0;
+  const invites = await count(admin.from("company_invites").select("id", { count: "exact", head: true }).eq("company_id", companyId));
+  const departments = await count(admin.from("departments").select("id", { count: "exact", head: true }).eq("company_id", companyId).eq("is_demo", false));
+  return { exists: false, people: 0, eligible: realIds.length <= 1 && requests === 0 && invites === 0 && departments === 0 };
 }
 
 export async function createDemoData(admin: SupabaseClient, companyId: string, today: string): Promise<{ people: number; requests: number }> {
-  if ((await demoStatus(admin, companyId)).exists) throw new Error("Ukázková data už ve firmě jsou.");
+  const status = await demoStatus(admin, companyId);
+  if (status.exists) throw new Error("Ukázková data už ve firmě jsou.");
+  if (!status.eligible) throw new Error("Ukázková data lze přidat jen do prázdné firmy — tahle už má vlastní lidi, oddělení nebo žádosti.");
 
   const { data: company } = await admin.from("companies").select("work_days").eq("id", companyId).single();
   const workDays = (company?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;

@@ -435,8 +435,23 @@ export function templateByKey(key: string) {
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** Sjednocený vzhled všech e-mailů Dodia (inline styly kvůli e-mailovým klientům). */
-export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: { label: string; url: string }; footer: string }): string {
+export interface EmailAction {
+  label: string;
+  url: string;
+  kind: "approve" | "reject" | "link";
+}
+
+const ACTION_STYLE: Record<EmailAction["kind"], string> = {
+  approve: "background:#085041;color:#fff;border:1px solid #085041",
+  reject: "background:#fff;color:#A32D2D;border:1px solid #A32D2D",
+  link: "background:#fff;color:#085041;border:1px solid #D3D1C7",
+};
+
+export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: { label: string; url: string }; actions?: EmailAction[]; footer: string }): string {
   const body = opts.paragraphs.map((p) => `<p style="margin:0 0 14px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  const actions = (opts.actions ?? [])
+    .map((a) => `<a href="${esc(a.url)}" style="display:inline-block;margin:6px 8px 0 0;${ACTION_STYLE[a.kind]};text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;font-weight:bold">${esc(a.label)}</a>`)
+    .join("");
   const button = opts.cta
     ? `<a href="${esc(opts.cta.url)}" style="display:inline-block;margin-top:6px;background:#085041;color:#fff;text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;font-weight:bold">${esc(opts.cta.label)}</a>`
     : "";
@@ -446,7 +461,7 @@ export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: {
   <div style="background:#fff;border:1px solid #D3D1C7;border-radius:8px;padding:24px">
     <h1 style="font-size:18px;margin:0 0 14px">${esc(opts.title)}</h1>
     ${body}
-    ${button}
+    ${button}${actions}
   </div>
   <div style="font-size:12px;color:#5F5E5A;margin-top:14px;line-height:1.5">${esc(opts.footer)}</div>
 </div></body></html>`;

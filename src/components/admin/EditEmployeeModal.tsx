@@ -11,6 +11,7 @@ import {
   EntitlementMap,
   updateEmployeeDepartment,
   updateEmployeeHireDate,
+  updateEmployeeHrData,
   updateEmployeeManager,
   updateEmployeeRole,
   updateEmployeeStaffRole,
@@ -57,6 +58,8 @@ export function EditEmployeeModal({
   const [homeOfficeDays, setHomeOfficeDays] = useState(homeOfficeType ? String(entitlements[employee.id]?.[homeOfficeType.id] ?? "") : "");
   const [sickDays, setSickDays] = useState(String(sickType ? entitlements[employee.id]?.[sickType.id] ?? 0 : 0));
   const [hireDate, setHireDate] = useState(employee.hire_date ?? "");
+  const [terminationDate, setTerminationDate] = useState(employee.termination_date ?? "");
+  const [personalNumber, setPersonalNumber] = useState(employee.personal_number ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +78,9 @@ export function EditEmployeeModal({
           ? updateEmployeeSubstitute(employee.id, substituteId === "none" ? null : substituteId)
           : null,
         hireDate !== (employee.hire_date ?? "") ? updateEmployeeHireDate(employee.id, hireDate || null) : null,
+        terminationDate !== (employee.termination_date ?? "") || personalNumber.trim() !== (employee.personal_number ?? "")
+          ? updateEmployeeHrData(employee.id, { termination_date: terminationDate || null, personal_number: personalNumber.trim() || null })
+          : null,
         vacationType ? upsertEntitlement(employee.id, vacationType.id, year, Number(vacationDays) || 0) : null,
         sickType ? upsertEntitlement(employee.id, sickType.id, year, Number(sickDays) || 0) : null,
         homeOfficeType && homeOfficeDays !== "" ? upsertEntitlement(employee.id, homeOfficeType.id, year, Number(homeOfficeDays) || 0) : null,
@@ -196,6 +202,31 @@ export function EditEmployeeModal({
               className="w-full rounded border border-line px-3 py-2 text-sm"
             />
             <p className="mt-1 text-xs text-muted">Podle něj se počítá poměrná dovolená v roce nástupu a příplatek za odpracované roky (Nastavení → Typy absencí).</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Datum ukončení pracovního poměru</label>
+              <input
+                type="date"
+                value={terminationDate}
+                onChange={(e) => setTerminationDate(e.target.value)}
+                aria-label="Datum ukončení pracovního poměru"
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-muted">Podklad pro vyrovnání dovolené (Exporty → Vyrovnání při ukončení). Účet se tím sám nedeaktivuje.</p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Osobní číslo</label>
+              <input
+                value={personalNumber}
+                onChange={(e) => setPersonalNumber(e.target.value)}
+                aria-label="Osobní číslo"
+                maxLength={30}
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-muted">Z mzdového systému; uvádí se v mzdových podkladech.</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

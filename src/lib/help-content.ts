@@ -397,6 +397,24 @@ export const faqs: HelpFaq[] = [
     roles: ["admin"],
   },
   {
+    q: "Můžu žádost schválit přímo z e-mailu?",
+    section: "Ke schválení (manažer)",
+    a: "Ano. E-mail o nové žádosti obsahuje tlačítka „Schválit“ a „Zamítnout“. Vedou na potvrzovací stránku, kde vidíte, o koho jde a na kdy, a rozhodnutí potvrdíte jedním kliknutím (u zamítnutí vyplníte důvod). Kliknutí na odkaz v e-mailu samo nic nerozhodne, takže náhled e-mailu žádost neschválí omylem. Odkaz platí 7 dní, je určený jen vám (nepřeposílejte ho) a funguje jen pro čekající žádost — po rozhodnutí se zobrazí, že už je vyřízená. Admin může tlačítka v e-mailech vypnout v Nastavení firmy → Pravidla.",
+    roles: ["manager", "admin"],
+  },
+  {
+    q: "Jak vytvořím detailní podklad pro mzdy a uzavřu měsíc?",
+    section: "Analytika a Exporty (admin)",
+    a: "V Exporty → „Detail pro mzdy a uzávěrka“ zvolte měsíc. Dostanete jeden řádek na každou schválenou absenci (osobní číslo, příjmení, jméno, od–do, pracovní dny, hodiny, typ a kód pro mzdy); absence přes přelom měsíců se rozdělí. Home Office se standardně nepočítá, protože pro mzdy není nepřítomností. Stáhnete CSV (středník, desetinná čárka) nebo Excel s listem Detail a Souhrn. Kódy typů absencí ve vašem mzdovém systému nastavíte v Nastavení → Typy absencí („Kód pro mzdy“), osobní čísla u zaměstnance. Po odeslání podkladů můžete měsíc uzavřít: schválené absence, které ho zasahují, pak nejde přidat, změnit ani smazat, dokud ho admin, HR nebo účetní znovu neotevře. Uzavřít lze jen měsíc, který už skončil.",
+    roles: ["admin"],
+  },
+  {
+    q: "Jak spočítám vyrovnání dovolené při odchodu zaměstnance?",
+    section: "Analytika a Exporty (admin)",
+    a: "Nejdřív u zaměstnance (Uživatelé → Upravit) vyplňte „Datum ukončení pracovního poměru“. V Exporty → „Vyrovnání při ukončení“ pak uvidíte všechny odchody v tomto roce: poměrný nárok k datu odchodu (roční nárok krát počet měsíců děleno 12, měsíc nástupu i ukončení se počítá celý, zaokrouhluje se nahoru na půl dne), převod z minulého roku, vyčerpané dny a výsledek — kladný znamená nevyčerpanou dovolenou (náhrada mzdy), záporný přečerpanou. Uvidíte i dny naplánované až po odchodu, které je potřeba zrušit. Je to orientační podklad: částku Dodio nepočítá (nezná průměrný výdělek) a pravidla si nechte potvrdit u mzdové účetní. Výsledek stáhnete jako CSV nebo Excel.",
+    roles: ["admin"],
+  },
+  {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
     a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",
