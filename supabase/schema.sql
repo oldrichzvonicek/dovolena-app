@@ -573,6 +573,10 @@ as $$
     (target_company_id, 'nemoc', 'Nemoc', 'sage', 'none', false),
     (target_company_id, 'sluzebni_cesta', 'Služební cesta', 'slate', 'none', false)
   on conflict (company_id, key) do nothing;
+
+  -- Home Office a služební cesta: člověk pracuje, takže nesnižuje kapacitu týmu a nekryje se s jinou absencí.
+  update leave_types set counts_as_present = true
+   where company_id = target_company_id and key in ('home_office', 'sluzebni_cesta') and counts_as_present = false;
 $$;
 
 -- One-off backfill: "Ošetřování člena rodiny" was originally seeded active
@@ -2917,6 +2921,7 @@ declare
   prev_used numeric;
   carry numeric := 0;
   allowed_neg numeric;
+  new_present boolean;
 begin
   -- Server (service role), SQL Editor a security definer funkce (např. celozávodní volno) se nekontrolují.
   if auth.uid() is null or current_user not in ('authenticated', 'anon') then
@@ -2984,6 +2989,24 @@ begin
 
   if not self_service then
     return new;
+  end if;
+
+  -- Překryv s vlastní absencí: dvě nepřítomnosti (ne práce jako Home Office) se nesmí krýt. Výjimka: dva půldny
+  -- v jednom dni. Zamítnuté žádosti se nepočítají. Týká se jen vlastních žádostí (hromadné akce a zadání za
+  -- někoho jiného tímto neprochází).
+  select t.counts_as_present into new_present from leave_types t where t.id = new.leave_type_id;
+  if not coalesce(new_present, false) and exists (
+    select 1
+    from leave_requests r
+    join leave_types t on t.id = r.leave_type_id
+    where r.profile_id = new.profile_id
+      and r.status <> 'rejected'
+      and r.id is distinct from new.id
+      and not t.counts_as_present
+      and r.start_date <= new.end_date and r.end_date >= new.start_date
+      and not (r.half_day and new.half_day)
+  ) then
+    raise exception 'V tomto termínu už máte jinou absenci.';
   end if;
 
   -- Zpětné zadávání

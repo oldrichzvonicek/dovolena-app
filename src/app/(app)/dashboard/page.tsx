@@ -27,31 +27,41 @@ export default function DashboardPage() {
   const isMyNameDay = isNameDayFor(now, firstName);
 
   const subtitle = `${today.charAt(0).toUpperCase()}${today.slice(1)}${isMyNameDay ? " · Dnes máš svátek — všechno nejlepší! 🎉" : ""}`;
+  const refresh = () => setRefreshKey((k) => k + 1);
 
+  const mine = (
+    <div className="space-y-6">
+      <BalanceCards />
+      <NewRequestButton onSaved={refresh} />
+      <UpcomingLeave />
+      <BridgeDays onSaved={refresh} />
+    </div>
+  );
+
+  const team = (
+    <div className="space-y-6">
+      <PendingApprovalsWidget onChanged={refresh} />
+      <CancellationRequests onChanged={refresh} />
+      <WhoIsOutToday />
+    </div>
+  );
+
+  // Pro všechny stejně: nahoře moje absence a rychlé žádosti, pod nimi týmový přehled (u manažera a admina i schvalování).
   return (
     <div key={refreshKey}>
       <Header title={`Vítej zpět, ${firstName}`} subtitle={subtitle} />
       <div className="p-4 pb-0 sm:p-8 sm:pb-0">
-        {/* Upper tier: my own absences */}
         <div className="space-y-6">
           <OnboardingChecklist />
-          <BalanceCards />
-          <NewRequestButton onSaved={() => setRefreshKey((k) => k + 1)} />
-          <UpcomingLeave />
-          <BridgeDays onSaved={() => setRefreshKey((k) => k + 1)} />
+          {mine}
         </div>
       </div>
 
-      {/* Lower tier: team overview and manager agenda, visually separated and tinted */}
       <section aria-labelledby="team-overview-heading" className="mt-8 border-t border-line bg-teal-light/30 px-4 py-6 sm:px-8 sm:py-8">
         <h2 id="team-overview-heading" className="mb-5 flex items-center gap-2 font-display text-h2">
           <Users size={18} className="text-teal-dark" /> {isManager ? "Týmový přehled a agenda manažera" : "Týmový přehled"}
         </h2>
-        <div className="space-y-6">
-          <PendingApprovalsWidget onChanged={() => setRefreshKey((k) => k + 1)} />
-          <CancellationRequests onChanged={() => setRefreshKey((k) => k + 1)} />
-          <WhoIsOutToday />
-        </div>
+        {team}
       </section>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail } from "lucide-react";
@@ -110,6 +110,15 @@ export function Sidebar() {
   const isManager = profile?.role === "manager" || profile?.role === "admin";
   const isAdmin = profile?.role === "admin";
 
+  // Nastavení se po odchodu ze stránek nastavení samo sbalí a menu se vrátí nahoru.
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (settingsSection === null) {
+      setSettingsOpen(false);
+      navRef.current?.scrollTo({ top: 0 });
+    }
+  }, [pathname, settingsSection]);
+
   function loadPending() {
     if (!isManager || !profile) return;
     const supabase = createClient();
@@ -173,7 +182,7 @@ export function Sidebar() {
         )}
       </Link>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+      <nav ref={navRef} className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
         <div className="space-y-1">
           {mainNav.map((item) => (
             <NavLink key={item.href} {...item} active={pathname === item.href} />

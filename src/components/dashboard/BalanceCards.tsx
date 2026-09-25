@@ -24,30 +24,6 @@ function SegmentedBar({ used, upcoming, total, color }: { used: number; upcoming
   );
 }
 
-/** Ring showing remaining share of the entitlement; turns warning-colored when it's running low. */
-function RadialProgress({ remainingPct, low, size = 52, stroke = 5 }: { remainingPct: number; low: boolean; size?: number; stroke?: number }) {
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const offset = c * (1 - Math.max(0, Math.min(100, remainingPct)) / 100);
-  return (
-    <svg width={size} height={size} className="-rotate-90 shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="text-line" style={{ stroke: "currentColor" }} />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        strokeWidth={stroke}
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        className={low ? "text-warning" : "text-teal-dark"}
-        style={{ stroke: "currentColor", transition: "stroke-dashoffset 0.3s" }}
-      />
-    </svg>
-  );
-}
-
 function BalanceCard({
   label,
   used,
@@ -72,24 +48,20 @@ function BalanceCard({
   const low = total > 0 && (remaining <= 2 || remainingPct <= 20);
   return (
     <div className={cn("card flex-1 p-5", low && "border-warning/40")}>
-      <div className="flex items-center gap-4">
-        <RadialProgress remainingPct={remainingPct} low={low} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-sm text-muted">
-            {label}
-            {low && (
-              <span className="rounded-sm bg-warning-light px-1.5 py-0.5 text-[11px] font-medium text-warning-dark">
-                Dochází
-              </span>
-            )}
-          </div>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="font-display text-3xl">{fmt(remaining)}</span>
-            <span className="text-sm text-muted">
-              z {fmt(total)} {unit}
-            </span>
-          </div>
-        </div>
+      <div className="flex items-center gap-1.5 text-sm text-muted">
+        {label}
+        {low && (
+          <span className="rounded-sm bg-warning-light px-1.5 py-0.5 text-[11px] font-medium text-warning-dark">
+            Dochází
+          </span>
+        )}
+      </div>
+      {/* Jedno číslo, jasný význam: kolik ZBÝVÁ z ročního nároku. Pruh pod ním ukazuje, kam se zbytek poděl. */}
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+        <span className="font-display text-3xl">{fmt(remaining)}</span>
+        <span className="text-sm text-muted">
+          {unit} zbývá z {fmt(total)}
+        </span>
       </div>
       <SegmentedBar used={used} upcoming={upcoming} total={total} color={color} />
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
@@ -101,6 +73,9 @@ function BalanceCard({
             <span className={cn("h-2 w-2 rounded-sm", lightClass[color])} /> Schváleno do budoucna {fmt(upcoming)}
           </span>
         )}
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-sm border border-line bg-paper" /> Zbývá {fmt(remaining)}
+        </span>
         <button onClick={() => setExplain((v) => !v)} aria-expanded={explain} className="ml-auto underline hover:text-ink">
           {explain ? "Skrýt výpočet" : "Jak se to počítá?"}
         </button>

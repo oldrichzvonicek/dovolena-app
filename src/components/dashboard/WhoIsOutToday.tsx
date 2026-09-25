@@ -27,6 +27,12 @@ const colorDot: Record<string, string> = {
   plum: "bg-plum", sage: "bg-sage", gold: "bg-gold", wine: "bg-wine", slate: "bg-slate", forest: "bg-forest",
 };
 
+/** „Eva Procházková“ → „Eva P.“ (na úzkých displejích, kde se celé jméno nevejde). */
+function shortName(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : name;
+}
+
 export function WhoIsOutToday() {
   const [allRows, setAllRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,7 +202,15 @@ export function WhoIsOutToday() {
         </div>
       )}
 
-      <div className="mt-4 space-y-3">
+      <h3 className="mt-4 flex items-center gap-2 text-sm font-medium">
+        Dnes
+        {!loading && (
+          <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", rows.length > 0 ? "bg-warning-light text-warning-dark" : "bg-teal-light text-teal-dark")}>
+            {rows.length > 0 ? `chybí ${new Set(rows.map((r) => r.profile?.id)).size}` : "nikdo nechybí"}
+          </span>
+        )}
+      </h3>
+      <div className="mt-3 space-y-3">
         {loading && <LoadingLines rows={2} />}
         {!loading && rows.length === 0 && (
           <div>
@@ -247,7 +261,8 @@ export function WhoIsOutToday() {
 
       {!loading && (
         <div className="mt-5 border-t border-line pt-4">
-          <div className="grid grid-cols-[96px_repeat(5,1fr)] items-center gap-x-1 gap-y-1.5 text-[11px] text-muted">
+          <h3 className="mb-3 text-sm font-medium">Tento týden</h3>
+          <div className="grid grid-cols-[88px_repeat(5,1fr)] items-center gap-x-1 gap-y-1.5 text-[11px] text-muted sm:grid-cols-[160px_repeat(5,1fr)]">
             <span />
             {week.days.map((d, i) => (
               <span key={week.isos[i]} className={cn("text-center capitalize", week.isos[i] === todayISO && "font-semibold text-teal-dark underline decoration-2 underline-offset-4")}>
@@ -257,7 +272,10 @@ export function WhoIsOutToday() {
             {week.people.length === 0 && <span className="col-span-6 py-2 text-center">Tento týden nikdo nechybí.</span>}
             {week.people.slice(0, 6).map((p) => (
               <Fragment key={p.name}>
-                <span className="truncate text-xs text-ink" title={p.name}>{p.name}</span>
+                <span className="truncate text-xs text-ink" title={p.name}>
+                  <span className="hidden sm:inline">{p.name}</span>
+                  <span className="sm:hidden">{shortName(p.name)}</span>
+                </span>
                 {p.cells.map((c, i) => (
                   <span
                     key={i}
@@ -284,7 +302,7 @@ export function WhoIsOutToday() {
               ))}
             </div>
           )}
-          <p className="mt-2 text-[11px] text-muted">Barevný pruh = nepřítomen, šedé pole = v práci. Dnešní den je podtržený a orámovaný.</p>
+          <p className="mt-2 text-xs text-muted">Barevný pruh = nepřítomen, šedé pole = v práci. Dnešní den je podtržený a orámovaný.</p>
           {week.people.length > 6 && <p className="mt-1 text-[11px] text-muted">a dalších {week.people.length - 6}</p>}
         </div>
       )}
