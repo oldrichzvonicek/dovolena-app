@@ -8,11 +8,14 @@ import { InviteUserModal } from "@/components/admin/InviteUserModal";
 import { EditEmployeeModal } from "@/components/admin/EditEmployeeModal";
 import { ImportEmployeesPanel } from "@/components/admin/ImportEmployeesPanel";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { JoinLinkCard } from "@/components/admin/JoinLinkCard";
+import { copyJoinLink } from "@/lib/join-link";
 import { fetchDepartments, fetchLeaveTypes } from "@/lib/data";
 import {
   AdminEmployeeRow,
   CompanyInviteRow,
   EntitlementMap,
+  approveJoiner,
   deleteEmployee,
   deleteInvite,
   updateEmployeeDepartment,
@@ -66,6 +69,9 @@ export function UsersPanel() {
   const [bulk, setBulk] = useState<null | "dept" | "manager" | "entitlement">(null);
   const [bulkTarget, setBulkTarget] = useState("");
   const [bulkSick, setBulkSick] = useState("");
+  const [onlyNoApprover, setOnlyNoApprover] = useState(false);
+  // HR správuje lidi, ale roli, deaktivaci, mazání a registrační odkaz nastavuje jen admin.
+  const isAdmin = profile?.role === "admin";
 
   async function load() {
     if (!profile) return;
@@ -94,7 +100,7 @@ export function UsersPanel() {
 
   const rows: Row[] = useMemo(() => {
     const activeRows: Row[] = employees
-      .filter((e) => showInactive || e.active !== false)
+      .filter((e) => showInactive || e.active !== false || e.join_pending)
       .map((e) => ({
       status: "active",
       id: e.id,
@@ -116,15 +122,28 @@ export function UsersPanel() {
     return [...activeRows, ...pendingRows].sort((a, b) => a.name.localeCompare(b.name, "cs"));
   }, [employees, invites, showInactive]);
 
+  // Lidé, jejichž žádosti může schválit jen admin: bez nadřízeného a bez vedoucího / zástupce oddělení.
+  const noApproverIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of employees) {
+      if (e.active === false || e.join_pending || e.role === "admin" || e.manager_id) continue;
+      const d = departments.find((x) => x.id === e.department_id);
+      if (!d || (!d.head_profile_id && !d.deputy_head_profile_id)) ids.add(e.id);
+    }
+    return ids;
+  }, [employees, departments]);
+  const pendingJoiners = useMemo(() => employees.filter((e) => e.join_pending && e.active === false), [employees]);
+
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (departmentFilter !== "all" && r.department_id !== departmentFilter) return false;
       if (roleFilter !== "all" && r.role !== roleFilter) return false;
+      if (onlyNoApprover && !(r.status === "active" && noApproverIds.has(r.id))) return false;
       if (q && !r.name.toLowerCase().includes(q) && !(r.email ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [rows, search, departmentFilter, roleFilter]);
+  }, [rows, search, departmentFilter, roleFilter, onlyNoApprover, noApproverIds]);
 
   const selectableIds = useMemo(() => filteredRows.filter((r) => r.status === "active" && r.employee.active !== false).map((r) => r.id), [filteredRows]);
 
@@ -163,9 +182,17 @@ export function UsersPanel() {
   }
 
   async function handleToggleActive(row: Extract<Row, { status: "active" }>, active: boolean) {
+    const reports = employees.filter((e) => e.manager_id === row.id && e.active !== false).length;
+    const headed = departments.filter((d) => d.head_profile_id === row.id || d.deputy_head_profile_id === row.id).length;
+    const handover = [
+      reports > 0 ? `${reports} podřízených přejde na jeho nadřízeného` : "",
+      headed > 0 ? `vedoucí role v ${headed} odděleních přejdou na zástupce` : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
     const msg = active
       ? `Znovu aktivovat uživatele ${row.name}?`
-      : `Deaktivovat uživatele ${row.name}? Ztratí přístup do aplikace a zmizí z kalendáře a týmových přehledů, historie absencí zůstane.`;
+      : `Deaktivovat uživatele ${row.name}? Ztratí přístup do aplikace a zmizí z kalendáře a týmových přehledů, historie absencí zůstane. Jeho čekající žádosti se zamítnou.${handover ? ` Dále: ${handover}.` : ""}`;
     if (!(await confirmDialog(msg, { confirmLabel: active ? "Aktivovat" : "Deaktivovat", danger: !active }))) return;
     setDeletingId(row.id);
     try {
@@ -192,13 +219,37 @@ export function UsersPanel() {
   }
 
   async function copyGenericLink() {
-    if (!profile) return;
+    const r = await copyJoinLink();
+    if (!r.ok) {
+      alert(r.reason);
+      return;
+    }
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2500);
+  }
+
+  async function handleApproveJoin(row: Extract<Row, { status: "active" }>) {
+    setDeletingId(row.id);
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/login?company=${profile.company_id}`);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2500);
-    } catch {
-      // clipboard access denied
+      await approveJoiner(row.id);
+      load();
+    } catch (e) {
+      alert(errorMessage(e));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function handleRejectJoin(row: Extract<Row, { status: "active" }>) {
+    if (!(await confirmDialog(`Odmítnout registraci ${row.name}? Účet se smaže a dotyčný se do firmy nedostane.`, { confirmLabel: "Odmítnout a smazat", danger: true }))) return;
+    setDeletingId(row.id);
+    try {
+      await deleteEmployee(row.id);
+      load();
+    } catch (e) {
+      alert(errorMessage(e));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -261,6 +312,26 @@ export function UsersPanel() {
         {linkCopied && <span className="text-xs text-teal-dark">Odkaz zkopírován</span>}
       </div>
 
+      {isAdmin && pendingJoiners.length > 0 && (
+        <div className="rounded border border-warning/40 bg-warning-light px-4 py-3 text-sm text-ink" role="status">
+          <strong>{pendingJoiners.length} {pendingJoiners.length === 1 ? "člověk čeká" : "lidé čekají"} na schválení registrace:</strong>{" "}
+          {pendingJoiners.map((p) => p.name).join(", ")}. Schválíte je v seznamu níže.
+        </div>
+      )}
+
+      {noApproverIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded border border-line bg-white px-4 py-3 text-sm" role="status">
+          <span>
+            <strong>{noApproverIds.size} {noApproverIds.size === 1 ? "člověk nemá" : "lidí nemá"} nadřízeného ani vedoucího oddělení</strong> — jejich žádosti schválí jen admin.
+          </span>
+          <button onClick={() => setOnlyNoApprover((v) => !v)} className="text-teal-dark underline">
+            {onlyNoApprover ? "Zobrazit všechny" : "Zobrazit je"}
+          </button>
+        </div>
+      )}
+
+      {isAdmin && <JoinLinkCard />}
+
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent title="Hromadný import zaměstnanců" className="max-w-3xl">
           <ImportEmployeesPanel />
@@ -321,7 +392,7 @@ export function UsersPanel() {
           <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => setBulk("entitlement")}>
             Upravit nárok
           </Button>
-          <Button variant="danger" className="px-3 py-1.5 text-sm" onClick={bulkDeactivate} disabled={bulkApplying}>
+          <Button variant="danger" className={isAdmin ? "px-3 py-1.5 text-sm" : "hidden"} onClick={bulkDeactivate} disabled={bulkApplying}>
             Deaktivovat vybrané
           </Button>
           <button onClick={() => setSelected(new Set())} className="ml-auto flex items-center gap-1 text-sm text-teal-dark hover:underline">
@@ -436,10 +507,19 @@ export function UsersPanel() {
                     </td>
                     <td className="cell-title px-3 py-3 font-medium">{r.name}</td>
                     <td className="px-3 py-3 text-muted">{r.email ?? "—"}</td>
-                    <td className="px-3 py-3 text-muted" data-label="Role">{roleLabel[r.role]}</td>
+                    <td className="px-3 py-3 text-muted" data-label="Role">
+                      {roleLabel[r.role]}
+                      {r.status === "active" && r.employee.staff_role && (
+                        <span className="ml-1.5 rounded-sm bg-violet-light px-1.5 py-0.5 text-[11px] font-medium text-violet-dark">{r.employee.staff_role === "hr" ? "HR" : "Účetní"}</span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-muted" data-label="Oddělení">{dept?.name ?? "—"}</td>
                     <td className="px-3 py-3">
-                      {r.status === "active" && r.employee.active === false ? (
+                      {r.status === "active" && r.employee.join_pending && r.employee.active === false ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-sm bg-warning-light px-2 py-0.5 text-xs font-medium text-warning-dark">
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" /> Čeká na schválení
+                        </span>
+                      ) : r.status === "active" && r.employee.active === false ? (
                         <span className="inline-flex items-center gap-1.5 rounded-sm bg-paper px-2 py-0.5 text-xs font-medium text-muted ring-1 ring-line">
                           <span className="h-1.5 w-1.5 rounded-full bg-current" /> Deaktivován
                         </span>
@@ -454,7 +534,28 @@ export function UsersPanel() {
                       )}
                     </td>
                     <td className="px-3 py-3">
-                      {r.status === "active" ? (
+                      {r.status === "active" && r.employee.join_pending && r.employee.active === false ? (
+                        isAdmin ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleApproveJoin(r)}
+                              disabled={deletingId === r.id}
+                              className="flex items-center gap-1 rounded border border-teal/40 bg-teal-light px-2 py-1 text-xs text-teal-dark hover:bg-teal-light/70 disabled:opacity-50"
+                            >
+                              <UserCheck size={12} /> Schválit
+                            </button>
+                            <button
+                              onClick={() => handleRejectJoin(r)}
+                              disabled={deletingId === r.id}
+                              className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-danger/40 hover:bg-danger-light hover:text-danger disabled:opacity-50"
+                            >
+                              <X size={12} /> Odmítnout
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted">Schvaluje admin</span>
+                        )
+                      ) : r.status === "active" ? (
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setEditingEmployee(r.employee)}
@@ -462,7 +563,7 @@ export function UsersPanel() {
                           >
                             <Pencil size={12} /> Upravit
                           </button>
-                          {r.id !== profile?.id && r.employee.active !== false && (
+                          {isAdmin && r.id !== profile?.id && r.employee.active !== false && (
                             <button
                               onClick={() => handleToggleActive(r, false)}
                               disabled={deletingId === r.id}
@@ -471,7 +572,7 @@ export function UsersPanel() {
                               <UserX size={12} /> Deaktivovat
                             </button>
                           )}
-                          {r.id !== profile?.id && r.employee.active === false && (
+                          {isAdmin && r.id !== profile?.id && r.employee.active === false && (
                             <button
                               onClick={() => handleToggleActive(r, true)}
                               disabled={deletingId === r.id}
@@ -480,7 +581,7 @@ export function UsersPanel() {
                               <UserCheck size={12} /> Aktivovat
                             </button>
                           )}
-                          {r.id !== profile?.id && r.employee.active === false && (
+                          {isAdmin && r.id !== profile?.id && r.employee.active === false && (
                             <button
                               onClick={() => handleDeleteEmployee(r)}
                               disabled={deletingId === r.id}

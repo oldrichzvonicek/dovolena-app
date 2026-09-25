@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { useOnDataChanged } from "@/lib/events";
+import { fetchDecisionScope } from "@/lib/approval-scope";
+import { allowedSettingsSections, canSeeReports, canSeeSettings } from "@/lib/access";
 import { AppLogo } from "@/components/shared/AppLogo";
 
 export const TOGGLE_NAV_EVENT = "dodio:toggle-nav";
@@ -108,12 +110,24 @@ export function Sidebar() {
   const isAdmin = profile?.role === "admin";
 
   function loadPending() {
-    if (!isManager) return;
-    createClient()
-      .from("leave_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending")
-      .then(({ count }) => setPendingCount(count ?? 0));
+    if (!isManager || !profile) return;
+    const supabase = createClient();
+    if (isAdmin) {
+      supabase
+        .from("leave_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending")
+        .then(({ count }) => setPendingCount(count ?? 0));
+      return;
+    }
+    // A manager's badge counts only the requests they may decide (their people).
+    Promise.all([
+      supabase.from("leave_requests").select("id, profile:profiles!leave_requests_profile_id_fkey(manager_id, department_id)").eq("status", "pending"),
+      fetchDecisionScope(profile),
+    ]).then(([{ data }, scope]) => {
+      const rows = (data as unknown as { profile: { manager_id: string | null; department_id: string | null } | null }[]) ?? [];
+      setPendingCount(rows.filter((r) => r.profile && scope.canDecide(r.profile)).length);
+    });
   }
 
   useEffect(loadPending, [isManager]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -183,16 +197,17 @@ export function Sidebar() {
           </div>
         )}
 
-        {isAdmin && (
+        {(canSeeReports(profile) || canSeeSettings(profile)) && (
           <div>
             <div className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
-              Administrace
+              {isAdmin ? "Administrace" : profile.staff_role === "hr" ? "HR" : "Mzdy"}
             </div>
             <div className="space-y-1">
               {adminNav.map((item) => (
                 <NavLink key={item.href} {...item} active={pathname === item.href} />
               ))}
             </div>
+            {canSeeSettings(profile) && (
             <button
               onClick={() => setSettingsOpen((v) => !v)}
               aria-expanded={settingsOpen || settingsSection !== null}
@@ -201,14 +216,16 @@ export function Sidebar() {
             >
               <span className="flex items-center gap-2.5">
                 <Settings size={17} strokeWidth={2} />
-                Nastavení firmy
+                {isAdmin ? "Nastavení firmy" : "Správa lidí"}
               </span>
               <ChevronDown size={15} className={cn("text-muted transition-transform", (settingsOpen || settingsSection !== null) && "rotate-180")} />
             </button>
-            {(settingsOpen || settingsSection !== null) && (
+            )}
+            {canSeeSettings(profile) && (settingsOpen || settingsSection !== null) && (
               <div id="sidebar-settings" className="mt-0.5 space-y-0.5">
                 {settingsGroups
                   .flatMap((g) => g.items)
+                  .filter((i) => allowedSettingsSections(profile).includes(i.key))
                   .map((i) => (
                     <NavLink
                       key={i.key}

@@ -9,13 +9,14 @@ import { formatRange } from "@/lib/working-days";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/utils";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
+import { fetchDecisionScope } from "@/lib/approval-scope";
 
 interface Row {
   id: string;
   start_date: string;
   end_date: string;
   leave_type: { label: string } | null;
-  profile: { name: string } | null;
+  profile: { name: string; manager_id: string | null; department_id: string | null } | null;
 }
 
 /** Manager/admin queue of approved absences the employee asked to cancel. Renders nothing when empty. */
@@ -32,10 +33,11 @@ export function CancellationRequests({ onChanged }: { onChanged?: () => void }) 
     // Errors (column not migrated yet) simply mean "no cancellation requests".
     const { data } = await createClient()
       .from("leave_requests")
-      .select("id, start_date, end_date, leave_type:leave_types(label), profile:profiles!leave_requests_profile_id_fkey(name)")
+      .select("id, start_date, end_date, leave_type:leave_types(label), profile:profiles!leave_requests_profile_id_fkey(name, manager_id, department_id)")
       .not("cancellation_requested_at", "is", null)
       .order("start_date", { ascending: true });
-    setRows(((data as unknown as Row[]) ?? []).filter((r) => r.profile));
+    const scope = profile ? await fetchDecisionScope(profile) : null;
+    setRows(((data as unknown as Row[]) ?? []).filter((r) => r.profile && (!scope || scope.canDecide(r.profile))));
   }
 
   useOnDataChanged(() => load());

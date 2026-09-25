@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Banknote, Building2, Check, CreditCard, Download, FileArchive, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { fetchCompany, fetchCompanyInvoices, invoiceFileUrl, updateCompany } from "@/lib/admin-data";
+import { CompanyBilling, fetchBilling, fetchCompany, fetchCompanyInvoices, invoiceFileUrl, saveBilling } from "@/lib/admin-data";
 import { Button } from "@/components/ui/button";
 import { PlanCard } from "@/components/admin/PlanCard";
 import { planByKey } from "@/lib/plans";
@@ -21,7 +21,7 @@ interface Draft {
   billing_email: string;
 }
 
-const toDraft = (c: DbCompany): Draft => ({
+const toDraft = (c: CompanyBilling): Draft => ({
   billing_name: c.billing_name ?? "",
   billing_ico: c.billing_ico ?? "",
   billing_dic: c.billing_dic ?? "",
@@ -34,6 +34,7 @@ const toDraft = (c: DbCompany): Draft => ({
 export function BillingPanel() {
   const { profile } = useAuth();
   const [company, setCompany] = useState<DbCompany | null>(null);
+  const [billing, setBilling] = useState<CompanyBilling | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [loading, setLoading] = useState(true);
   const [icoLookup, setIcoLookup] = useState("");
@@ -44,15 +45,16 @@ export function BillingPanel() {
 
   useEffect(() => {
     if (!profile) return;
-    fetchCompany(profile.company_id).then((c) => {
+    Promise.all([fetchCompany(profile.company_id), fetchBilling(profile.company_id)]).then(([c, b]) => {
       setCompany(c);
-      setDraft(toDraft(c));
-      setIcoLookup(c.billing_ico ?? "");
+      setBilling(b);
+      setDraft(toDraft(b));
+      setIcoLookup(b.billing_ico ?? "");
       setLoading(false);
     });
   }, [profile]);
 
-  const dirty = !!company && !!draft && JSON.stringify(draft) !== JSON.stringify(toDraft(company));
+  const dirty = !!billing && !!draft && JSON.stringify(draft) !== JSON.stringify(toDraft(billing));
 
   // Explicit-save form: warn before the browser tab is closed with unsaved changes.
   useEffect(() => {
@@ -70,14 +72,14 @@ export function BillingPanel() {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
   }
 
-  async function saveBilling() {
-    if (!profile || !company || !draft) return;
+  async function handleSaveBilling() {
+    if (!profile || !billing || !draft) return;
     setSaving(true);
     setSaveMsg(null);
-    const fields = Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, v.trim() || null])) as Partial<DbCompany>;
+    const fields = Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, v.trim() || null])) as Partial<CompanyBilling>;
     try {
-      await updateCompany(profile.company_id, fields);
-      setCompany({ ...company, ...fields });
+      await saveBilling(profile.company_id, fields);
+      setBilling({ ...billing, ...fields });
       setSaveMsg({ text: "Fakturační údaje uloženy.", error: false });
     } catch (e) {
       setSaveMsg({ text: `Uložení se nezdařilo: ${errorMessage(e)}`, error: true });
@@ -87,9 +89,9 @@ export function BillingPanel() {
   }
 
   async function setPaymentMethod(method: "invoice" | "card") {
-    if (!profile || !company) return;
-    setCompany({ ...company, payment_method: method });
-    await updateCompany(profile.company_id, { payment_method: method });
+    if (!profile || !billing) return;
+    setBilling({ ...billing, payment_method: method });
+    await saveBilling(profile.company_id, { payment_method: method });
   }
 
   async function handleAresLookup() {
@@ -122,7 +124,7 @@ export function BillingPanel() {
     }
   }
 
-  if (loading || !company || !draft) return <LoadingCard rows={6} />;
+  if (loading || !company || !billing || !draft) return <LoadingCard rows={6} />;
 
   const field = (label: string, key: keyof Draft, span2 = false, type = "text") => (
     <div className={span2 ? "sm:col-span-2" : ""}>
@@ -171,7 +173,7 @@ export function BillingPanel() {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
-          <Button onClick={saveBilling} disabled={!dirty || saving}>
+          <Button onClick={handleSaveBilling} disabled={!dirty || saving}>
             {saving ? "Ukládám…" : "Uložit fakturační údaje"}
           </Button>
           {dirty && !saving && <span className="text-sm text-warning-dark">Máte neuložené změny.</span>}
@@ -194,7 +196,7 @@ export function BillingPanel() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <button
               onClick={() => setPaymentMethod("invoice")}
-              className={cn("flex items-start gap-3 rounded border p-4 text-left", (company.payment_method ?? "invoice") === "invoice" ? "border-teal ring-1 ring-teal" : "border-line hover:bg-paper")}
+              className={cn("flex items-start gap-3 rounded border p-4 text-left", (billing.payment_method ?? "invoice") === "invoice" ? "border-teal ring-1 ring-teal" : "border-line hover:bg-paper")}
             >
               <Banknote size={18} className="mt-0.5 shrink-0 text-teal-dark" />
               <span>

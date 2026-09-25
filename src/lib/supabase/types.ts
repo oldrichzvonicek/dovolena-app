@@ -36,16 +36,9 @@ export interface DbCompany {
   default_sick_days: number;
   default_home_office_days: number;
   prorate_new_hires: boolean;
+  seniority_enabled: boolean;
+  seniority_rules: { years: number; extra_days: number }[];
   plan: string;
-  payment_method: "invoice" | "card" | null;
-  billing_email: string | null;
-  // Billing details (Fakturační údaje) — all optional, filled in from ARES or by hand.
-  billing_name: string | null;
-  billing_ico: string | null;
-  billing_dic: string | null;
-  billing_street: string | null;
-  billing_city: string | null;
-  billing_zip: string | null;
   logo_url: string | null;
   created_at: string;
 }
@@ -92,6 +85,9 @@ export interface DbProfile {
   email: string | null;
   active: boolean;
   email_notifications: boolean;
+  hire_date: string | null;
+  staff_role: "hr" | "accountant" | null;
+  join_pending: boolean;
 }
 
 export interface DbLeaveType {
@@ -105,7 +101,6 @@ export interface DbLeaveType {
   requires_approval: boolean;
   auto_approve_max_days: number | null;
   paid: boolean;
-  requires_attachment: boolean;
   allow_half_day: boolean;
   allow_hours: boolean;
   hide_from_colleagues: boolean;
@@ -134,6 +129,5 @@ export interface DbLeaveRequest {
   approved_by: string | null;
   rejection_reason: string | null;
   created_at: string;
-  attachment_url: string | null;
   cancellation_requested_at: string | null;
 }

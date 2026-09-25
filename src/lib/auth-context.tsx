@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { DbProfile } from "@/lib/supabase/types";
+import { completeOnboarding } from "@/lib/onboarding-intent";
 
 interface AuthContextValue {
   session: Session | null;
@@ -23,10 +24,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = useCallback(
     async (userId: string) => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      let { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      if (!data) {
+        // Signed in (e.g. after confirming the e-mail) but no profile yet: apply a pending e-mail invite or the sign-up choice.
+        try {
+          if (await completeOnboarding(supabase)) {
+            ({ data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle());
+          }
+        } catch {
+          /* leave the profile empty — the layout shows the "preparing account" screen */
+        }
+      }
       if (data && (data as DbProfile).active === false) {
         try {
-          sessionStorage.setItem("dodio-deactivated", "1");
+          sessionStorage.setItem("dodio-deactivated", (data as DbProfile).join_pending ? "pending" : "1");
         } catch {}
         await supabase.auth.signOut();
         setProfile(null);

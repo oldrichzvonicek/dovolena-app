@@ -84,7 +84,7 @@ export function TeamCalendar() {
   const [groupByDept, setGroupByDept] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [hover, setHover] = useState<{ x: number; y: number; req: RequestRow; name: string } | null>(null);
+  const [hover, setHover] = useState<{ x: number; y: number; req: RequestRow; name: string; all?: RequestRow[] } | null>(null);
   // A tap anywhere closes the detail opened by a previous tap (touch has no mouseleave).
   useEffect(() => {
     if (!hover) return;
@@ -240,8 +240,9 @@ export function TeamCalendar() {
     });
   }
 
-  function reqCovering(empId: string, iso: string) {
-    return requests.find(
+  // Every request of the person that covers this day (they can overlap, e.g. an approved vacation and a pending sick day).
+  function reqsCovering(empId: string, iso: string) {
+    return requests.filter(
       (r) => r.profile_id === empId && r.start_date <= iso && r.end_date >= iso && (leaveTypeFilter === "all" || r.leave_type.key === leaveTypeFilter)
     );
   }
@@ -304,8 +305,8 @@ export function TeamCalendar() {
                           setDragEndIdx(di);
                           return;
                         }
-                        const req = reqCovering(emp.id, format(d, "yyyy-MM-dd"));
-                        setHover(req ? { x: e.clientX, y: e.clientY, req, name: emp.name } : null);
+                        const all = reqsCovering(emp.id, format(d, "yyyy-MM-dd"));
+                        setHover(all.length ? { x: e.clientX, y: e.clientY, req: all[all.length - 1], name: emp.name, all } : null);
                       }
                     : undefined
                 }
@@ -381,7 +382,6 @@ export function TeamCalendar() {
     );
   }
 
-  const hoverCovering = hover ? employees.find((e) => e.id === hover.req.covering_profile_id) : null;
 
   return (
     <div className="card p-5">
@@ -516,15 +516,22 @@ export function TeamCalendar() {
           className="pointer-events-none fixed z-50 w-64 rounded-lg border border-line bg-white p-3 text-sm shadow-[0_8px_30px_rgba(22,35,59,0.16)]"
           style={{ left: Math.min(hover.x + 14, window.innerWidth - 280), top: hover.y + 14 }}
         >
-          <div className="font-medium">
-            {hover.req.leave_type.label} <span className="font-normal text-muted">({hover.req.status === "approved" ? "Schváleno" : "Čeká na schválení"})</span>
-          </div>
           <div className="text-xs text-muted">{hover.name}</div>
-          <div className="mt-1.5 text-xs">
-            📅 {formatRange(hover.req.start_date, hover.req.end_date)} ({formatNumber(Number(hover.req.working_days))} {dayWord(Number(hover.req.working_days))})
-          </div>
-          {hover.req.note && <div className="mt-1 text-xs">💬 {hover.req.note}</div>}
-          {hoverCovering && <div className="mt-1 text-xs">🔄 Zástup: {hoverCovering.name}</div>}
+          {(hover.all && hover.all.length > 1 ? hover.all : [hover.req]).map((r, idx) => {
+            const cover = r.covering_profile_id ? employees.find((e) => e.id === r.covering_profile_id) : undefined;
+            return (
+              <div key={r.id} className={cn(idx > 0 || (hover.all && hover.all.length > 1) ? "mt-2 border-t border-line pt-2" : "mt-0.5")}>
+                <div className="font-medium">
+                  {r.leave_type.label} <span className="font-normal text-muted">({r.status === "approved" ? "Schváleno" : "Čeká na schválení"})</span>
+                </div>
+                <div className="mt-1 text-xs">
+                  📅 {formatRange(r.start_date, r.end_date)} ({formatNumber(Number(r.working_days))} {dayWord(Number(r.working_days))})
+                </div>
+                {r.note && <div className="mt-1 text-xs">💬 {r.note}</div>}
+                {cover && <div className="mt-1 text-xs">🔄 Zástup: {cover.name}</div>}
+              </div>
+            );
+          })}
         </div>
       )}
 

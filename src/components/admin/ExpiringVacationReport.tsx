@@ -91,7 +91,7 @@ export function ExpiringVacationReport({ departmentId = "all" }: { departmentId?
           <h2 className="font-display text-h2">Nevyčerpaná dovolená ke konci roku</h2>
           <p className="mt-0.5 text-xs text-muted">Lidé s velkou částí nároku, kterou letos ještě nevyčerpali.</p>
         </div>
-        <Button variant="secondary" onClick={handleSend} disabled={selected.size === 0 || sending}>
+        <Button variant="secondary" onClick={handleSend} disabled={selected.size === 0 || sending} className={profile?.role === "admin" || profile?.staff_role === "hr" ? "" : "hidden"}>
           <Send size={15} /> Odeslat výzvu k vyčerpání {selected.size > 0 && `(${selected.size})`}
         </Button>
       </div>

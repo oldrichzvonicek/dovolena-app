@@ -101,6 +101,16 @@ export function OverviewPanel() {
   const [deptFilter, setDeptFilter] = useState("all");
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  // Okno "Nadcházející absence": počet dní dopředu (0 = do konce roku).
+  const [upcomingDays, setUpcomingDays] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem("dodio:upcoming-days"));
+      return [14, 30, 60, 90, 0].includes(v) && localStorage.getItem("dodio:upcoming-days") !== null ? v : 30;
+    } catch {
+      return 30;
+    }
+  });
+  const upcomingLabel = upcomingDays === 0 ? "do konce roku" : `v dalších ${upcomingDays} dnech`;
 
   useEffect(() => {
     if (profile) createClient().from("departments").select("*").eq("company_id", profile.company_id).then(({ data }) => setDepartments((data as DbDepartment[]) ?? []));
@@ -112,7 +122,7 @@ export function OverviewPanel() {
     const today = new Date().toLocaleDateString("sv-SE");
     const monthStart = range.from;
     const monthEnd = range.to;
-    const in30 = new Date(Date.now() + 30 * 86400000).toLocaleDateString("sv-SE");
+    const in30 = upcomingDays === 0 ? `${new Date().getFullYear()}-12-31` : new Date(Date.now() + upcomingDays * 86400000).toLocaleDateString("sv-SE");
 
     (async () => {
       const [{ count: employeeCount }, { count: pendingCount }, { data: monthRequests }, { data: upcomingRequests }, { data: todayRequests }] =
@@ -139,7 +149,7 @@ export function OverviewPanel() {
             .gte("start_date", today)
             .lte("start_date", in30)
             .order("start_date", { ascending: true })
-            .limit(30),
+            .limit(300),
           supabase.from("leave_requests").select("profile_id, leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(department_id)").eq("status", "approved").lte("start_date", today).gte("end_date", today),
         ]);
 
@@ -210,7 +220,7 @@ export function OverviewPanel() {
       });
       setLoading(false);
     })();
-  }, [profile, range.from, range.to, deptFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, range.from, range.to, deptFilter, upcomingDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxDeptDays = Math.max(1, ...(state?.byDepartment.map((d) => d.days) ?? [1]));
   const monthLabel = range.label;
@@ -457,11 +467,33 @@ export function OverviewPanel() {
           <h2 className="mb-3 text-label uppercase tracking-wide text-muted">Nezávisle na vybraném období</h2>
           <div className="card overflow-hidden">
             <div className="border-b border-line p-5">
-              <h2 className="font-display text-h2">Nadcházejících 30 dní</h2>
-              <p className="mt-0.5 text-xs text-muted">Vždy od dneška, bez ohledu na zvolené období výše.</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-display text-h2">Nadcházející absence {upcomingLabel}</h2>
+                <div className="flex flex-wrap gap-1" role="group" aria-label="Okno nadcházejících absencí">
+                  {[14, 30, 60, 90, 0].map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => {
+                        setUpcomingDays(d);
+                        setShowAllUpcoming(false);
+                        try {
+                          localStorage.setItem("dodio:upcoming-days", String(d));
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      aria-pressed={upcomingDays === d}
+                      className={cn("rounded-full border px-3 py-1 text-xs font-medium", upcomingDays === d ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
+                    >
+                      {d === 0 ? "Do konce roku" : `${d} dní`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-muted">Vždy od dneška, bez ohledu na zvolené období výše.</p>
             </div>
             {state.upcoming.length === 0 ? (
-              <div className="p-5 text-sm text-muted">V dalších 30 dnech nikdo nemá naplánovanou absenci.</div>
+              <div className="p-5 text-sm text-muted">Nikdo nemá naplánovanou absenci ({upcomingLabel}).</div>
             ) : (
               <div className={cn(showAllUpcoming && "max-h-[380px] overflow-y-auto")}>
                 {upcomingGroups.map((g) => (

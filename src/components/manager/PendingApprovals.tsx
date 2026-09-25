@@ -3,10 +3,10 @@
 import { Fragment, useEffect, useState } from "react";
 import { addDays, differenceInCalendarDays, format, isWeekend, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
-import { AlertTriangle, Calendar, Check, Paperclip, X } from "lucide-react";
+import { AlertTriangle, Calendar, Check, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { approveLeaveRequest, fetchMaskedAbsences, leaveAttachmentUrl, rejectLeaveRequest } from "@/lib/data";
+import { approveLeaveRequest, fetchMaskedAbsences, rejectLeaveRequest } from "@/lib/data";
 import { LeaveBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
 import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
 import { computeApprovalWarnings, fetchMyDepartmentIds, hasOtherApprover } from "@/lib/approval-checks";
+import { fetchDecisionScope } from "@/lib/approval-scope";
 import { LoadingCard } from "@/components/ui/skeleton";
 
 interface PendingRow {
@@ -26,7 +27,6 @@ interface PendingRow {
   end_date: string;
   working_days: number;
   note: string | null;
-  attachment_url: string | null;
   leave_type: { key: string; label: string; color: LeaveColor; counts_against: "vacation" | "sick" | "none" };
   profile: {
     id: string;
@@ -63,7 +63,7 @@ export function PendingApprovals() {
     const { data } = await supabase
       .from("leave_requests")
       .select(
-        `id, start_date, end_date, working_days, note, attachment_url,
+        `id, start_date, end_date, working_days, note,
          leave_type:leave_types(key, label, color, counts_against),
          profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials, manager_id, department_id, department:departments!profiles_department_id_fkey(name))`
       )
@@ -76,7 +76,10 @@ export function PendingApprovals() {
     const mine = await fetchMyDepartmentIds(profile.company_id, profile.id);
     setMyDepts(mine);
     const otherApprover = await hasOtherApprover(profile.company_id, profile.id);
+    // Only requests this approver may decide: their people (manager / department head / deputy / substitute) or everything for an admin.
+    const scope = await fetchDecisionScope(profile);
     const rows = ((data as unknown as PendingRow[]) ?? [])
+      .filter((r) => scope.canDecide(r.profile))
       .filter((r) => !otherApprover || r.profile.id !== profile.id)
       .sort((a, b) => {
       const aMine = a.profile.manager_id === profile.id || (a.profile.department_id && mine.has(a.profile.department_id)) ? 0 : 1;
@@ -284,14 +287,6 @@ export function PendingApprovals() {
                       <div className="mt-1 text-xs text-muted">
                         Po schválení zbude: <span className="font-medium text-ink">{formatNumber(Number(remaining[r.id]))} dní</span>
                       </div>
-                    )}
-                    {r.attachment_url && (
-                      <button
-                        onClick={async () => window.open(await leaveAttachmentUrl(r.attachment_url!), "_blank")}
-                        className="mt-1 flex items-center gap-1 text-xs text-teal-dark hover:underline"
-                      >
-                        <Paperclip size={12} /> Zobrazit přílohu
-                      </button>
                     )}
                   </div>
                 </div>

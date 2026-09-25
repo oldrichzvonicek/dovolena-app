@@ -12,6 +12,7 @@ import { DbCompany, DbLeaveType, LeaveColor } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
 import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { SeniorityCard } from "@/components/admin/SeniorityCard";
 
 // These two keys are load-bearing (hardcoded into onboarding, invite-claim
 // and every balance calculation) — protected from deletion at the DB level
@@ -225,9 +226,11 @@ export function LeaveTypesPanel() {
             onChange={(e) => patchDefaults({ prorate_new_hires: e.target.checked })}
             className="h-4 w-4"
           />
-          Poměrná dovolená pro nováčky během roku (krátí se podle zbývajících měsíců)
+          Poměrná dovolená pro nováčky během roku (krátí se podle měsíce nástupu — je-li vyplněné datum nástupu, jinak podle dne založení účtu)
         </label>
       </div>
+
+      <SeniorityCard companyId={company.id} enabled={company.seniority_enabled ?? false} rules={company.seniority_rules ?? []} defaultVacation={company.default_vacation_days} />
 
       <div className="card p-5">
         <h2 className="font-display text-h2">Typy absencí</h2>
@@ -393,10 +396,6 @@ export function LeaveTypesPanel() {
                       <label className="flex items-center justify-between gap-2 text-sm">
                         Placená absence
                         <Switch checked={t.paid} onCheckedChange={(v) => handleUpdate(t, { paid: v })} />
-                      </label>
-                      <label className="flex items-center justify-between gap-2 text-sm">
-                        Vyžaduje přílohu
-                        <Switch checked={t.requires_attachment} onCheckedChange={(v) => handleUpdate(t, { requires_attachment: v })} />
                       </label>
                       <label className="flex items-center justify-between gap-2 text-sm">
                         Povolit půlden

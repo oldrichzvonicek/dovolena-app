@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { canSeeReports, canSeeSettings } from "@/lib/access";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { HelpDrawer } from "@/components/layout/HelpDrawer";
@@ -17,8 +18,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Menu hiding alone is not access control — enforce the same role rules on direct URLs.
   const isAdmin = profile?.role === "admin";
   const isManager = isAdmin || profile?.role === "manager";
+  const adminArea = pathname.startsWith("/admin");
+  const reportsArea = pathname.startsWith("/admin/overview") || pathname.startsWith("/admin/exports");
+  const settingsArea = pathname.startsWith("/admin/settings");
   const forbidden =
-    !!profile && ((pathname.startsWith("/admin") && !isAdmin) || ((pathname.startsWith("/approvals") || pathname.startsWith("/team")) && !isManager));
+    !!profile &&
+    ((adminArea && !isAdmin && !(reportsArea && canSeeReports(profile)) && !(settingsArea && canSeeSettings(profile))) ||
+      ((pathname.startsWith("/approvals") || pathname.startsWith("/team")) && !isManager));
 
   useEffect(() => {
     if (forbidden) router.replace("/dashboard");

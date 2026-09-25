@@ -32,11 +32,12 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
 
   const { data: viewer, error: viewerError } = await supabase
     .from("profiles")
-    .select("id, name, company_id, role")
+    .select("id, name, company_id, role, active")
     .eq("calendar_token", params.token)
     .maybeSingle();
 
-  if (viewerError || !viewer) {
+  // A deactivated (former) employee's calendar link stops working immediately.
+  if (viewerError || !viewer || !viewer.active) {
     return NextResponse.json({ error: "Neplatný odkaz na kalendář." }, { status: 404 });
   }
 

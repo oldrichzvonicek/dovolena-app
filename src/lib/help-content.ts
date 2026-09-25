@@ -372,6 +372,23 @@ export const faqs: HelpFaq[] = [
     section: "Týmový kalendář",
   },
   {
+    q: "Kdo schvaluje moje žádosti?",
+    a: "Váš nadřízený, vedoucí nebo zástupce vašeho oddělení (případně jejich stálý zástup) a admin. Když nemáte nadřízeného ani vedoucího oddělení, schválí žádost admin. Ostatní manažeři vaše žádosti nevidí ke schválení.",
+    section: "Žádost o absenci",
+  },
+  {
+    q: "Jak funguje registrační odkaz a jak ho zneplatním?",
+    a: "V Nastavení firmy → Uživatelé je karta „Registrační odkaz“. Odkaz obsahuje tajný kód; když unikne, vypněte ho nebo klikněte na „Nový odkaz“ — starý přestane fungovat. Ve výchozím stavu musí admin nově zaregistrované lidi schválit v seznamu uživatelů.",
+    section: "Nastavení firmy (admin)",
+    roles: ["admin"],
+  },
+  {
+    q: "Jak nastavím roli HR nebo Účetní?",
+    a: "V Nastavení firmy → Uživatelé u člověka klikněte na Upravit a vyberte „Doplňková role“. HR spravuje lidi (oddělení, nadřízený, datum nástupu, nároky, pozvánky), vidí všechny absence včetně nemoci, Analytiku, Exporty a Historii změn. Účetní jen čte absence a nároky pro mzdy (Exporty, Analytika). Ani jedna role nespravuje firmu, fakturaci ani role a neschvaluje žádosti.",
+    section: "Nastavení firmy (admin)",
+    roles: ["admin"],
+  },
+  {
     q: "Zapomněl(a) jsem heslo, co mám dělat?",
     section: "Účet",
     a: "Na přihlašovací stránce klikněte na odkaz pro obnovení hesla.",

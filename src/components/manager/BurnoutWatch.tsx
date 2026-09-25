@@ -94,9 +94,9 @@ export function BurnoutWatch({ employees }: Props) {
       {error && <p className="px-5 pt-2 text-xs text-danger-dark">{error}</p>}
       <div className="divide-y divide-line px-1 pb-1">
         {rows.map((r) => (
-          <div key={r.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+          <div key={r.id} className="flex flex-col gap-1 px-4 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="font-medium">{r.name}</span>
-            <span className="flex items-center gap-3">
+            <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 sm:justify-end">
               <span className="text-muted">{r.monthsSince === null ? "Nikdy nečerpal(a) delší dovolenou" : `Naposledy před ${r.monthsSince} měsíci`}</span>
               {sent.has(r.id) ? (
                 <span className="flex items-center gap-1 text-xs text-teal-dark">

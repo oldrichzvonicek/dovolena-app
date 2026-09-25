@@ -250,7 +250,7 @@ export function WhoIsOutToday() {
           <div className="grid grid-cols-[96px_repeat(5,1fr)] items-center gap-x-1 gap-y-1.5 text-[11px] text-muted">
             <span />
             {week.days.map((d, i) => (
-              <span key={week.isos[i]} className={cn("text-center capitalize", week.isos[i] === todayISO && "font-semibold text-teal-dark")}>
+              <span key={week.isos[i]} className={cn("text-center capitalize", week.isos[i] === todayISO && "font-semibold text-teal-dark underline decoration-2 underline-offset-4")}>
                 {format(d, "EEEEEE d.", { locale: cs })}
               </span>
             ))}
@@ -269,7 +269,7 @@ export function WhoIsOutToday() {
                     onFocus={c ? (e) => { const b = e.currentTarget.getBoundingClientRect(); setTip({ x: b.left, y: b.bottom - 8, name: p.name, req: c }); } : undefined}
                     onBlur={c ? () => setTip(null) : undefined}
                     onClick={c ? (e) => { const b = e.currentTarget.getBoundingClientRect(); setTip({ x: b.left, y: b.bottom - 8, name: p.name, req: c }); } : undefined}
-                    className={cn("h-4 rounded-sm", c ? colorDot[c.leave_type?.color ?? "teal"] : week.isos[i] === todayISO ? "bg-teal/10" : "bg-paper")}
+                    className={cn("h-4 rounded-sm", c ? colorDot[c.leave_type?.color ?? "teal"] : "bg-paper", week.isos[i] === todayISO && "ring-1 ring-inset ring-ink/40")}
                   />
                 ))}
               </Fragment>
@@ -284,7 +284,8 @@ export function WhoIsOutToday() {
               ))}
             </div>
           )}
-          {week.people.length > 6 && <p className="mt-2 text-[11px] text-muted">a dalších {week.people.length - 6}</p>}
+          <p className="mt-2 text-[11px] text-muted">Barevný pruh = nepřítomen, šedé pole = v práci. Dnešní den je podtržený a orámovaný.</p>
+          {week.people.length > 6 && <p className="mt-1 text-[11px] text-muted">a dalších {week.people.length - 6}</p>}
         </div>
       )}
       {tip && (

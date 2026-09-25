@@ -28,7 +28,6 @@ interface Row {
   working_days: number;
   note: string | null;
   covering_profile_id: string | null;
-  attachment_url: string | null;
   rejection_reason: string | null;
   status: RequestStatus;
   cancellation_requested_at?: string | null;
@@ -60,7 +59,7 @@ export default function RequestsPage() {
   function load() {
     if (!profile) return;
     const supabase = createClient();
-    const base = `id, start_date, end_date, half_day, working_days, note, covering_profile_id, attachment_url, rejection_reason, status,
+    const base = `id, start_date, end_date, half_day, working_days, note, covering_profile_id, rejection_reason, status,
          leave_type:leave_types(id, key, label, color),
          approver:profiles!leave_requests_approved_by_fkey(name)`;
     const query = (cols: string) =>
@@ -402,7 +401,6 @@ export default function RequestsPage() {
             working_days: editingRow.working_days,
             note: editingRow.note,
             covering_profile_id: editingRow.covering_profile_id,
-            attachment_url: editingRow.attachment_url,
           }}
           onSaved={() => {
             setEditingRow(null);

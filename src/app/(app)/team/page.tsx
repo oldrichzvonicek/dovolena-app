@@ -26,6 +26,7 @@ import { loadBalances } from "@/lib/balances";
 import { DbDepartment, DbLeaveType } from "@/lib/supabase/types";
 import { cn, formatNumber } from "@/lib/utils";
 import { LoadingLines } from "@/components/ui/skeleton";
+import { fetchDecisionScope } from "@/lib/approval-scope";
 
 interface Row {
   id: string;
@@ -93,19 +94,11 @@ export default function TeamPage() {
 
     type Emp = { id: string; name: string; department_id: string | null; manager_id: string | null; substitute_id: string | null };
 
-    // Visibility scope: admins see the whole company. A department head sees
-    // their department(s). A manager who doesn't head a department sees only
-    // their direct reports — never the rest of the company.
+    // Visibility scope: admins see the whole company; a manager sees the people they may decide for
+    // (direct reports, their department as head/deputy, or as a standing substitute) — see fetchDecisionScope.
     const allEmployees = (employees as unknown as Emp[]) ?? [];
-    const headedDepartmentIds = new Set(
-      (deps ?? []).filter((d) => d.head_profile_id === profile.id || d.deputy_head_profile_id === profile.id).map((d) => d.id)
-    );
-    const scopedEmployees =
-      profile.role === "admin"
-        ? allEmployees
-        : headedDepartmentIds.size > 0
-          ? allEmployees.filter((e) => e.department_id && headedDepartmentIds.has(e.department_id))
-          : allEmployees.filter((e) => e.manager_id === profile.id);
+    const scope = await fetchDecisionScope(profile);
+    const scopedEmployees = allEmployees.filter((e) => scope.canDecide(e));
 
     const built = scopedEmployees.map((e) => {
       const b = balances.get(e.id, "vacation");

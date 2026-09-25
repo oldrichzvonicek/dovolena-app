@@ -49,13 +49,23 @@ export function OnboardingChecklist() {
     const cid = profile.company_id;
     let cancelled = false;
     (async () => {
-      const [company, depts, people, invites, hooks] = await Promise.all([
-        supabase.from("companies").select("logo_url, billing_ico").eq("id", cid).single(),
+      const [company, billing, depts, people, invites, hooks, deptRows, staff] = await Promise.all([
+        supabase.from("companies").select("logo_url").eq("id", cid).single(),
+        supabase.from("company_billing").select("billing_ico").eq("company_id", cid).maybeSingle(),
         supabase.from("departments").select("id", { count: "exact", head: true }).eq("company_id", cid),
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("company_id", cid).eq("active", true),
         supabase.from("company_invites").select("id", { count: "exact", head: true }).eq("company_id", cid),
         supabase.from("webhook_integrations").select("id", { count: "exact", head: true }).eq("company_id", cid),
+        supabase.from("departments").select("id, head_profile_id, deputy_head_profile_id").eq("company_id", cid),
+        supabase.from("profiles").select("id, role, manager_id, department_id").eq("company_id", cid).eq("active", true),
       ]);
+      // People whose requests only an admin can approve: no manager and no head / deputy of their department.
+      const noApprover = ((staff.data ?? []) as { id: string; role: string; manager_id: string | null; department_id: string | null }[]).filter((p) => {
+        if (p.role === "admin" || p.manager_id) return false;
+        const d = ((deptRows.data ?? []) as { id: string; head_profile_id: string | null; deputy_head_profile_id: string | null }[]).find((x) => x.id === p.department_id);
+        return !d || (!d.head_profile_id && !d.deputy_head_profile_id);
+      }).length;
+      const nonAdmins = ((staff.data ?? []) as { role: string }[]).filter((p) => p.role !== "admin").length;
       if (cancelled) return;
       const seen = readSeen(cid);
       setSteps([
@@ -65,7 +75,7 @@ export function OnboardingChecklist() {
           hint: "Logo a fakturační údaje (lze načíst z ARES podle IČO).",
           href: "/admin/settings?sekce=general",
           cta: "Nastavit",
-          done: !!company.data?.logo_url || !!company.data?.billing_ico,
+          done: !!company.data?.logo_url || !!billing.data?.billing_ico,
         },
         {
           key: "departments",
@@ -82,6 +92,14 @@ export function OnboardingChecklist() {
           href: "/admin/settings?sekce=users",
           cta: "Pozvat lidi",
           done: (people.count ?? 0) > 1 || (invites.count ?? 0) > 0,
+        },
+        {
+          key: "approvers",
+          title: "Určete, kdo schvaluje žádosti",
+          hint: noApprover > 0 ? `${noApprover} ${noApprover === 1 ? "člověk nemá" : "lidí nemá"} nadřízeného ani vedoucího oddělení — jejich žádosti schválí jen admin.` : "Každému nastavte nadřízeného, nebo oddělení určete vedoucího.",
+          href: "/admin/settings?sekce=users",
+          cta: "Přiřadit",
+          done: nonAdmins > 0 && noApprover === 0,
         },
         {
           key: "rules",

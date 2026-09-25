@@ -1,33 +1,25 @@
 // Server-only e-mail sending (Resend HTTP API). Without RESEND_API_KEY nothing is sent and callers get { skipped: true }.
 
+import { emailLayout, FOOTER_NOTIFICATION } from "@/lib/email-templates";
+
 export interface SendResult {
   ok: boolean;
   skipped?: boolean;
   error?: string;
 }
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 export function appUrl(): string {
   return (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
 
-/** Plain-text body -> simple branded HTML (paragraphs by blank line, single newlines kept). */
+/** Plain-text body -> branded HTML (paragraphs by blank line); shared layout with the templates in email-templates.ts. */
 export function renderHtml(subject: string, body: string): string {
-  const paragraphs = body
-    .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 14px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`)
-    .join("");
-  return `<!doctype html><html><body style="margin:0;background:#F7F5F0;font-family:Arial,Helvetica,sans-serif;color:#2C2C2A">
-<div style="max-width:560px;margin:0 auto;padding:24px">
-  <div style="font-size:20px;font-weight:bold;color:#085041;margin-bottom:16px">Dodio</div>
-  <div style="background:#fff;border:1px solid #D3D1C7;border-radius:8px;padding:24px">
-    <h1 style="font-size:18px;margin:0 0 14px">${esc(subject)}</h1>
-    ${paragraphs}
-    <a href="${appUrl()}/dashboard" style="display:inline-block;margin-top:6px;background:#085041;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;font-size:14px">Otevřít Dodio</a>
-  </div>
-  <div style="font-size:12px;color:#5F5E5A;margin-top:14px">Upozornění můžete vypnout v aplikaci u zvonečku notifikací.</div>
-</div></body></html>`;
+  return emailLayout({
+    title: subject,
+    paragraphs: body.split(/\n{2,}/),
+    cta: { label: "Otevřít Dodio", url: `${appUrl()}/dashboard` },
+    footer: FOOTER_NOTIFICATION,
+  });
 }
 
 export async function sendEmail(to: string, subject: string, body: string): Promise<SendResult> {

@@ -65,25 +65,9 @@ export async function createLeaveRequest(payload: {
   note?: string;
   covering_profile_id?: string | null;
   status?: "pending" | "approved";
-  attachment_url?: string | null;
 }) {
   const { error } = await supabase.from("leave_requests").insert(payload);
   if (error) throw error;
-}
-
-/** Uploads a supporting document (e.g. doctor's note) to <profileId>/<timestamp>-<filename> in the private leave-attachments bucket. */
-export async function uploadLeaveAttachment(profileId: string, file: File): Promise<string> {
-  const path = `${profileId}/${Date.now()}-${file.name}`;
-  const { error } = await supabase.storage.from("leave-attachments").upload(path, file);
-  if (error) throw error;
-  return path;
-}
-
-/** Signed URL for a private leave attachment, valid for a short time — generated on demand, not stored. */
-export async function leaveAttachmentUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from("leave-attachments").createSignedUrl(path, 60);
-  if (error) throw error;
-  return data.signedUrl;
 }
 
 export async function approveLeaveRequest(id: string, approverId: string) {
@@ -132,8 +116,7 @@ export async function updateLeaveRequest(
     working_days: number;
     note?: string | null;
     covering_profile_id?: string | null;
-    attachment_url?: string | null;
-  }
+    }
 ) {
   const { error } = await supabase.from("leave_requests").update(payload).eq("id", id).eq("status", "pending");
   if (error) throw error;

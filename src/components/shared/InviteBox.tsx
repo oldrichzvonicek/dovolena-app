@@ -10,17 +10,20 @@ import { fetchCompany, importEmployees } from "@/lib/admin-data";
 import { DbDepartment, Role } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { useJoinLink } from "@/lib/use-join-link";
 
 export function InviteBox() {
   const { profile } = useAuth();
   const [copied, setCopied] = useState(false);
+  const { url, info, loading } = useJoinLink(!!profile);
 
   if (!profile) return null;
-  const link = `${window.location.origin}/login?company=${profile.company_id}`;
+  const link = url ?? (loading ? "Načítám…" : "Odkaz je vypnutý");
 
   async function copyInvite() {
+    if (!url) return;
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -49,6 +52,7 @@ export function InviteBox() {
         />
         <button
           onClick={copyInvite}
+          disabled={!url}
           className="flex shrink-0 items-center gap-1.5 rounded border border-line px-3 py-2 text-sm hover:bg-paper"
         >
           {copied ? <Check size={15} className="text-teal-dark" /> : <Copy size={15} />}
@@ -72,18 +76,20 @@ export function InviteColleagueButton() {
   const [departmentId, setDepartmentId] = useState("none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { url, info, loading: linkLoading } = useJoinLink(open && !!profile);
 
   useEffect(() => {
     if (open && profile) fetchDepartments(profile.company_id).then(setDepartments);
   }, [open, profile]);
 
   if (!profile) return null;
-  const link = `${window.location.origin}/login?company=${profile.company_id}`;
+  const link = url ?? (linkLoading ? "Načítám…" : "Odkaz je vypnutý");
   const isAdmin = profile.role === "admin";
 
   async function copyInvite() {
+    if (!url) return;
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -114,7 +120,7 @@ export function InviteColleagueButton() {
       ]);
       const subject = encodeURIComponent("Pozvánka do Dodio");
       const body = encodeURIComponent(
-        `Ahoj ${name.trim().split(" ")[0]},\n\nzaregistruj se prosím na tomto odkazu, stejným e-mailem, na který tě zvu: ${link}\n\nPo registraci budeš rovnou zařazen(a) do firmy.`
+        `Ahoj ${name.trim().split(" ")[0]},\n\nzaregistruj se prosím na tomto odkazu, stejným e-mailem, na který tě zvu: ${url ?? window.location.origin + "/login"}\n\nPo registraci budeš rovnou zařazen(a) do firmy.`
       );
       window.location.href = `mailto:${email.trim()}?subject=${subject}&body=${body}`;
       setEmail("");
@@ -152,11 +158,12 @@ export function InviteColleagueButton() {
         {tab === "link" ? (
           <>
             <p className="text-sm text-muted">
-              Pošlete tento odkaz novému zaměstnanci — po registraci se rovnou přiřadí k vaší firmě jako zaměstnanec. Roli a oddělení pak nastavíte v Můj tým.
+              Pošlete tento odkaz novému zaměstnanci — po registraci se přiřadí k vaší firmě jako zaměstnanec{info?.require_approval ? " (nejdřív ho ale musí schválit admin)" : ""}. Roli a oddělení pak nastavíte v Můj tým.
             </p>
+            {info && !info.enabled && <p className="mt-2 text-sm text-warning-dark">Registrační odkaz je vypnutý. Admin ho zapne v Nastavení firmy → Uživatelé.</p>}
             <div className="mt-3 flex items-center gap-2">
               <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} aria-label="Pozvánkový odkaz" className="w-full rounded border border-line bg-paper px-3 py-2 text-sm text-muted" />
-              <button onClick={copyInvite} className="flex shrink-0 items-center gap-1.5 rounded border border-line px-3 py-2 text-sm hover:bg-paper">
+              <button onClick={copyInvite} disabled={!url} className="flex shrink-0 items-center gap-1.5 rounded border border-line px-3 py-2 text-sm hover:bg-paper disabled:opacity-50">
                 {copied ? <Check size={15} className="text-teal-dark" /> : <Copy size={15} />}
                 {copied ? "Zkopírováno" : "Kopírovat"}
               </button>

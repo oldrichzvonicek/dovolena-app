@@ -1,12 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { AppLogo } from "@/components/shared/AppLogo";
-import { claimInvite, joinExistingCompany, publicCompanyName } from "@/lib/admin-data";
+import { claimInvite } from "@/lib/admin-data";
+import { joinCompanyByCode, publicCompanyNameByCode } from "@/lib/join-link";
+import { saveOnboardingIntent } from "@/lib/onboarding-intent";
 import { errorMessage } from "@/lib/utils";
 
 type Mode = "signin" | "signup" | "join" | "forgot";
@@ -36,8 +38,9 @@ function LoginForm() {
   const supabase = createClient();
   const { refreshProfile } = useAuth();
 
-  const inviteCompanyId = searchParams.get("company");
-  const [mode, setMode] = useState<Mode>(inviteCompanyId ? "join" : "signin");
+  const inviteCode = searchParams.get("pozvanka");
+  const legacyLink = searchParams.get("company"); // starý odkaz s číslem firmy — už neplatí
+  const [mode, setMode] = useState<Mode>(inviteCode ? "join" : "signin");
   const [inviteCompanyName, setInviteCompanyName] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
@@ -48,26 +51,38 @@ function LoginForm() {
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // A message set together with a mode switch (e.g. "check your e-mail") must survive that switch.
+  const keepMessage = useRef(false);
   useEffect(() => {
+    if (keepMessage.current) {
+      keepMessage.current = false;
+      return;
+    }
     setError(null);
     setInfo(null);
   }, [mode]);
 
   useEffect(() => {
     try {
-      if (sessionStorage.getItem("dodio-deactivated")) {
+      const flag = sessionStorage.getItem("dodio-deactivated");
+      if (flag) {
         sessionStorage.removeItem("dodio-deactivated");
-        setError("Váš účet byl deaktivován. Obraťte se na administrátora firmy.");
+        if (flag === "pending") setInfo("Váš účet čeká na schválení administrátorem firmy. Jakmile ho schválí, přihlaste se.");
+        else setError("Váš účet byl deaktivován. Obraťte se na administrátora firmy.");
       }
+      if (legacyLink) setError("Tento registrační odkaz už neplatí. Požádejte správce firmy o nový.");
     } catch {}
   }, []);
 
   useEffect(() => {
-    if (!inviteCompanyId) return;
-    publicCompanyName(inviteCompanyId)
-      .then(setInviteCompanyName)
+    if (!inviteCode) return;
+    publicCompanyNameByCode(inviteCode)
+      .then((n) => {
+        setInviteCompanyName(n);
+        if (!n) setError("Tento registrační odkaz už neplatí nebo byl vypnut. Požádejte správce firmy o nový.");
+      })
       .catch(() => setInviteCompanyName(null));
-  }, [inviteCompanyId]);
+  }, [inviteCode]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -97,10 +112,10 @@ function LoginForm() {
     // If email confirmation is required, there's no session yet — the
     // onboarding RPC needs auth.uid(), so it has to wait until sign-in.
     if (!signUpData.session) {
+      saveOnboardingIntent({ kind: "create", name, companyName });
       setLoading(false);
-      setError(
-        "Účet vytvořen. Zkontrolujte e-mail a potvrďte registraci, pak se přihlaste — firma se založí při prvním přihlášení."
-      );
+      setInfo("Účet vytvořen. Zkontrolujte e-mail a potvrďte registraci, pak se přihlaste — firma se založí při prvním přihlášení.");
+      keepMessage.current = true;
       setMode("signin");
       return;
     }
@@ -154,7 +169,7 @@ function LoginForm() {
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
-    if (!inviteCompanyId) return;
+    if (!inviteCode) return;
     setError(null);
     setLoading(true);
 
@@ -166,8 +181,11 @@ function LoginForm() {
     }
 
     if (!signUpData.session) {
+      saveOnboardingIntent({ kind: "join", name, joinCode: inviteCode });
       setLoading(false);
-      setError("Účet vytvořen. Zkontrolujte e-mail a potvrďte registraci, pak se přihlaste stejným odkazem.");
+      setInfo("Účet vytvořen. Zkontrolujte e-mail a potvrďte registraci, pak se přihlaste — připojení k firmě se dokončí při prvním přihlášení.");
+      keepMessage.current = true;
+      setMode("signin");
       return;
     }
 
@@ -177,7 +195,7 @@ function LoginForm() {
       // otherwise fall back to the generic "join as plain employee" link.
       const claimedCompanyId = await claimInvite();
       if (!claimedCompanyId) {
-        await joinExistingCompany(inviteCompanyId, name);
+        await joinCompanyByCode(inviteCode, name);
       }
       await refreshProfile();
       router.push("/dashboard");

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { approveLeaveRequest, rejectLeaveRequest } from "@/lib/data";
 import { ApprovalWarnings, computeApprovalWarnings, fetchMyDepartmentIds, hasOtherApprover } from "@/lib/approval-checks";
+import { fetchDecisionScope } from "@/lib/approval-scope";
 import { formatRange } from "@/lib/working-days";
 import { formatNumber } from "@/lib/utils";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
@@ -47,7 +48,8 @@ export function PendingApprovalsWidget({ onChanged }: { onChanged?: () => void }
       .eq("status", "pending")
       .order("start_date", { ascending: true });
     const otherApprover = await hasOtherApprover(profile.company_id, profile.id);
-    const list = ((data as unknown as Row[]) ?? []).filter((r) => r.profile && r.leave_type && (!otherApprover || r.profile.id !== profile.id));
+    const scope = await fetchDecisionScope(profile);
+    const list = ((data as unknown as Row[]) ?? []).filter((r) => r.profile && r.leave_type && scope.canDecide(r.profile) && (!otherApprover || r.profile.id !== profile.id));
     // Own direct reports first, same ordering convention as the Ke schválení page.
     const mine = await fetchMyDepartmentIds(profile.company_id, profile.id);
     const isMine = (r: Row) => r.profile?.manager_id === profile.id || (!!r.profile?.department_id && mine.has(r.profile.department_id));

@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, AlertTriangle, Paperclip } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { countWorkingDays, dayWord, workingDaysPhrase } from "@/lib/working-days";
+import { countWorkingDays, dayWord, formatRange, workingDaysPhrase } from "@/lib/working-days";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { DbBlackoutPeriod, DbCompany, DbLeaveType, DbProfile } from "@/lib/supabase/types";
-import { createLeaveRequest, fetchMaskedAbsences, leaveAttachmentUrl, updateLeaveRequest, uploadLeaveAttachment } from "@/lib/data";
+import { createLeaveRequest, fetchMaskedAbsences, updateLeaveRequest } from "@/lib/data";
 import { fetchBlackoutPeriods, fetchCompany } from "@/lib/admin-data";
 import { errorMessage } from "@/lib/utils";
 import { loadBalances, remainingOf } from "@/lib/balances";
@@ -24,7 +24,6 @@ export interface EditingRequest {
   working_days: number;
   note: string | null;
   covering_profile_id: string | null;
-  attachment_url: string | null;
 }
 
 type DurationMode = "full" | "half" | "hours";
@@ -78,16 +77,16 @@ export function RequestLeaveModal({
   const [note, setNote] = useState("");
   const [coveringId, setCoveringId] = useState<string>("");
   const [conflict, setConflict] = useState<{ names: string[]; teamCount: number; teamSize: number } | null>(null);
+  // Vlastní žádosti (schválené i čekající), které se překrývají s vybraným termínem.
+  const [ownOverlap, setOwnOverlap] = useState<{ id: string; label: string; status: string; start_date: string; end_date: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [company, setCompany] = useState<DbCompany | null>(null);
   const [blackouts, setBlackouts] = useState<DbBlackoutPeriod[]>([]);
   const [remainingForType, setRemainingForType] = useState<number | null>(null);
-  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
-  const [existingAttachmentUrl, setExistingAttachmentUrl] = useState<string | null>(null);
-  const [existingAttachmentSignedUrl, setExistingAttachmentSignedUrl] = useState<string | null>(null);
 
   const selectedType = leaveTypes.find((t) => t.id === typeId);
+  const privateType = !!selectedType && (selectedType.counts_against === "sick" || selectedType.hide_from_colleagues);
 
   useEffect(() => {
     if (!open || !profile) return;
@@ -114,9 +113,6 @@ export function RequestLeaveModal({
       .then(({ data }) => setColleagues((data as DbProfile[]) ?? []));
     fetchCompany(profile.company_id).then(setCompany);
     fetchBlackoutPeriods(profile.company_id).then(setBlackouts);
-
-    setAttachmentFile(null);
-    setExistingAttachmentUrl(editingRequest?.attachment_url ?? null);
 
     if (editingRequest) {
       setTypeId(editingRequest.leave_type_id);
@@ -159,14 +155,6 @@ export function RequestLeaveModal({
     if (durationMode === "half" && !selectedType.allow_half_day) setDurationMode("full");
     if (durationMode === "hours" && !selectedType.allow_hours) setDurationMode("full");
   }, [selectedType, durationMode]);
-
-  useEffect(() => {
-    if (!existingAttachmentUrl) {
-      setExistingAttachmentSignedUrl(null);
-      return;
-    }
-    leaveAttachmentUrl(existingAttachmentUrl).then(setExistingAttachmentSignedUrl);
-  }, [existingAttachmentUrl]);
 
   const dailyHours = company?.standard_daily_hours ?? 8;
 
@@ -246,6 +234,39 @@ export function RequestLeaveModal({
     return null;
   }, [company, blackouts, startDate, endDate, workingDays, remainingForType, today]);
 
+  // Does the person already have another request in this range? (a duplicate would count against the balance twice)
+  useEffect(() => {
+    if (!profile || !open || !startDate || !endDate || endDate < startDate) {
+      setOwnOverlap([]);
+      return;
+    }
+    let cancelled = false;
+    let q = createClient()
+      .from("leave_requests")
+      .select("id, start_date, end_date, status, leave_type:leave_types(label)")
+      .eq("profile_id", profile.id)
+      .in("status", ["approved", "pending"])
+      .lte("start_date", endDate)
+      .gte("end_date", startDate);
+    if (isEditing) q = q.neq("id", editingRequest!.id);
+    q.then(({ data }) => {
+      if (cancelled) return;
+      setOwnOverlap(
+        ((data as unknown as { id: string; start_date: string; end_date: string; status: string; leave_type: { label: string } | null }[]) ?? []).map((r) => ({
+          id: r.id,
+          label: r.leave_type?.label ?? "Absence",
+          status: r.status,
+          start_date: r.start_date,
+          end_date: r.end_date,
+        }))
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, profile, open, isEditing, editingRequest]);
+
   // Live collision check against everyone else's approved leave in the same range.
   useEffect(() => {
     if (!profile || !open) return;
@@ -292,20 +313,18 @@ export function RequestLeaveModal({
   async function handleSubmit() {
     if (!profile || !typeId || policyError) return;
     if (blackoutWarning && !overrideBlackout) return;
-    if (selectedType?.requires_attachment && !attachmentFile && !existingAttachmentUrl) return;
     setSubmitting(true);
     setError(null);
     try {
-      const attachment_url = attachmentFile ? await uploadLeaveAttachment(profile.id, attachmentFile) : existingAttachmentUrl;
       const payload = {
         leave_type_id: typeId,
         start_date: startDate,
         end_date: durationMode === "full" ? endDate : startDate,
         half_day: durationMode === "half",
         working_days: workingDays,
-        note: note || undefined,
+        // Zdravotní údaje neevidujeme: u nemoci a soukromých typů se poznámka neukládá.
+        note: privateType ? undefined : note || undefined,
         covering_profile_id: coveringId || null,
-        attachment_url,
       };
       if (isEditing) {
         await updateLeaveRequest(editingRequest!.id, payload);
@@ -429,6 +448,22 @@ export function RequestLeaveModal({
           <span className="text-muted">— víkendy a státní svátky odečteny automaticky</span>
         </div>
 
+        {ownOverlap.length > 0 && (
+          <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning-light px-3 py-2 text-sm text-ink" role="alert">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning-dark" />
+            <span>
+              V tomto termínu už máte jinou žádost:{" "}
+              {ownOverlap.map((o, i) => (
+                <span key={o.id}>
+                  {i > 0 && "; "}
+                  <strong>{o.label}</strong> {formatRange(o.start_date, o.end_date)} ({o.status === "approved" ? "schváleno" : "čeká na schválení"})
+                </span>
+              ))}
+              . Zkontrolujte, že nežádáte o tentýž den dvakrát — dny by se odečetly dvakrát.
+            </span>
+          </div>
+        )}
+
         {conflict && conflict.teamCount > 0 && (
           <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning-light px-3 py-2 text-sm text-ink">
             <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning-dark" />
@@ -440,16 +475,23 @@ export function RequestLeaveModal({
           </div>
         )}
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">Poznámka pro manažera (volitelné)</label>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className="w-full rounded border border-line px-3 py-2 text-sm"
-            placeholder="Např. důvod žádosti" aria-label="Např. důvod žádosti"
-          />
-        </div>
+        {privateType ? (
+          <p className="rounded border border-line bg-paper px-3 py-2 text-sm text-muted">
+            U nemoci a soukromých absencí žádné důvody ani zdravotní údaje neevidujeme — stačí odeslat termín.
+          </p>
+        ) : (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Poznámka pro manažera (volitelné)</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className="w-full rounded border border-line px-3 py-2 text-sm"
+              placeholder="Např. důvod žádosti" aria-label="Např. důvod žádosti"
+            />
+            <p className="mt-1 text-xs text-muted">Neuvádějte zdravotní údaje.</p>
+          </div>
+        )}
 
         <div>
           <label className="mb-1.5 block text-sm font-medium">Zastupování (volitelné)</label>
@@ -466,26 +508,6 @@ export function RequestLeaveModal({
             </SelectContent>
           </Select>
         </div>
-
-        {selectedType?.requires_attachment && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">
-              Příloha {!selectedType.requires_approval ? "" : "(např. potvrzení od lékaře)"}
-            </label>
-            <input
-              type="file"
-              onChange={(e) => setAttachmentFile(e.target.files?.[0] ?? null)}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-            />
-            {attachmentFile && <p className="mt-1 text-xs text-muted">Nahradí: {attachmentFile.name}</p>}
-            {!attachmentFile && existingAttachmentSignedUrl && (
-              <a href={existingAttachmentSignedUrl} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 text-xs text-teal-dark hover:underline">
-                <Paperclip size={12} /> Zobrazit nahranou přílohu
-              </a>
-            )}
-            {!attachmentFile && !existingAttachmentUrl && <p className="mt-1 text-xs text-danger">Tento typ absence vyžaduje přílohu.</p>}
-          </div>
-        )}
 
         {blackoutWarning && (
           <div className="rounded border border-warning/30 bg-warning-light px-3 py-2 text-sm text-warning-dark">

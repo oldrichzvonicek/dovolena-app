@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { submitHelpFeedback } from "@/lib/help-feedback";
+import { submitHelpFeedback, trackHelpView } from "@/lib/help-feedback";
 import type { HelpFaq } from "@/lib/help-content";
 
 /** One FAQ entry with 👍/👎. forceOpen shows the answer immediately (used while searching). */
@@ -22,7 +22,14 @@ export function HelpFaqItem({ faq, forceOpen }: { faq: HelpFaq; forceOpen?: bool
   }
 
   return (
-    <details open={forceOpen || undefined} className="group card p-4">
+    <details
+      open={forceOpen || undefined}
+      onToggle={(e) => {
+        // Only a real reader opening it counts (search results are force-opened, so they don't).
+        if (!forceOpen && (e.currentTarget as HTMLDetailsElement).open && profile) void trackHelpView(profile.id, faq.q);
+      }}
+      className="group card p-4"
+    >
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-body-strong text-ink marker:content-none">
         {faq.q}
         <span className="mt-0.5 shrink-0 text-lg leading-none text-muted transition-transform group-open:rotate-45">+</span>

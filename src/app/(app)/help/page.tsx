@@ -8,6 +8,7 @@ import { START_TOUR_EVENT } from "@/components/layout/ProductTour";
 import { HelpFaqItem } from "@/components/shared/HelpFaqItem";
 import { ContactSupportBox } from "@/components/shared/ContactSupportBox";
 import { Button } from "@/components/ui/button";
+import { fetchTopQuestions, trackHelpView } from "@/lib/help-feedback";
 import { colorIcon, faqs, sections, slug, type HelpFaq, type HelpRole, type HelpSection } from "@/lib/help-content";
 import { cn } from "@/lib/utils";
 
@@ -48,12 +49,18 @@ export default function HelpPage() {
 
   const articlesOf = (s: HelpSection) => audienceFaqs.filter((f) => f.section === s.title);
 
-  // Most-needed answers: the curated "top" ones first, topped up so there are always five.
+  // Skutečně nejčastěji otevírané články ve firmě (viz help_views); dokud dat není dost, doplní se ručním výběrem.
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    fetchTopQuestions(30).then((rows) => setViewCounts(Object.fromEntries(rows.map((r) => [r.question, r.views]))));
+  }, []);
+
   const topFaqs = useMemo(() => {
-    const top = audienceFaqs.filter((f) => f.top);
-    const rest = audienceFaqs.filter((f) => !f.top);
-    return [...top, ...rest].slice(0, TOP_COUNT);
-  }, [audienceFaqs]);
+    const tracked = audienceFaqs.filter((f) => (viewCounts[f.q] ?? 0) > 0).sort((a, b) => (viewCounts[b.q] ?? 0) - (viewCounts[a.q] ?? 0));
+    const curated = audienceFaqs.filter((f) => f.top && !tracked.includes(f));
+    const rest = audienceFaqs.filter((f) => !f.top && !tracked.includes(f));
+    return [...tracked, ...curated, ...rest].slice(0, TOP_COUNT);
+  }, [audienceFaqs, viewCounts]);
 
   const results = useMemo(() => {
     if (!searching) return { faqs: [] as HelpFaq[], items: [] as { section: HelpSection; text: string }[] };
@@ -66,6 +73,7 @@ export default function HelpPage() {
   const section = activeSection ? audienceSections.find((s) => s.title === activeSection) ?? null : null;
 
   function openArticle(faq: HelpFaq) {
+    if (profile) void trackHelpView(profile.id, faq.q);
     setOpenFaq(faq.q);
     setActiveSection(faq.section);
     // The article lives inside the section detail — scroll to it once it has rendered.

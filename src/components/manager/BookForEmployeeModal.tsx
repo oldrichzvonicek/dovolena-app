@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { bookLeaveForEmployee, fetchCompany } from "@/lib/admin-data";
 import { DbLeaveType, DbProfile } from "@/lib/supabase/types";
 import { errorMessage } from "@/lib/utils";
+import { fetchDecisionScope } from "@/lib/approval-scope";
 
 type DurationMode = "full" | "half" | "hours";
 
@@ -61,7 +62,11 @@ export function BookForEmployeeModal({
       .eq("company_id", profile.company_id)
       .eq("active", true)
       .neq("id", profile.id)
-      .then(({ data }) => setEmployees((data as DbProfile[]) ?? []));
+      .then(async ({ data }) => {
+        // A manager books only for their own people (the database enforces this too); admins for everyone.
+        const scope = await fetchDecisionScope(profile);
+        setEmployees(((data as DbProfile[]) ?? []).filter((e) => scope.canDecide(e)));
+      });
     supabase
       .from("leave_types")
       .select("*")

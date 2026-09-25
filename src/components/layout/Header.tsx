@@ -25,8 +25,8 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
         <Menu size={22} />
       </button>
       <div className="min-w-0 flex-1">
-        <h1 className="font-display text-xl sm:text-2xl">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+        <h1 className="truncate font-display text-xl sm:text-2xl">{title}</h1>
+        {subtitle && <p className="mt-1 hidden text-sm text-muted sm:block">{subtitle}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <RequestLeaveModal
@@ -39,7 +39,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
         />
         <button
           onClick={() => window.dispatchEvent(new Event(TOGGLE_HELP_EVENT))}
-          className="rounded p-2 text-muted hover:bg-white hover:text-ink"
+          className="hidden rounded p-2 text-muted hover:bg-white hover:text-ink sm:block"
           aria-label="Rychlá nápověda"
         >
           <HelpCircle size={19} />

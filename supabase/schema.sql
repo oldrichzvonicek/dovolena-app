@@ -95,15 +95,8 @@ alter table companies add column if not exists default_vacation_days numeric(5,1
 alter table companies add column if not exists default_sick_days numeric(5,1) not null default 5;
 alter table companies add column if not exists default_home_office_days numeric(5,1) not null default 0;
 
--- Billing details — filled in by hand or looked up from ARES by IČO (a
--- public, no-auth-required Czech government API; the app calls it directly
--- from the browser, nothing is stored server-side beyond what's saved here).
-alter table companies add column if not exists billing_name text;
-alter table companies add column if not exists billing_ico text;
-alter table companies add column if not exists billing_dic text;
-alter table companies add column if not exists billing_street text;
-alter table companies add column if not exists billing_city text;
-alter table companies add column if not exists billing_zip text;
+-- Fakturační údaje (název, IČO, DIČ, adresa, e-mail pro faktury, způsob platby)
+-- jsou v tabulce company_billing, kterou čte jen admin firmy — viz konec souboru.
 alter table companies add column if not exists logo_url text;
 
 -- Poměrná dovolená pro nováčky během roku: nárok se krátí podle zbývajících
@@ -115,19 +108,51 @@ alter table companies add column if not exists plan text not null default 'free'
 -- První verze sloupce používala výchozí hodnotu 'start' — přejmenováno na 'free'.
 alter table companies alter column plan set default 'free';
 update companies set plan = 'free' where plan = 'start';
-alter table companies add column if not exists payment_method text not null default 'invoice';
-alter table companies add column if not exists billing_email text;
 
-create or replace function prorate_days(p_days numeric, p_company_id uuid)
+-- Poměrné krácení podle měsíce nástupu (včetně měsíce nástupu), zaokrouhleno na půl dne.
+create or replace function prorate_from(p_days numeric, p_company_id uuid, p_start date)
 returns numeric
 language sql
 stable
 as $$
   select case
     when coalesce((select prorate_new_hires from companies where id = p_company_id), false)
-      then round(p_days * (13 - extract(month from now())::int) / 12.0 * 2) / 2
+      then round(p_days * (13 - extract(month from p_start)::int) / 12.0 * 2) / 2
     else p_days
   end;
+$$;
+
+-- Zpětně kompatibilní varianta: krátí podle dneška (když datum nástupu není známé).
+create or replace function prorate_days(p_days numeric, p_company_id uuid)
+returns numeric
+language sql
+stable
+as $$
+  select prorate_from(p_days, p_company_id, current_date);
+$$;
+
+-- Příplatek k dovolené za odpracované roky: admin zapne a zadá stupně
+-- [{"years": 5, "extra_days": 5}, ...]. Platí nejvyšší dosažený stupeň
+-- (počet let se počítá k 31. 12. daného roku).
+alter table companies add column if not exists seniority_enabled boolean not null default false;
+alter table companies add column if not exists seniority_rules jsonb not null default '[]'::jsonb;
+
+create or replace function seniority_bonus_days(p_hire date, p_company_id uuid, p_year int)
+returns numeric
+language sql
+stable
+set search_path = public
+as $$
+  select coalesce((
+    select (r.rule ->> 'extra_days')::numeric
+    from companies c, jsonb_array_elements(c.seniority_rules) as r(rule)
+    where c.id = p_company_id
+      and c.seniority_enabled
+      and p_hire is not null
+      and (r.rule ->> 'years')::numeric <= date_part('year', age(make_date(p_year, 12, 31), p_hire))
+    order by (r.rule ->> 'years')::numeric desc
+    limit 1
+  ), 0);
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -328,6 +353,18 @@ alter table profiles add column if not exists deactivated_at timestamptz;
 -- cover named on a single request. This is the default that prefills it.
 alter table profiles add column if not exists substitute_id uuid references profiles(id) on delete set null;
 
+-- Datum nástupu — základ pro příplatek k dovolené za odpracované roky (companies.seniority_*).
+alter table profiles add column if not exists hire_date date;
+
+-- Doplňková role vedle role zaměstnanec / manažer / admin (nastavuje jen admin, viz guard_profile_update):
+--   hr         — personalistika: vidí všechna data o absencích a nárocích, spravuje lidi (oddělení, nadřízený,
+--                datum nástupu, nároky, pozvánky), čte Analytiku, Exporty a Historii změn. Nespravuje firmu, role ani fakturaci.
+--   accountant — mzdová účetní: jen čte absence a nároky celé firmy pro mzdy (Exporty, Analytika). Nic nemění.
+alter table profiles add column if not exists staff_role text check (staff_role in ('hr', 'accountant'));
+
+-- Nové registrace z odkazu čekají na schválení adminem (viz company_join / join_company_by_code).
+alter table profiles add column if not exists join_pending boolean not null default false;
+
 -- Unguessable id for the personal iCal feed URL (see src/app/api/ical) — the
 -- feed is fetched unauthenticated by calendar apps, so the token itself is
 -- what stands in for auth. Regenerable from Nastavení/Tým if it ever leaks.
@@ -358,7 +395,6 @@ create table if not exists leave_types (
 -- Per-type request rules (Typy absencí → pokročilá pravidla).
 alter table leave_types add column if not exists requires_approval boolean not null default true;
 alter table leave_types add column if not exists paid boolean not null default true;
-alter table leave_types add column if not exists requires_attachment boolean not null default false;
 alter table leave_types add column if not exists allow_half_day boolean not null default true;
 alter table leave_types add column if not exists allow_hours boolean not null default true;
 -- Display order in pickers (request form, quick CTA) — admin-controlled via
@@ -412,39 +448,6 @@ create table if not exists leave_requests (
   check (end_date >= start_date)
 );
 
--- Storage path of a supporting document (e.g. a doctor's note), set when the
--- chosen leave_type.requires_attachment is true — see leave-attachments
--- bucket policies below.
-alter table leave_requests add column if not exists attachment_url text;
-
--- ---------------------------------------------------------------------------
--- leave-attachments storage bucket — private. The requester can upload/read
--- their own; managers/admins of the same company can read (to review a
--- pending request), matching who can already see the request row itself.
--- ---------------------------------------------------------------------------
-insert into storage.buckets (id, name, public)
-values ('leave-attachments', 'leave-attachments', false)
-on conflict (id) do nothing;
-
-drop policy if exists "own leave attachments" on storage.objects;
-create policy "own leave attachments" on storage.objects
-  for all using (
-    bucket_id = 'leave-attachments' and (storage.foldername(name))[1] = auth.uid()::text
-  )
-  with check (
-    bucket_id = 'leave-attachments' and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-drop policy if exists "managers read leave attachments" on storage.objects;
-create policy "managers read leave attachments" on storage.objects
-  for select using (
-    bucket_id = 'leave-attachments'
-    and current_user_role() in ('manager', 'admin')
-    and exists (
-      select 1 from profiles p
-      where p.id::text = (storage.foldername(name))[1] and p.company_id = current_company_id()
-    )
-  );
 
 -- ---------------------------------------------------------------------------
 -- company_integrations — Slack/Teams connection config (added later; the
@@ -479,6 +482,16 @@ security definer
 stable
 as $$
   select role from profiles where id = auth.uid() and active;
+$$;
+
+create or replace function current_user_staff()
+returns text
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select staff_role from profiles where id = auth.uid() and active;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -718,8 +731,8 @@ alter table company_invites enable row level security;
 
 drop policy if exists "admins manage invites" on company_invites;
 create policy "admins manage invites" on company_invites
-  for all using (company_id = current_company_id() and current_user_role() = 'admin')
-  with check (company_id = current_company_id() and current_user_role() = 'admin');
+  for all using (company_id = current_company_id() and (current_user_role() = 'admin' or current_user_staff() = 'hr'))
+  with check (company_id = current_company_id() and (current_user_role() = 'admin' or current_user_staff() = 'hr'));
 
 -- ---------------------------------------------------------------------------
 -- claim_invite — call right after a brand-new user's first sign-up/sign-in.
@@ -748,6 +761,10 @@ begin
   select * into inv from company_invites where email = caller_email limit 1;
   if inv.id is null then
     return null;
+  end if;
+  -- Pozvánka se váže na e-mail: bez potvrzení e-mailu by ji mohl převzít kdokoli, kdo adresu jen zná.
+  if (select email_confirmed_at from auth.users where id = auth.uid()) is null then
+    raise exception 'Nejdřív potvrďte svůj e-mail (odkaz jsme vám poslali).';
   end if;
 
   resolved_manager_id := inv.manager_id;
@@ -828,7 +845,7 @@ create table if not exists notifications (
 -- (Nápověda v2 "Napsat na HR/Podporu") added on top of the original three.
 alter table notifications drop constraint if exists notifications_type_check;
 alter table notifications add constraint notifications_type_check
-  check (type in ('request_created', 'request_approved', 'request_rejected', 'vacation_reminder', 'help_question', 'cancellation_requested', 'cancellation_resolved'));
+  check (type in ('request_created', 'request_approved', 'request_rejected', 'vacation_reminder', 'help_question', 'cancellation_requested', 'cancellation_resolved', 'join_pending'));
 
 create index if not exists notifications_profile_id_created_at_idx on notifications (profile_id, created_at desc);
 
@@ -859,6 +876,8 @@ declare
   blackout_label text;
   notif_title text;
   notif_body text;
+  type_label text;
+  date_range text;
   mgr record;
 begin
   -- A row can be inserted already-approved (e.g. company-wide leave, or a
@@ -877,17 +896,24 @@ begin
   where company_id = requester_company_id and start_date <= new.end_date and end_date >= new.start_date
   limit 1;
 
+  select label into type_label from leave_types where id = new.leave_type_id;
+  date_range := case
+    when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
+    else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
+  end;
+
   if blackout_label is not null then
     notif_title := '⚠️ Žádost v blokovaném termínu';
-    notif_body := requester_name || ' přesto podal(a) žádost o volno v blokovaném termínu (' || blackout_label || ').';
+    notif_body := requester_name || ' přesto podal(a) žádost o absenci (' || coalesce(type_label, 'absence') || ', ' || date_range || ') v blokovaném termínu „' || blackout_label || '“. Rozhodněte prosím, zda ji schválíte.';
   else
-    notif_title := 'Nová žádost o volno';
-    notif_body := requester_name || ' žádá o volno ke schválení.';
+    notif_title := 'Nová žádost o absenci';
+    notif_body := requester_name || ' žádá o absenci: ' || coalesce(type_label, 'absence') || ', ' || date_range || '. Žádost čeká na vaše schválení.';
   end if;
 
   for mgr in
     select id from profiles
     where company_id = requester_company_id and role in ('manager', 'admin') and active and id <> new.profile_id
+      and (role = 'admin' or superior_check(id, new.profile_id))
   loop
     insert into notifications (profile_id, type, leave_request_id, title, body)
     values (mgr.id, 'request_created', new.id, notif_title, notif_body);
@@ -911,22 +937,33 @@ returns trigger
 language plpgsql
 security definer
 as $$
+declare
+  type_label text;
+  date_range text;
 begin
   if new.status = old.status then
     return new;
   end if;
 
+  select label into type_label from leave_types where id = new.leave_type_id;
+  date_range := case
+    when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
+    else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
+  end;
+
   if new.status = 'approved' then
     insert into notifications (profile_id, type, leave_request_id, title, body)
-    values (new.profile_id, 'request_approved', new.id, 'Žádost schválena', 'Vaše žádost o volno byla schválena.');
+    values (new.profile_id, 'request_approved', new.id, 'Žádost schválena',
+      'Vaše žádost o absenci (' || coalesce(type_label, 'absence') || ', ' || date_range || ') byla schválena.');
   elsif new.status = 'rejected' then
     insert into notifications (profile_id, type, leave_request_id, title, body)
     values (
       new.profile_id, 'request_rejected', new.id, 'Žádost zamítnuta',
-      case when new.rejection_reason is not null and new.rejection_reason <> ''
-        then 'Důvod: ' || new.rejection_reason
-        else 'Vaše žádost o volno byla zamítnuta.'
-      end
+      'Vaše žádost o absenci (' || coalesce(type_label, 'absence') || ', ' || date_range || ') byla zamítnuta.'
+        || case when new.rejection_reason is not null and new.rejection_reason <> ''
+             then ' Důvod: ' || new.rejection_reason
+             else ''
+           end
     );
   end if;
 
@@ -953,8 +990,8 @@ as $$
 declare
   n int;
 begin
-  if current_user_role() <> 'admin' then
-    raise exception 'Jen admin firmy může odeslat hromadnou připomínku.';
+  if current_user_role() <> 'admin' and current_user_staff() is distinct from 'hr' then
+    raise exception 'Jen admin nebo HR může odeslat hromadnou připomínku.';
   end if;
 
   insert into notifications (profile_id, type, title, body)
@@ -1102,6 +1139,9 @@ begin
   if not found then
     raise exception 'Žádost o zrušení nenalezena.';
   end if;
+  if current_user_role() <> 'admin' and not is_superior_of(req.profile_id) then
+    raise exception 'O zrušení může rozhodnout jen nadřízený nebo zástupce zaměstnance, případně admin.';
+  end if;
 
   if p_approve then
     delete from leave_requests where id = p_request_id;
@@ -1231,7 +1271,7 @@ alter table audit_log enable row level security;
 
 drop policy if exists "admins read own company audit log" on audit_log;
 create policy "admins read own company audit log" on audit_log
-  for select using (company_id = current_company_id() and current_user_role() = 'admin');
+  for select using (company_id = current_company_id() and (current_user_role() = 'admin' or current_user_staff() = 'hr'));
 
 create or replace function audit_leave_requests()
 returns trigger
@@ -1328,7 +1368,8 @@ begin
     return new;
   end if;
 
-  if current_user_role() in ('manager', 'admin') and new.profile_id <> auth.uid() then
+  if current_user_role() in ('manager', 'admin') and new.profile_id <> auth.uid()
+     and (current_user_role() = 'admin' or is_superior_of(new.profile_id)) then
     return new;
   end if;
 
@@ -1407,7 +1448,7 @@ declare
   msg text;
 begin
   select company_id, name into cid, who from profiles where id = new.profile_id;
-  select label into lt from leave_types where id = new.leave_type_id;
+  select case when hide_from_colleagues then 'absenci' else label end into lt from leave_types where id = new.leave_type_id;
   rng := case
     when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
     else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
@@ -1463,8 +1504,9 @@ declare
   dept_name text;
   n int := 0;
 begin
-  if current_user_role() <> 'admin' or current_company_id() <> target_company_id then
-    raise exception 'Jen admin firmy může importovat zaměstnance.';
+  if current_company_id() is distinct from target_company_id
+     or (current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr') then
+    raise exception 'Jen admin nebo HR firmy může importovat zaměstnance.';
   end if;
 
   for r in select * from jsonb_array_elements(rows) loop
@@ -1492,7 +1534,8 @@ begin
       coalesce((r->>'vacation_opening_used')::numeric, 0),
       coalesce((r->>'sick_total')::numeric, 0),
       coalesce((r->>'sick_opening_used')::numeric, 0),
-      coalesce(nullif(r->>'role', '')::user_role, 'employee')
+      -- HR smí zvát jen zaměstnance; role manažer / admin přiděluje jen admin.
+      case when current_user_role() = 'admin' then coalesce(nullif(r->>'role', '')::user_role, 'employee') else 'employee'::user_role end
     )
     on conflict (company_id, email) do update set
       name = excluded.name,
@@ -1532,14 +1575,42 @@ begin
   if (new.department_id is distinct from old.department_id
       or new.manager_id is distinct from old.manager_id
       or new.substitute_id is distinct from old.substitute_id)
-     and current_user_role() not in ('admin', 'manager') then
-    raise exception 'Oddělení, nadřízeného a zástupce může měnit jen manažer nebo admin.';
+     and current_user_role() not in ('admin', 'manager')
+     and current_user_staff() is distinct from 'hr' then
+    raise exception 'Oddělení, nadřízeného a zástupce může měnit jen manažer, HR nebo admin.';
+  end if;
+  -- Manažer smí přeřazovat jen své lidi (nadřízený / vedoucí / zástupce). Jinak by si mohl přiřadit kohokoli jako podřízeného
+  -- a získal by právo schvalovat jeho žádosti a vidět jeho soukromé absence. Výjimka: vlastní zástup.
+  if (new.department_id is distinct from old.department_id
+      or new.manager_id is distinct from old.manager_id
+      or new.substitute_id is distinct from old.substitute_id)
+     and current_user_role() = 'manager'
+     and not is_superior_of(old.id)
+     and not (new.id = auth.uid()
+              and new.department_id is not distinct from old.department_id
+              and new.manager_id is not distinct from old.manager_id) then
+    raise exception 'Přeřadit můžete jen své podřízené — ostatní změní admin.';
   end if;
   if new.company_id is distinct from old.company_id then
     raise exception 'Firmu u profilu nelze změnit.';
   end if;
+  if new.hire_date is distinct from old.hire_date and current_user_role() <> 'admin' and current_user_staff() is distinct from 'hr' then
+    raise exception 'Datum nástupu může měnit jen admin nebo HR.';
+  end if;
+  if new.staff_role is distinct from old.staff_role and current_user_role() is distinct from 'admin' then
+    raise exception 'Doplňkovou roli (HR / účetní) může nastavit jen admin.';
+  end if;
   if new.active is distinct from old.active and (current_user_role() <> 'admin' or new.id = auth.uid()) then
     raise exception 'Deaktivovat může jen admin, a ne sám sebe.';
+  end if;
+  -- Firma nikdy nesmí zůstat bez aktivního admina (jinak by ji nikdo nemohl spravovat).
+  if old.role = 'admin' and old.active
+     and (new.role <> 'admin' or not new.active)
+     and not exists (
+       select 1 from profiles p
+       where p.company_id = old.company_id and p.role = 'admin' and p.active and p.id <> old.id
+     ) then
+    raise exception 'Firma musí mít aspoň jednoho aktivního admina.';
   end if;
   return new;
 end;
@@ -1619,7 +1690,20 @@ as $$
   select
     target_profile_id, lt.id, extract(year from now())::int,
     case lt.key
-      when 'dovolena' then prorate_days((select default_vacation_days from companies where id = target_company_id), target_company_id)
+      when 'dovolena' then (
+        -- Datum nástupu (pokud je vyplněné): nástup v dřívějším roce = celý nárok, v letošním roce se krátí podle měsíce nástupu.
+        select case
+          when p.hire_date is not null and extract(year from p.hire_date) < extract(year from now())
+            then c.default_vacation_days + seniority_bonus_days(p.hire_date, c.id, extract(year from now())::int)
+          else prorate_from(
+                 c.default_vacation_days + seniority_bonus_days(p.hire_date, c.id, extract(year from now())::int),
+                 c.id,
+                 coalesce(p.hire_date, current_date)
+               )
+        end
+        from profiles p join companies c on c.id = target_company_id
+        where p.id = target_profile_id
+      )
       when 'sick' then (select default_sick_days from companies where id = target_company_id)
     end
   from leave_types lt
@@ -1744,7 +1828,8 @@ create trigger default_hide_sick_type
   before insert on leave_types
   for each row execute function default_hide_sick_type();
 
-create or replace function is_superior_of(target uuid)
+-- Je "approver" nadřízeným (manager_id), vedoucím / zástupcem oddělení nebo stálým zástupcem některého z nich?
+create or replace function superior_check(approver uuid, target uuid)
 returns boolean
 language sql
 security definer
@@ -1754,16 +1839,31 @@ as $$
   select exists (
     select 1 from profiles p
     where p.id = target
-      and p.company_id = current_company_id()
       and (
-        p.manager_id = auth.uid()
+        p.manager_id = approver
+        or exists (select 1 from profiles m where m.id = p.manager_id and m.substitute_id = approver)
         or exists (
           select 1 from departments d
           where d.id = p.department_id
-            and (d.head_profile_id = auth.uid() or d.deputy_head_profile_id = auth.uid())
+            and (
+              d.head_profile_id = approver
+              or d.deputy_head_profile_id = approver
+              or exists (select 1 from profiles h where h.id = d.head_profile_id and h.substitute_id = approver)
+            )
         )
       )
   );
+$$;
+
+create or replace function is_superior_of(target uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (select 1 from profiles p where p.id = target and p.company_id = current_company_id())
+     and superior_check(auth.uid(), target);
 $$;
 
 create or replace function request_type_hidden(type_id uuid)
@@ -1785,6 +1885,7 @@ set search_path = public
 as $$
   select req_profile = auth.uid()
     or current_user_role() = 'admin'
+    or current_user_staff() is not null
     or not request_type_hidden(req_type)
     or is_superior_of(req_profile);
 $$;
@@ -1819,3 +1920,418 @@ as $$
 $$;
 
 grant execute on function masked_absences(date, date) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- help_views — kdo kdy otevřel který článek v Nápovědě. Slouží k řazení
+-- "Nejčastějších dotazů" podle skutečného zájmu lidí ve firmě.
+-- ---------------------------------------------------------------------------
+create table if not exists help_views (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references profiles(id) on delete cascade,
+  question text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists help_views_created_idx on help_views (created_at desc);
+
+alter table help_views enable row level security;
+
+drop policy if exists "create own help views" on help_views;
+create policy "create own help views" on help_views
+  for insert with check (profile_id = auth.uid());
+
+-- Nejčastěji otevírané články za posledních 90 dní ve firmě volajícího.
+create or replace function help_top_questions(p_limit int default 10)
+returns table (question text, views bigint)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select v.question, count(*) as views
+  from help_views v
+  join profiles p on p.id = v.profile_id
+  where p.company_id = current_company_id()
+    and v.created_at > now() - interval '90 days'
+  group by v.question
+  order by count(*) desc, v.question
+  limit greatest(p_limit, 1);
+$$;
+
+grant execute on function help_top_questions(int) to authenticated;
+
+-- Náhled přepočtu nároků podle odpracovaných let (jen admin). Nic nemění.
+create or replace function seniority_preview(p_year int)
+returns table (profile_id uuid, name text, hire_date date, years int, bonus numeric, current_total numeric, new_total numeric)
+language plpgsql
+security definer
+stable
+set search_path = public
+as $$
+begin
+  if current_user_role() is distinct from 'admin' then
+    raise exception 'Jen admin.';
+  end if;
+  return query
+    select p.id, p.name, p.hire_date,
+           date_part('year', age(make_date(p_year, 12, 31), p.hire_date))::int,
+           seniority_bonus_days(p.hire_date, p.company_id, p_year),
+           coalesce(e.total_days, 0)::numeric,
+           (case
+              when extract(year from p.hire_date) = p_year
+                then prorate_from(c.default_vacation_days + seniority_bonus_days(p.hire_date, p.company_id, p_year), p.company_id, p.hire_date)
+              else c.default_vacation_days + seniority_bonus_days(p.hire_date, p.company_id, p_year)
+            end)::numeric
+    from profiles p
+    join companies c on c.id = p.company_id
+    left join leave_types lt on lt.company_id = p.company_id and lt.key = 'dovolena'
+    left join leave_entitlements e on e.profile_id = p.id and e.leave_type_id = lt.id and e.year = p_year
+    where p.company_id = current_company_id()
+      and p.active
+      and p.hire_date is not null
+    order by p.name;
+end;
+$$;
+
+-- Použije přepočet: nastaví roční nárok na dovolenou = výchozí nárok + příplatek za roky (jen admin).
+create or replace function apply_seniority_entitlements(p_year int)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  changed int := 0;
+  r record;
+  vac_type uuid;
+begin
+  if current_user_role() is distinct from 'admin' then
+    raise exception 'Jen admin.';
+  end if;
+  select id into vac_type from leave_types where company_id = current_company_id() and key = 'dovolena';
+  if vac_type is null then
+    raise exception 'Typ absence Dovolená nenalezen.';
+  end if;
+  for r in select * from seniority_preview(p_year) where new_total is distinct from current_total loop
+    insert into leave_entitlements (profile_id, leave_type_id, year, total_days)
+    values (r.profile_id, vac_type, p_year, r.new_total)
+    on conflict (profile_id, leave_type_id, year) do update set total_days = excluded.total_days;
+    changed := changed + 1;
+  end loop;
+  return changed;
+end;
+$$;
+
+grant execute on function seniority_preview(int) to authenticated;
+grant execute on function apply_seniority_entitlements(int) to authenticated;
+
+-- Deaktivace zaměstnance: jeho čekající žádosti už nikdo nemá schvalovat — automaticky se zamítnou.
+create or replace function reject_pending_on_deactivation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.active and not new.active then
+    update leave_requests
+    set status = 'rejected',
+        rejection_reason = 'Zaměstnanec byl deaktivován.'
+    where profile_id = new.id and status = 'pending';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_reject_pending_on_deactivation on profiles;
+create trigger profiles_reject_pending_on_deactivation
+  after update of active on profiles
+  for each row execute function reject_pending_on_deactivation();
+
+-- ---------------------------------------------------------------------------
+-- company_billing — fakturační údaje a způsob platby. Dřív ležely přímo v
+-- companies (čitelné každému zaměstnanci); teď je čte a mění jen admin firmy.
+-- Údaje se buď vyplní ručně, nebo načtou z ARES podle IČO.
+-- ---------------------------------------------------------------------------
+create table if not exists company_billing (
+  company_id uuid primary key references companies(id) on delete cascade,
+  billing_name text,
+  billing_ico text,
+  billing_dic text,
+  billing_street text,
+  billing_city text,
+  billing_zip text,
+  billing_email text,
+  payment_method text not null default 'invoice'
+);
+
+alter table company_billing enable row level security;
+
+drop policy if exists "admins manage company billing" on company_billing;
+create policy "admins manage company billing" on company_billing
+  for all
+  using (company_id = current_company_id() and current_user_role() = 'admin')
+  with check (company_id = current_company_id() and current_user_role() = 'admin');
+
+-- Jednorázový převod ze starých sloupců companies (spustí se jen tehdy, když ještě existují).
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'companies' and column_name = 'billing_name'
+  ) then
+    insert into company_billing (company_id, billing_name, billing_ico, billing_dic, billing_street, billing_city, billing_zip, billing_email, payment_method)
+    select id, billing_name, billing_ico, billing_dic, billing_street, billing_city, billing_zip, billing_email, coalesce(payment_method, 'invoice')
+    from companies
+    on conflict (company_id) do nothing;
+
+    alter table companies drop column if exists billing_name;
+    alter table companies drop column if exists billing_ico;
+    alter table companies drop column if exists billing_dic;
+    alter table companies drop column if exists billing_street;
+    alter table companies drop column if exists billing_city;
+    alter table companies drop column if exists billing_zip;
+    alter table companies drop column if exists billing_email;
+    alter table companies drop column if exists payment_method;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Kdo smí rozhodovat a zadávat absence za jiné: jen nadřízený (manager_id),
+-- vedoucí / zástupce oddělení nebo jejich stálý zástupce (profiles.substitute_id)
+-- a admin. Dřív mohl kterýkoli manažer firmy rozhodnout žádost kohokoli.
+-- ---------------------------------------------------------------------------
+drop policy if exists "managers approve leave_requests" on leave_requests;
+create policy "managers approve leave_requests" on leave_requests
+  for update using (
+    exists (
+      select 1 from profiles p
+      where p.id = leave_requests.profile_id and p.company_id = current_company_id()
+    )
+    and (
+      current_user_role() = 'admin'
+      or (current_user_role() = 'manager' and is_superior_of(leave_requests.profile_id))
+    )
+  );
+
+drop policy if exists "managers create leave_requests for team" on leave_requests;
+create policy "managers create leave_requests for team" on leave_requests
+  for insert with check (
+    exists (select 1 from profiles p where p.id = leave_requests.profile_id and p.company_id = current_company_id())
+    and (
+      current_user_role() = 'admin'
+      or (current_user_role() = 'manager' and is_superior_of(leave_requests.profile_id))
+    )
+  );
+
+
+-- ---------------------------------------------------------------------------
+-- Nároky na absence: čte je dotčená osoba, její nadřízený / zástupce, admin a HR
+-- (dřív kterýkoli manažer celé firmy).
+-- ---------------------------------------------------------------------------
+drop policy if exists "select own entitlements" on leave_entitlements;
+create policy "select own entitlements" on leave_entitlements
+  for select using (
+    profile_id = auth.uid()
+    or (
+      exists (select 1 from profiles p where p.id = leave_entitlements.profile_id and p.company_id = current_company_id())
+      and (
+        current_user_role() = 'admin'
+        or current_user_staff() is not null
+        or (current_user_role() = 'manager' and is_superior_of(leave_entitlements.profile_id))
+      )
+    )
+  );
+
+-- ---------------------------------------------------------------------------
+-- Registrační odkaz: tajný kód místo čísla firmy. Admin ho může vypnout nebo
+-- vygenerovat znovu (starý přestane platit); noví lidé z odkazu ve výchozím
+-- stavu čekají na schválení adminem. Tabulka nemá žádné policies — přístup
+-- jen přes funkce níže.
+-- ---------------------------------------------------------------------------
+create table if not exists company_join (
+  company_id uuid primary key references companies(id) on delete cascade,
+  join_code uuid not null default gen_random_uuid(),
+  enabled boolean not null default true,
+  require_approval boolean not null default true
+);
+
+alter table company_join enable row level security;
+
+insert into company_join (company_id) select id from companies on conflict (company_id) do nothing;
+
+create or replace function create_company_join()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into company_join (company_id) values (new.id) on conflict (company_id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists companies_create_join on companies;
+create trigger companies_create_join
+  after insert on companies
+  for each row execute function create_company_join();
+
+create or replace function get_join_link()
+returns table (join_code uuid, enabled boolean, require_approval boolean)
+language plpgsql
+security definer
+stable
+set search_path = public
+as $$
+begin
+  if (current_user_role() is null or current_user_role() not in ('manager', 'admin')) and current_user_staff() is distinct from 'hr' then
+    raise exception 'Jen manažer, HR nebo admin.';
+  end if;
+  return query select j.join_code, j.enabled, j.require_approval from company_join j where j.company_id = current_company_id();
+end;
+$$;
+
+create or replace function set_join_link(p_enabled boolean, p_require_approval boolean, p_regenerate boolean default false)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if current_user_role() is distinct from 'admin' then
+    raise exception 'Jen admin.';
+  end if;
+  update company_join
+  set enabled = p_enabled,
+      require_approval = p_require_approval,
+      join_code = case when p_regenerate then gen_random_uuid() else join_code end
+  where company_id = current_company_id();
+end;
+$$;
+
+create or replace function public_company_name_by_code(p_code uuid)
+returns text
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select c.name from company_join j join companies c on c.id = j.company_id where j.join_code = p_code and j.enabled;
+$$;
+
+create or replace function join_company_by_code(p_code uuid, p_name text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  j company_join%rowtype;
+  cname text;
+  caller_email text;
+  admin_id uuid;
+begin
+  if exists (select 1 from profiles where id = auth.uid()) then
+    raise exception 'Profile already exists for this user';
+  end if;
+
+  select * into j from company_join where join_code = p_code and enabled;
+  if j.company_id is null then
+    raise exception 'Odkaz už neplatí nebo byl vypnut. Požádejte správce firmy o nový.';
+  end if;
+
+  select email into caller_email from auth.users where id = auth.uid();
+  if (select email_confirmed_at from auth.users where id = auth.uid()) is null then
+    raise exception 'Nejdřív potvrďte svůj e-mail (odkaz jsme vám poslali).';
+  end if;
+
+  select name into cname from companies where id = j.company_id;
+
+  insert into profiles (id, company_id, name, role, avatar_initials, email, active, join_pending)
+  values (
+    auth.uid(), j.company_id, p_name, 'employee',
+    upper(left(split_part(p_name, ' ', 1), 1) || left(split_part(p_name, ' ', 2), 1)),
+    caller_email,
+    not j.require_approval,
+    j.require_approval
+  );
+
+  perform grant_default_entitlements(auth.uid(), j.company_id);
+
+  if j.require_approval then
+    for admin_id in select id from profiles where company_id = j.company_id and role = 'admin' and active loop
+      insert into notifications (profile_id, type, title, body)
+      values (admin_id, 'join_pending', 'Nový uživatel čeká na schválení', p_name || ' (' || coalesce(caller_email, '') || ') se zaregistroval(a) přes registrační odkaz.');
+    end loop;
+  end if;
+
+  return cname;
+end;
+$$;
+
+grant execute on function get_join_link() to authenticated;
+grant execute on function set_join_link(boolean, boolean, boolean) to authenticated;
+grant execute on function public_company_name_by_code(uuid) to anon, authenticated;
+grant execute on function join_company_by_code(uuid, text) to authenticated;
+
+-- Starý odkaz s číslem firmy už nesmí fungovat.
+drop function if exists join_existing_company(uuid, text);
+drop function if exists public_company_name(uuid);
+
+-- ---------------------------------------------------------------------------
+-- Deaktivace člověka: jeho podřízení přejdou na jeho nadřízeného, vedoucí
+-- oddělení na zástupce; odkazy na něj jako na zástupce se zruší. Aby nikdo
+-- nezůstal bez schvalovatele.
+-- ---------------------------------------------------------------------------
+create or replace function reassign_on_deactivation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.active and not new.active then
+    update profiles set manager_id = old.manager_id where manager_id = old.id and id <> old.id;
+    update profiles set substitute_id = null where substitute_id = old.id;
+    update departments set head_profile_id = deputy_head_profile_id, deputy_head_profile_id = null where head_profile_id = old.id;
+    update departments set deputy_head_profile_id = null where deputy_head_profile_id = old.id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_reassign_on_deactivation on profiles;
+create trigger profiles_reassign_on_deactivation
+  after update of active on profiles
+  for each row execute function reassign_on_deactivation();
+
+-- ---------------------------------------------------------------------------
+-- HR: správa lidí (nároky, oddělení, nadřízený, datum nástupu, pozvánky) a čtení historie změn.
+-- Účetní: jen čtení (viz can_view_request a nároky výše).
+-- ---------------------------------------------------------------------------
+drop policy if exists "hr update profiles in company" on profiles;
+create policy "hr update profiles in company" on profiles
+  for update using (company_id = current_company_id() and current_user_staff() = 'hr');
+
+drop policy if exists "hr manage entitlements" on leave_entitlements;
+create policy "hr manage entitlements" on leave_entitlements
+  for all using (
+    current_user_staff() = 'hr'
+    and exists (select 1 from profiles p where p.id = leave_entitlements.profile_id and p.company_id = current_company_id())
+  );
+
+
+-- ---------------------------------------------------------------------------
+-- Zdravotní údaje neevidujeme: žádné přílohy (potvrzení od lékaře) a žádné
+-- poznámky u nemoci / soukromých typů. Úklid po dřívější verzi (idempotentní).
+-- Soubory v bucketu leave-attachments je nutné smazat přes Storage API / Dashboard
+-- (přímé mazání ze storage.objects Supabase blokuje).
+-- ---------------------------------------------------------------------------
+drop policy if exists "own leave attachments" on storage.objects;
+drop policy if exists "managers read leave attachments" on storage.objects;
+alter table leave_requests drop column if exists attachment_url;
+alter table leave_types drop column if exists requires_attachment;
+update leave_requests set note = null
+where note is not null
+  and leave_type_id in (select id from leave_types where counts_against = 'sick' or hide_from_colleagues);

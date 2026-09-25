@@ -18,6 +18,40 @@ export async function updateCompany(companyId: string, patch: Partial<DbCompany>
   if (error) throw error;
 }
 
+/** Fakturační údaje — v samostatné tabulce, kterou čte jen admin (viz company_billing v schema.sql). */
+export interface CompanyBilling {
+  billing_name: string | null;
+  billing_ico: string | null;
+  billing_dic: string | null;
+  billing_street: string | null;
+  billing_city: string | null;
+  billing_zip: string | null;
+  billing_email: string | null;
+  payment_method: "invoice" | "card";
+}
+
+export async function fetchBilling(companyId: string): Promise<CompanyBilling> {
+  const { data, error } = await supabase.from("company_billing").select("*").eq("company_id", companyId).maybeSingle();
+  if (error) throw error;
+  return (
+    (data as CompanyBilling | null) ?? {
+      billing_name: null,
+      billing_ico: null,
+      billing_dic: null,
+      billing_street: null,
+      billing_city: null,
+      billing_zip: null,
+      billing_email: null,
+      payment_method: "invoice",
+    }
+  );
+}
+
+export async function saveBilling(companyId: string, patch: Partial<CompanyBilling>) {
+  const { error } = await supabase.from("company_billing").upsert({ company_id: companyId, ...patch }, { onConflict: "company_id" });
+  if (error) throw error;
+}
+
 /** @deprecated use updateCompany(companyId, { weekend_operations }) */
 export async function updateCompanyWeekendOperations(companyId: string, weekendOperations: boolean) {
   await updateCompany(companyId, { weekend_operations: weekendOperations });
@@ -138,16 +172,35 @@ export interface AdminEmployeeRow {
   substitute_id: string | null;
   avatar_initials: string | null;
   active?: boolean;
+  hire_date?: string | null;
+  staff_role?: "hr" | "accountant" | null;
+  join_pending?: boolean;
 }
 
 export async function fetchCompanyEmployees(companyId: string): Promise<AdminEmployeeRow[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name, email, role, department_id, manager_id, substitute_id, avatar_initials, active")
+    .select("id, name, email, role, department_id, manager_id, substitute_id, avatar_initials, active, hire_date, staff_role, join_pending")
     .eq("company_id", companyId)
     .order("name", { ascending: true });
   if (error) throw error;
   return data;
+}
+
+/** Admin schválí registraci z odkazu: účet se aktivuje a dotyčný se může přihlásit. */
+export async function approveJoiner(id: string) {
+  const { error } = await supabase.from("profiles").update({ active: true, join_pending: false, deactivated_at: null }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateEmployeeStaffRole(id: string, staffRole: "hr" | "accountant" | null) {
+  const { error } = await supabase.from("profiles").update({ staff_role: staffRole }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateEmployeeHireDate(id: string, hireDate: string | null) {
+  const { error } = await supabase.from("profiles").update({ hire_date: hireDate }).eq("id", id);
+  if (error) throw error;
 }
 
 /** Leaver: keeps the profile and its history, removes access (RLS treats an inactive profile as having no company). */
@@ -343,7 +396,6 @@ export async function updateLeaveType(
     requires_approval: boolean;
     auto_approve_max_days: number | null;
     paid: boolean;
-    requires_attachment: boolean;
     allow_half_day: boolean;
     allow_hours: boolean;
     hide_from_colleagues: boolean;
@@ -378,21 +430,6 @@ export async function swapLeaveTypeOrder(a: { id: string; sort_order: number }, 
 // ---------------------------------------------------------------------------
 // Company invite link
 // ---------------------------------------------------------------------------
-
-export async function joinExistingCompany(companyId: string, name: string): Promise<string> {
-  const { data, error } = await supabase.rpc("join_existing_company", {
-    target_company_id: companyId,
-    p_name: name,
-  });
-  if (error) throw error;
-  return data as string;
-}
-
-export async function publicCompanyName(companyId: string): Promise<string | null> {
-  const { data, error } = await supabase.rpc("public_company_name", { target_company_id: companyId });
-  if (error) throw error;
-  return data as string | null;
-}
 
 // ---------------------------------------------------------------------------
 // Pending invites (single add or bulk CSV import) — people added to the

@@ -1,7 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { allowedSettingsSections } from "@/lib/access";
 import { Header } from "@/components/layout/Header";
 import { UsersPanel } from "@/components/admin/UsersPanel";
 import { DepartmentsPanel } from "@/components/admin/DepartmentsPanel";
@@ -23,7 +25,16 @@ const titles: Record<string, string> = {
 
 function SettingsContent() {
   const section = useSearchParams().get("sekce") ?? "users";
-  const active = section in titles ? section : "users";
+  const { profile } = useAuth();
+  const router = useRouter();
+  const allowed = allowedSettingsSections(profile);
+  const requested = section in titles ? section : "users";
+  // HR sees only some sections; anything else goes back to the first allowed one.
+  const active = allowed.length === 0 || allowed.includes(requested) ? requested : allowed[0];
+  useEffect(() => {
+    if (profile && allowed.length > 0 && active !== section) router.replace(`/admin/settings?sekce=${active}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, active, section]);
 
   return (
     <div>
