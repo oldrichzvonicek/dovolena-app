@@ -35,18 +35,23 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
     const horizon = 200;
 
     (async () => {
-      const [{ data: company }, balances, { data: mates }] = await Promise.all([
+      const [{ data: company }, balances, { data: mates }, { data: ownReqs }] = await Promise.all([
         supabase.from("companies").select("work_days").eq("id", profile.company_id).single(),
         loadBalances(profile.company_id, { profileId: profile.id }),
         profile.department_id
           ? supabase.from("profiles").select("id").eq("company_id", profile.company_id).eq("active", true).eq("department_id", profile.department_id)
           : Promise.resolve({ data: [] as { id: string }[] }),
+        // Vlastní čekající i schválené žádosti: co už mám podané, se nemá nabízet znovu.
+        supabase.from("leave_requests").select("start_date, end_date").eq("profile_id", profile.id).in("status", ["pending", "approved"]).gte("end_date", today),
       ]);
       const workDays = (company?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
       const rem = remainingOf(balances.get(profile.id, "vacation"));
       setRemaining(rem);
 
-      const suggestions = bridgeSuggestions(today, horizon, workDays, 2).filter((s) => s.take.length <= Math.max(0, Math.floor(rem)));
+      const mine = (ownReqs as { start_date: string; end_date: string }[] | null) ?? [];
+      const suggestions = bridgeSuggestions(today, horizon, workDays, 2)
+        .filter((s) => s.take.length <= Math.max(0, Math.floor(rem)))
+        .filter((s) => !mine.some((r) => s.take.some((d) => d >= r.start_date && d <= r.end_date)));
       const team = (mates ?? []).map((m) => m.id as string);
       let away: { profile_id: string; start_date: string; end_date: string; leave_type: { key: string } | null }[] = [];
       if (team.length > 1 && suggestions.length > 0) {
@@ -113,6 +118,9 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
           onOpenChange={(o) => !o && setPick(null)}
           initialDates={{ start: pick.take[0], end: pick.take[pick.take.length - 1] }}
           onSaved={() => {
+            // Podaný návrh hned zmizí (nečeká se na obnovení nástěnky).
+            const done = pick;
+            setTips((cur) => (cur ? cur.filter((t) => t.take.join() !== done.take.join()) : cur));
             setPick(null);
             onSaved?.();
           }}

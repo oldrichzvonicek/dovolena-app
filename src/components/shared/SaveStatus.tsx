@@ -10,7 +10,7 @@ type Status = "idle" | "saving" | "saved" | "error";
 export function useSaveStatus() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const run = useCallback(async (fn: () => Promise<unknown>) => {
     clearTimeout(timer.current);

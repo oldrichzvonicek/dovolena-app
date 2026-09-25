@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyApprovalToken } from "@/lib/approval-token";
 import { appUrl } from "@/lib/email";
+import { headers } from "next/headers";
+import { allowRequest, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Schválení žádosti – Dodio", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -40,8 +42,11 @@ const RESULT_TEXT: Record<string, { title: string; text: string; tone: "info" | 
   neplatny: { title: "Odkaz je neplatný nebo vypršel", text: "Odkazy z e-mailu platí 7 dní. Žádost rozhodnete v aplikaci.", tone: "error" },
 };
 
-export default async function ApprovePage({ params, searchParams }: { params: { token: string }; searchParams: { akce?: string; vysledek?: string } }) {
+export default async function ApprovePage(props: { params: Promise<{ token: string }>; searchParams: Promise<{ akce?: string; vysledek?: string }> }) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
   const token = decodeURIComponent(params.token);
+  if (!(await allowRequest(`approve-page:${clientIp(await headers())}`, 60, 60))) return <Message title="Příliš mnoho požadavků" text="Zkuste to prosím za chvíli." tone="error" />;
   const payload = verifyApprovalToken(token);
   if (!payload) return <Message {...RESULT_TEXT.neplatny} />;
 

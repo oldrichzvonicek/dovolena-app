@@ -421,6 +421,12 @@ export const faqs: HelpFaq[] = [
     roles: ["admin"],
   },
   {
+    q: "Kde změním heslo a zapnu dvoufázové ověření?",
+    section: "Účet",
+    a: "Klikněte dole v menu na své jméno (Můj účet). Najdete tam změnu hesla, dvoufázové ověření, vypnutí e-mailových upozornění a odhlášení ze všech zařízení. Dvoufázové ověření zapnete naskenováním QR kódu v aplikaci pro ověřovací kódy (Google Authenticator, Microsoft Authenticator, 1Password) a opsáním šestimístného kódu; při dalších přihlášeních pak kód zadáte navíc. Admin může v Nastavení firmy → Provoz & kalendář vyžadovat dvoufázové ověření pro admina, HR a účetní. Ztratili jste telefon? Požádejte admina, ať vám ověření vypne, nebo se odhlaste ze všech zařízení a obnovte heslo.",
+    roles: ["employee", "manager", "admin"],
+  },
+  {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
     a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",

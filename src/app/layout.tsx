@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from "next";
+// Písma jsou součástí aplikace (balíčky @fontsource): žádné požadavky na Google za běhu, což je i lepší pro GDPR.
+import "@fontsource-variable/inter";
+import "@fontsource-variable/manrope";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 

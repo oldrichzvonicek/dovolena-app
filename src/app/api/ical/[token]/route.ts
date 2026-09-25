@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 function icsDate(iso: string, offsetDays = 0): string {
   const d = new Date(iso + "T00:00:00Z");
@@ -26,12 +27,13 @@ function foldLine(line: string): string {
 // Public (token-authenticated, not session-authenticated) iCal feed of
 // approved absences — subscribe from Google Calendar/Outlook. ?scope=team
 // includes the whole company instead of just this person.
-export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  if (!(await allowRequest(`ical:${clientIp(req.headers)}`, 120, 60))) return tooManyRequests();
   const scope = req.nextUrl.searchParams.get("scope") === "team" ? "team" : "mine";
   const supabase = createAdminClient();
 
   // The token lives in profile_secrets (readable only by its owner); resolve it with the service role.
-  const { data: secret } = await supabase.from("profile_secrets").select("profile_id").eq("calendar_token", params.token).maybeSingle();
+  const { data: secret } = await supabase.from("profile_secrets").select("profile_id").eq("calendar_token", (await params).token).maybeSingle();
   const { data: viewer, error: viewerError } = secret
     ? await supabase.from("profiles").select("id, name, company_id, role, active").eq("id", secret.profile_id).maybeSingle()
     : { data: null, error: null };

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
 import { createDemoData, demoStatus, removeDemoData } from "@/lib/demo-data";
 
 /**
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Neznámá akce." }, { status: 400 });
   }
 
-  const supabase = createRouteClient();
+  const supabase = await createRouteClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
 
   const { data: caller } = await supabase.from("profiles").select("role, company_id").eq("id", user.id).single();
   if (!caller || caller.role !== "admin") return NextResponse.json({ error: "Ukázková data spravuje jen admin firmy." }, { status: 403 });
+
+  if (!(await allowRequest(`demo-data:${user.id}`, 6, 60))) return tooManyRequests();
 
   const admin = createAdminClient();
   try {

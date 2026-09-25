@@ -117,7 +117,7 @@ export function PendingApprovalsWidget({ onChanged }: { onChanged?: () => void }
             </div>
             <div className="flex gap-2">
               {hasWarning ? (
-                <Link href="/approvals" className="inline-flex items-center rounded border border-warning/50 bg-warning-light px-3 py-1.5 text-sm font-medium text-warning-dark hover:bg-warning-light/70">
+                <Link href={`/approvals?zadost=${r.id}`} className="inline-flex items-center rounded border border-warning/50 bg-warning-light px-3 py-1.5 text-sm font-medium text-warning-dark hover:bg-warning-light/70">
                   Zkontrolovat
                 </Link>
               ) : (
@@ -136,7 +136,7 @@ export function PendingApprovalsWidget({ onChanged }: { onChanged?: () => void }
               >
                 <X size={14} /> Zamítnout
               </Button>
-              <Link href="/approvals" className="inline-flex items-center rounded border border-line bg-white px-3 py-1.5 text-sm hover:bg-paper">
+              <Link href={`/approvals?zadost=${r.id}`} className="inline-flex items-center rounded border border-line bg-white px-3 py-1.5 text-sm hover:bg-paper">
                 Detail
               </Link>
             </div>

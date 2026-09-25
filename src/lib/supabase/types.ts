@@ -21,6 +21,8 @@ export interface DbCompany {
   weekend_operations: boolean;
   /** Tlačítka Schválit / Zamítnout v e-mailu schvalovateli (výchozí zapnuto). */
   email_approval_enabled?: boolean;
+  /** Vyžadovat 2FA pro admina, HR a účetní. */
+  require_mfa_staff?: boolean;
   shift_pattern: ShiftPattern;
   standard_daily_hours: number;
   work_days: number[];

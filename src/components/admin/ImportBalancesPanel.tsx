@@ -18,7 +18,7 @@ import {
   parseTable,
   resolveBalance,
 } from "@/lib/employee-import";
-import { readImportFile } from "@/lib/import-file";
+import { assertImportSize, readImportFile } from "@/lib/import-file";
 import { DEFAULT_WORK_DAYS, daysWithin } from "@/lib/working-days";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
@@ -125,6 +125,13 @@ export function ImportBalancesPanel() {
   function acceptTable(t: string[][], name: string | null) {
     setResult(null);
     setLoadError(null);
+    try {
+      assertImportSize(t.length);
+    } catch (e) {
+      setTable(null);
+      setLoadError(errorMessage(e));
+      return;
+    }
     const nonEmpty = t.filter((r) => r.some((c) => c.trim() !== ""));
     if (nonEmpty.length < 2) {
       setTable(null);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyApprovalToken } from "@/lib/approval-token";
+import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
  * Token jen dokazuje, komu odkaz patří; oprávnění a stav žádosti znovu ověřuje databázová funkce email_decide_request.
  */
 export async function POST(req: NextRequest) {
+  if (!(await allowRequest(`approve:ip:${clientIp(req.headers)}`, 30, 60))) return tooManyRequests();
   const form = await req.formData();
   const token = String(form.get("token") ?? "");
   const decision = String(form.get("decision") ?? "");
@@ -20,6 +22,7 @@ export async function POST(req: NextRequest) {
   const payload = verifyApprovalToken(token);
   if (!payload) return back("neplatny");
   if (decision !== "approved" && decision !== "rejected") return back("neplatny");
+  if (!(await allowRequest(`approve:req:${payload.r}`, 10, 60))) return back("chyba");
 
   const admin = createAdminClient();
   const { data, error } = await admin.rpc("email_decide_request", {

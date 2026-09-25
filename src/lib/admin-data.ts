@@ -59,9 +59,13 @@ export async function updateCompanyWeekendOperations(companyId: string, weekendO
 
 /** Uploads to company-logos/<companyId>/logo.<ext>, replacing any existing file, and saves the public URL on the company row. */
 export async function uploadCompanyLogo(companyId: string, file: File): Promise<string> {
-  const ext = file.name.split(".").pop() ?? "png";
+  // Jen rastrové obrázky (SVG může nést skripty). Přípona se odvozuje z typu souboru, ne z jeho názvu.
+  const extByType: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+  const ext = extByType[file.type];
+  if (!ext) throw new Error("Logo musí být obrázek PNG, JPG nebo WebP.");
+  if (file.size > 1_000_000) throw new Error("Logo může mít nejvýše 1 MB.");
   const path = `${companyId}/logo.${ext}`;
-  const { error: uploadError } = await supabase.storage.from("company-logos").upload(path, file, { upsert: true });
+  const { error: uploadError } = await supabase.storage.from("company-logos").upload(path, file, { upsert: true, contentType: file.type });
   if (uploadError) throw uploadError;
   const { data } = supabase.storage.from("company-logos").getPublicUrl(path);
   const url = `${data.publicUrl}?v=${Date.now()}`; // cache-bust so a re-upload shows immediately

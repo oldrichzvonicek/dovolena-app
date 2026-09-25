@@ -9,6 +9,8 @@ import { CommandPalette } from "@/components/layout/CommandPalette";
 import { HelpDrawer } from "@/components/layout/HelpDrawer";
 import { ProductTour } from "@/components/layout/ProductTour";
 import { ConfirmHost } from "@/components/shared/ConfirmHost";
+import { Toaster } from "@/components/ui/toaster";
+import { MfaGate } from "@/components/layout/MfaGate";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, profile, loading, signOut } = useAuth();
@@ -81,6 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (forbidden) return null;
 
   return (
+    <MfaGate>
     <div className="flex">
       <a
         href="#main"
@@ -98,6 +101,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <HelpDrawer />
       <ProductTour />
       <ConfirmHost />
+      <Toaster />
     </div>
+    </MfaGate>
   );
 }

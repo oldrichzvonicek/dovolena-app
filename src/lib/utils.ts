@@ -20,6 +20,8 @@ const FRIENDLY_ERRORS: [RegExp, string][] = [
   [/value too long|invalid input syntax|out of range/i, "Zadaná hodnota má neplatný formát."],
 ];
 
+const TECHNICAL_ERROR = /(PGRST\d*|syntax error|at or near|operator does not exist|does not exist|TypeError|ReferenceError|Cannot read|undefined is not|is not a function|pg_[a-z_]+|SQLSTATE|stack)/i;
+
 /** Supabase/Postgrest errors are plain objects with a `.message`, not `instanceof Error` — check for the property, not the class. */
 export function errorMessage(e: unknown): string {
   let raw: string | null = null;
@@ -27,7 +29,13 @@ export function errorMessage(e: unknown): string {
   else if (typeof e === "object" && e !== null && "message" in e && typeof (e as { message: unknown }).message === "string") raw = (e as { message: string }).message;
   if (raw === null) return "Neznámá chyba. Zkuste to prosím znovu.";
   const hit = FRIENDLY_ERRORS.find(([re]) => re.test(raw!));
-  return hit ? hit[1] : raw;
+  if (hit) return hit[1];
+  // Cokoli dalšího, co vypadá jako vnitřní chyba databáze nebo kódu, se uživateli neukazuje (jen do konzole pro podporu).
+  if (TECHNICAL_ERROR.test(raw)) {
+    console.error("Technická chyba:", raw);
+    return "Něco se nepovedlo. Zkuste to prosím znovu; pokud potíže trvají, kontaktujte správce.";
+  }
+  return raw;
 }
 
 /** Czech number formatting: decimal comma, at most one decimal place (10.5 → "10,5", 12 → "12"). */

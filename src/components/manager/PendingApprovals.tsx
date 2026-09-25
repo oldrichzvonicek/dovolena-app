@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, isWeekend, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
 import { AlertTriangle, Calendar, Check, X } from "lucide-react";
@@ -21,6 +21,7 @@ import { fairnessHint, mainPeriodOf, type InRequest } from "@/lib/insights";
 import { computeApprovalWarnings, fetchMyDepartmentIds, hasOtherApprover } from "@/lib/approval-checks";
 import { fetchDecisionScope } from "@/lib/approval-scope";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { useSearchParams } from "next/navigation";
 
 interface PendingRow {
   id: string;
@@ -52,6 +53,10 @@ export function PendingApprovals() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [filter, setFilter] = useState<"all" | "conflict" | "clean">("all");
   const [calendarOpenId, setCalendarOpenId] = useState<string | null>(null);
+  // Odkaz „Detail“ z nástěnky (?zadost=ID): žádost se najde, zvýrazní a otevře se její kalendář.
+  const focusParam = useSearchParams().get("zadost");
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const focusedOnce = useRef<string | null>(null);
   const [myDepts, setMyDepts] = useState<Set<string>>(new Set());
   const isMyTeam = (p: { manager_id: string | null; department_id: string | null }) =>
     p.manager_id === profile?.id || (!!p.department_id && myDepts.has(p.department_id));
@@ -178,6 +183,16 @@ export function PendingApprovals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
+  useEffect(() => {
+    if (!focusParam || focusedOnce.current === focusParam || !pending.some((r) => r.id === focusParam)) return;
+    focusedOnce.current = focusParam; // jen jednou, ať se pozornost nevrací při dalším načtení seznamu
+    setFilter("all");
+    setFocusId(focusParam);
+    setCalendarOpenId(focusParam);
+    setTimeout(() => document.getElementById(`zadost-${focusParam}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+    setTimeout(() => setFocusId(null), 5000);
+  }, [focusParam, pending]);
+
   async function approve(id: string) {
     if (!profile) return;
     await approveLeaveRequest(id, profile.id);
@@ -291,7 +306,7 @@ export function PendingApprovals() {
 
         <div className="divide-y divide-line">
           {visible.map((r) => (
-            <div key={r.id} className="p-4 sm:p-5">
+            <div key={r.id} id={`zadost-${r.id}`} className={cn("scroll-mt-24 p-4 transition-colors sm:p-5", focusId === r.id && "bg-teal-light/40 ring-2 ring-inset ring-teal")}>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
                   <input

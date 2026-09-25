@@ -266,10 +266,13 @@ export function Sidebar() {
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-light text-xs font-medium text-teal-dark">
           {profile.avatar_initials}
         </div>
-        <div className="flex-1 min-w-0">
+        <Link href="/account" className="min-w-0 flex-1 rounded outline-none hover:bg-paper focus-visible:ring-2 focus-visible:ring-teal" title="Můj účet: heslo, dvoufázové ověření, upozornění">
           <div className="truncate text-sm font-medium">{profile.name}</div>
-          <div className="truncate text-xs text-muted capitalize">{profile.role}</div>
-        </div>
+          <div className="truncate text-xs text-muted">
+            {profile.role === "admin" ? "Admin" : profile.role === "manager" ? "Manažer" : "Zaměstnanec"}
+            {profile.staff_role === "hr" ? " · HR" : profile.staff_role === "accountant" ? " · Účetní" : ""} · Můj účet
+          </div>
+        </Link>
         <button onClick={signOut} className="rounded p-1.5 text-muted hover:bg-paper hover:text-ink" aria-label="Odhlásit se">
           <LogOut size={16} />
         </button>

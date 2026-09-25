@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
+import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 interface AresSidlo {
   nazevUlice?: string;
@@ -31,14 +32,15 @@ function formatStreet(sidlo?: AresSidlo): string {
 // Proxies the public (no-auth) ARES company registry so the browser doesn't
 // have to deal with ARES's own CORS policy. Nothing here is sensitive — IČO
 // lookups are public record.
-export async function GET(_req: NextRequest, { params }: { params: { ico: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ ico: string }> }) {
   // Only signed-in users may use the proxy (it is not an open relay to ARES).
   const {
     data: { user },
-  } = await createRouteClient().auth.getUser();
+  } = await (await createRouteClient()).auth.getUser();
   if (!user) return NextResponse.json({ error: "Nejste přihlášeni." }, { status: 401 });
+  if (!(await allowRequest(`ares:${user.id}`, 30, 60))) return tooManyRequests();
 
-  const ico = params.ico.replace(/\D/g, "");
+  const ico = (await params).ico.replace(/\D/g, "");
   if (ico.length !== 8) {
     return NextResponse.json({ error: "IČO musí mít 8 číslic." }, { status: 400 });
   }

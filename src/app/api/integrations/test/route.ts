@@ -2,17 +2,19 @@ import { NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
 import { validateWebhookUrl, type WebhookProvider } from "@/lib/webhooks";
 import { postWebhook } from "@/lib/webhooks-send";
+import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /** Admin-only: sends a test message through a saved webhook (or validates a URL that isn't saved yet). */
 export async function POST(req: Request) {
-  const supabase = createRouteClient();
+  const supabase = await createRouteClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Nepřihlášeno." }, { status: 401 });
 
   const { data: me } = await supabase.from("profiles").select("role").eq("id", auth.user.id).single();
   if (me?.role !== "admin") return NextResponse.json({ error: "Jen admin firmy." }, { status: 403 });
+  if (!(await allowRequest(`integrations-test:${auth.user.id}`, 10, 60))) return tooManyRequests();
 
   const body = (await req.json().catch(() => ({}))) as { id?: string; url?: string; provider?: WebhookProvider };
   let url = body.url;

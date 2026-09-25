@@ -36,6 +36,7 @@ const mainItems: Item[] = [
   { href: "/dashboard", label: "Nástěnka", icon: LayoutDashboard, group: "Navigace" },
   { href: "/calendar", label: "Týmový kalendář", icon: CalendarDays, group: "Navigace" },
   { href: "/requests", label: "Moje žádosti", icon: ClipboardList, group: "Navigace" },
+  { href: "/account", label: "Můj účet (heslo, dvoufázové ověření, upozornění)", icon: Settings, group: "Navigace" },
 ];
 const managerItems: Item[] = [
   { href: "/approvals", label: "Ke schválení", icon: Clock, group: "Manažer" },

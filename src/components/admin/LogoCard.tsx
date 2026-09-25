@@ -69,7 +69,7 @@ export function LogoCard() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            accept="image/png,image/jpeg,image/webp"
             className="hidden"
             aria-label="Soubor s logem"
             onChange={(e) => e.target.files?.[0] && change(e.target.files[0])}

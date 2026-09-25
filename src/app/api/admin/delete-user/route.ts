@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 /**
  * Deletes a company member entirely (auth user + profile, cascaded by the
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chybí ID uživatele." }, { status: 400 });
   }
 
-  const supabase = createRouteClient();
+  const supabase = await createRouteClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
   if (!caller || caller.role !== "admin") {
     return NextResponse.json({ error: "Jen admin firmy může mazat uživatele." }, { status: 403 });
   }
+  if (!(await allowRequest(`delete-user:${user.id}`, 30, 60))) return tooManyRequests();
   if (targetProfileId === user.id) {
     return NextResponse.json({ error: "Nemůžete smazat sami sebe." }, { status: 400 });
   }

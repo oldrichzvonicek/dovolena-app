@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Plus, AlertTriangle } from "lucide-react";
+import { showToast } from "@/lib/toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -326,19 +327,26 @@ export function RequestLeaveModal({
         note: privateType ? undefined : note || undefined,
         covering_profile_id: coveringId || null,
       };
+      const autoApproved =
+        selectedType?.requires_approval === false ||
+        (selectedType?.auto_approve_max_days != null && workingDays <= Number(selectedType.auto_approve_max_days));
       if (isEditing) {
         await updateLeaveRequest(editingRequest!.id, payload);
       } else {
         await createLeaveRequest({
           profile_id: profile.id,
           ...payload,
-          status:
-            selectedType?.requires_approval === false ||
-            (selectedType?.auto_approve_max_days != null && workingDays <= Number(selectedType.auto_approve_max_days))
-              ? "approved"
-              : "pending",
+          status: autoApproved ? "approved" : "pending",
         });
       }
+      showToast(
+        isEditing
+          ? "Změny žádosti jsou uložené."
+          : autoApproved
+            ? "Absence je zapsaná a schválená automaticky."
+            : "Žádost byla odeslána ke schválení. Dáme vám vědět, jakmile ji schvalovatel vyřídí.",
+        "success"
+      );
       setOpen(false);
       onSaved?.();
     } catch (e) {

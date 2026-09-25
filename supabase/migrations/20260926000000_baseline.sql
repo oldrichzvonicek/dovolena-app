@@ -1817,6 +1817,8 @@ $$;
 -- Vrací: ok | already_decided | not_found | forbidden | reason_required | invalid
 -- ---------------------------------------------------------------------------
 alter table companies add column if not exists email_approval_enabled boolean not null default true;
+-- Firma může vyžadovat dvoufázové ověření (2FA) pro admina, HR a účetní (kontrola v aplikaci, viz MfaGate).
+alter table companies add column if not exists require_mfa_staff boolean not null default false;
 
 create or replace function email_decide_request(p_request uuid, p_approver uuid, p_decision text, p_reason text default null)
 returns text
@@ -1977,6 +1979,78 @@ drop trigger if exists a_guard_closed_payroll_month on leave_requests;
 create trigger a_guard_closed_payroll_month
   before insert or update or delete on leave_requests
   for each row execute function guard_closed_payroll_month();
+
+-- ---------------------------------------------------------------------------
+-- Omezení počtu požadavků (rate limiting) pro vlastní API: pevné okno v databázi, aby fungovalo i na víc serverech.
+-- Volá jen server (service role). Vrací true = povoleno, false = limit překročen.
+-- ---------------------------------------------------------------------------
+create table if not exists rate_limits (
+  key text primary key,
+  window_start timestamptz not null default now(),
+  hits int not null default 0
+);
+alter table rate_limits enable row level security; -- bez politik: nikdo z prohlížeče
+
+create or replace function rate_limit_hit(p_key text, p_limit int, p_window_seconds int)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  h int;
+begin
+  insert into rate_limits as r (key, window_start, hits)
+  values (p_key, now(), 1)
+  on conflict (key) do update
+    set hits = case when r.window_start < now() - make_interval(secs => p_window_seconds) then 1 else r.hits + 1 end,
+        window_start = case when r.window_start < now() - make_interval(secs => p_window_seconds) then now() else r.window_start end
+  returning hits into h;
+  -- Občasný úklid starých záznamů.
+  if random() < 0.01 then
+    delete from rate_limits where window_start < now() - interval '1 day';
+  end if;
+  return h <= p_limit;
+end;
+$$;
+
+revoke all on function rate_limit_hit(text, int, int) from public, anon, authenticated;
+grant execute on function rate_limit_hit(text, int, int) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- security_audit — kontrola nastavení zabezpečení databáze (jen server / service role). Vrací nálezy:
+--   no_rls            tabulka ve schématu public bez zapnutého RLS (únik dat mezi firmami),
+--   no_policies       tabulka s RLS bez jediné politiky (nikdo nic nepřečte — jen zamýšlené u interních tabulek),
+--   definer_no_path   funkce security definer bez pevného search_path (riziko podvržení objektů),
+--   anon_executable   funkce security definer, kterou smí volat i nepřihlášený uživatel.
+-- ---------------------------------------------------------------------------
+create or replace function security_audit()
+returns table (kind text, object text)
+language sql
+security definer
+set search_path = public
+as $$
+  select 'no_rls', c.relname::text
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity
+  union all
+  select 'no_policies', c.relname::text
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+     and not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname)
+  union all
+  select 'definer_no_path', p.oid::regprocedure::text
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.prosecdef
+     and not exists (select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) cfg where cfg like 'search_path=%')
+  union all
+  select 'anon_executable', p.oid::regprocedure::text
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'execute');
+$$;
+
+revoke all on function security_audit() from public, anon, authenticated;
+grant execute on function security_audit() to service_role;
 
 -- ---------------------------------------------------------------------------
 -- guard_profile_update — RLS policies above grant broader UPDATE access on
@@ -3205,3 +3279,22 @@ drop policy if exists "admin write hr settings" on company_hr_settings;
 create policy "admin write hr settings" on company_hr_settings
   for all using (company_id = current_company_id() and current_user_role() = 'admin')
   with check (company_id = current_company_id() and current_user_role() = 'admin');
+
+-- ---------------------------------------------------------------------------
+-- Zabezpečení funkcí security definer: pevný search_path (brání podvržení objektů v jiném schématu).
+-- Nové i starší funkce bez nastavení se opraví hromadně; opakované spuštění nic nemění.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  f record;
+begin
+  for f in
+    select p.oid::regprocedure as sig
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prosecdef
+      and not exists (select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) cfg where cfg like 'search_path=%')
+  loop
+    execute format('alter function %s set search_path = public', f.sig);
+  end loop;
+end
+$$;

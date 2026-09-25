@@ -28,7 +28,7 @@ import {
   isImportable,
   parseTable,
 } from "@/lib/employee-import";
-import { readImportFile } from "@/lib/import-file";
+import { assertImportSize, readImportFile } from "@/lib/import-file";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -104,6 +104,13 @@ export function ImportEmployeesPanel() {
     setResult(null);
     setEmailOverrides({});
     setLoadError(null);
+    try {
+      assertImportSize(t.length);
+    } catch (e) {
+      setTable(null);
+      setLoadError(errorMessage(e));
+      return;
+    }
     const nonEmpty = t.filter((r) => r.some((c) => c.trim() !== ""));
     if (nonEmpty.length < 2) {
       setTable(null);
