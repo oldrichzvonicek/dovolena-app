@@ -127,6 +127,18 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     optOut: true,
   },
   {
+    key: "hr_digest",
+    name: "Týdenní přehled pro HR",
+    when: "Každé pondělí ráno, jen když je co řešit (riziko podkapacity, žádosti čekající déle, dovolená, která propadne).",
+    to: "Admini a lidé s rolí HR",
+    live: true,
+    vars: ["cekajici", "seznam"],
+    subject: () => "Týdenní přehled pro HR — Dodio",
+    paragraphs: (v) => ["Dobré ráno,", "zde je týdenní přehled pro HR.", v.seznam, `Žádosti čekající na schválení: ${v.cekajici}`],
+    cta: { label: "Otevřít Analytiku", path: "/admin/overview" },
+    optOut: true,
+  },
+  {
     key: "vacation_reminder",
     name: "Nevyčerpaná dovolená",
     when: "HR nebo admin pošle hromadnou připomínku (Analytika → Nevyčerpaná dovolená).",

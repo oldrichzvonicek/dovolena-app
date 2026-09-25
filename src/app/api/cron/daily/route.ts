@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { addDays } from "date-fns";
+import { addDays, format } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCron } from "@/lib/email";
+import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
+import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +24,11 @@ export async function GET(req: Request) {
   let escalated = 0;
   let digests = 0;
 
-  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last");
+  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days");
 
   for (const company of companies ?? []) {
     const [{ data: profiles }, { data: depts }, { data: pending }, { data: away }] = await Promise.all([
-      supabase.from("profiles").select("id, name, email, role, department_id, manager_id, email_notifications").eq("company_id", company.id).eq("active", true),
+      supabase.from("profiles").select("id, name, email, role, staff_role, department_id, manager_id, email_notifications").eq("company_id", company.id).eq("active", true),
       supabase.from("departments").select("id, head_profile_id, deputy_head_profile_id").eq("company_id", company.id),
       supabase
         .from("leave_requests")
@@ -129,6 +131,59 @@ export async function GET(req: Request) {
           body: `Dobré ráno ${p.name.split(" ")[0]},\n\nzde je přehled na tento týden.\n\nČeká na schválení: ${pendingCount}\nAbsence tento týden: ${weekRows.length}\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
         }));
       if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
+
+      // HR digest (admins and people with the HR role): capacity risks, slow requests — only sent when there is something to act on.
+      const hrRecipients = people.filter((p) => (p.role === "admin" || p.staff_role === "hr") && p.email && p.email_notifications);
+      if (hrRecipients.length > 0) {
+        try {
+          const workDays = ((company as { work_days?: number[] }).work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
+          const horizonEnd = format(addDays(now, 7 * 6), "yyyy-MM-dd");
+          const since90 = format(addDays(now, -90), "yyyy-MM-dd");
+          const [{ data: allDepts }, { data: cap }, { data: decisions }] = await Promise.all([
+            supabase.from("departments").select("id, name, capacity_warning_percent").eq("company_id", company.id),
+            supabase
+              .from("leave_requests")
+              .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against, counts_as_present)")
+              .in("status", ["approved", "pending"])
+              .gte("end_date", today)
+              .lte("start_date", horizonEnd),
+            supabase.from("audit_log").select("actor_id, entity_id, action, created_at").eq("company_id", company.id).in("action", ["request.approved", "request.rejected"]).gte("created_at", `${since90}T00:00:00`).limit(1000),
+          ]);
+          const ids = new Set(people.map((p) => p.id));
+          const heat = capacityHeatmap({
+            people: people.map((p) => ({ id: p.id, department_id: p.department_id })),
+            depts: (allDepts as { id: string; name: string; capacity_warning_percent: number | null }[]) ?? [],
+            requests: ((cap as unknown as InRequest[]) ?? []).filter((r) => ids.has(r.profile_id)),
+            from: today,
+            weeks: 6,
+            companyThresholdPct: Number((company as { capacity_warning_percent?: number }).capacity_warning_percent ?? 30),
+            workDays,
+          });
+          const breaches = heat.flatMap((row) => row.weeks.filter((w) => w.breach).map((w) => ({ dept: row.dept, weekStart: w.weekStart, pct: w.peakPct, count: w.peakCount, size: row.size })));
+
+          const decs = (decisions as { actor_id: string | null; entity_id: string; action: string; created_at: string }[]) ?? [];
+          const submitted = new Map<string, string>();
+          const entityIds = Array.from(new Set(decs.map((d) => d.entity_id)));
+          for (let i = 0; i < entityIds.length; i += 200) {
+            const { data: created } = await supabase.from("leave_requests").select("id, created_at").in("id", entityIds.slice(i, i + 200));
+            for (const c of created ?? []) submitted.set(c.id as string, c.created_at as string);
+          }
+          const speed = approvalSpeed(decs, submitted, 1);
+
+          const companyPending = ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id);
+          const limitHours = company.approval_reminder_hours != null ? Number(company.approval_reminder_hours) : 48;
+          const slow = companyPending.filter((x) => (now.getTime() - new Date(x.created_at).getTime()) / 3600000 >= limitHours).length;
+
+          const digest = hrDigest({ capacityBreaches: breaches, liability: vacationLiability([], null, null), slowPending: slow, pendingTotal: companyPending.length, medianDecisionHours: speed.overallMedianHours });
+          if (digest) {
+            await supabase.from("email_outbox").insert(hrRecipients.map((p) => ({ to_email: p.email!, subject: digest.subject, body: digest.body })));
+            digests += hrRecipients.length;
+          }
+        } catch (e) {
+          console.error("HR digest failed for company", company.id, e);
+        }
+      }
+
       await supabase.from("companies").update({ digest_last_sent: today }).eq("id", company.id);
       digests += rows.length;
     }

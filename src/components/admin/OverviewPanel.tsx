@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DbDepartment } from "@/lib/supabase/types";
 import { LeaveColor } from "@/lib/supabase/types";
 import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationReport";
-import { SmartInsights } from "@/components/admin/SmartInsights";
+import { HrInsights } from "@/components/admin/HrInsights";
 import { reducesPresence } from "@/lib/leave-kinds";
 import { LoadingCard } from "@/components/ui/skeleton";
 
@@ -469,7 +469,7 @@ export function OverviewPanel() {
       {/* Not scoped to the month/year switcher above — always "starting from today", so it's pulled visually apart with its own heading + divider rather than sitting right under the monthly cards. */}
       {state && (
         <div className="space-y-6">
-          <SmartInsights departmentId={deptFilter} />
+          <HrInsights departmentId={deptFilter} />
 
           <h2 className="mb-3 text-label uppercase tracking-wide text-muted">Nezávisle na vybraném období</h2>
           <div className="card overflow-hidden">

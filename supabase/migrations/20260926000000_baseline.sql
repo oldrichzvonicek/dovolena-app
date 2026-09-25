@@ -2760,3 +2760,23 @@ set search_path = public
 as $$
   select email from auth.users where id = auth.uid();
 $$;
+
+-- ---------------------------------------------------------------------------
+-- company_hr_settings — nastavení pro HR Insights (průměrné denní náklady na zaměstnance pro přepočet
+-- závazku z nevyčerpané dovolené na koruny). Čte HR a admin, mění jen admin.
+-- ---------------------------------------------------------------------------
+create table if not exists company_hr_settings (
+  company_id uuid primary key references companies(id) on delete cascade,
+  avg_daily_cost numeric(10, 2) check (avg_daily_cost is null or avg_daily_cost >= 0)
+);
+
+alter table company_hr_settings enable row level security;
+
+drop policy if exists "hr read hr settings" on company_hr_settings;
+create policy "hr read hr settings" on company_hr_settings
+  for select using (company_id = current_company_id() and (current_user_role() = 'admin' or current_user_staff() = 'hr'));
+
+drop policy if exists "admin write hr settings" on company_hr_settings;
+create policy "admin write hr settings" on company_hr_settings
+  for all using (company_id = current_company_id() and current_user_role() = 'admin')
+  with check (company_id = current_company_id() and current_user_role() = 'admin');

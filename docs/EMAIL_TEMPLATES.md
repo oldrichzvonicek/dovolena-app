@@ -131,6 +131,25 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 > 
 > Tato upozornění můžete vypnout v aplikaci u zvonečku notifikací.
 
+### Týdenní přehled pro HR
+
+- **Kdy:** Každé pondělí ráno, jen když je co řešit (riziko podkapacity, žádosti čekající déle, dovolená, která propadne).
+- **Komu:** Admini a lidé s rolí HR
+- **Proměnné:** `{cekajici}`, `{seznam}`
+- **Předmět (ukázka):** Týdenní přehled pro HR — Dodio
+
+> Dobré ráno,
+> 
+> zde je týdenní přehled pro HR.
+> 
+> • Obchod — týden od 2. 11.: chybí 2 z 5 (40 %)
+> 
+> Žádosti čekající na schválení: 2
+> 
+> Otevřít Analytiku: https://app.dodio.cz/admin/overview
+> 
+> Tato upozornění můžete vypnout v aplikaci u zvonečku notifikací.
+
 ### Nevyčerpaná dovolená
 
 - **Kdy:** HR nebo admin pošle hromadnou připomínku (Analytika → Nevyčerpaná dovolená).

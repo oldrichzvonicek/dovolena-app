@@ -186,6 +186,11 @@ export const faqs: HelpFaq[] = [
     roles: ["admin"],
   },
   {
+    q: "Co jsou „Chytré návrhy dovolené“ na nástěnce?",
+    a: "Termíny, kdy vám stačí vzít 1–2 dny dovolené a budete mít souvislé volno alespoň 4 dny, protože se přidají víkendy a státní svátky. U každého návrhu vidíte, kolik kolegů z vašeho oddělení by tehdy chybělo. Tlačítko „Požádat“ otevře žádost s předvyplněným termínem. Návrhy se ukazují jen, pokud vám zbývá dost dní.",
+    section: "Nástěnka",
+  },
+  {
     q: "Co znamená oranžový kroužek a štítek „Dochází“?",
     a: "Zůstatek dané absence klesl pod 20 % nároku nebo pod 2 dny. Je to jen upozornění — žádost můžete dál podat.",
     section: "Nástěnka",
@@ -461,6 +466,12 @@ export const faqs: HelpFaq[] = [
   {
     q: "Jak připravím podklady pro mzdovou účetní?",
     a: "V Exporty zvolte měsíc a případně oddělení a stáhněte CSV, XLSX nebo ODS. Půldny se počítají jako 0,5 dne. Účetní může mít doplňkovou roli „Účetní“ a stahovat podklady sama, bez práv cokoli měnit.",
+    section: "Analytika a Exporty (admin)",
+    roles: ["admin"],
+  },
+  {
+    q: "Co ukazují HR Insights a jak se počítají?",
+    a: "V Analytice (jen admin a HR): předpověď kapacity oddělení na 13 týdnů (schválené absence, čekající žádosti jako rámeček), souhrn nemocnosti po odděleních, rychlost schvalování (medián od podání do rozhodnutí za 90 dní), závazek z nevyčerpané dovolené a zůstatky. Nemocnost se zobrazuje jen souhrnně za oddělení s aspoň 5 lidmi, nikdy po jménech. Každé pondělí přijde HR a adminům e-mail, když je co řešit.",
     section: "Analytika a Exporty (admin)",
     roles: ["admin"],
   },

@@ -7,6 +7,7 @@ import { BalanceCards } from "@/components/dashboard/BalanceCards";
 import { WhoIsOutToday } from "@/components/dashboard/WhoIsOutToday";
 import { UpcomingLeave } from "@/components/dashboard/UpcomingLeave";
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
+import { BridgeDays } from "@/components/dashboard/BridgeDays";
 import { NewRequestButton } from "@/components/dashboard/NewRequestButton";
 import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsWidget";
 import { CancellationRequests } from "@/components/manager/CancellationRequests";
@@ -37,6 +38,7 @@ export default function DashboardPage() {
           <BalanceCards />
           <NewRequestButton onSaved={() => setRefreshKey((k) => k + 1)} />
           <UpcomingLeave />
+          <BridgeDays onSaved={() => setRefreshKey((k) => k + 1)} />
         </div>
       </div>
 
