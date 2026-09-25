@@ -129,7 +129,7 @@ function BalanceCard({
             <dt>Zbývá</dt>
             <dd>{fmt(remaining)} {unit}</dd>
           </div>
-          <p className="pt-1 text-muted">Žádosti čekající na schválení se do zůstatku nepočítají, dokud je nikdo neschválí. Polodny se počítají jako 0,5 dne, víkendy a svátky se neodečítají.</p>
+          <p className="pt-1 text-muted">Žádosti čekající na schválení se do zůstatku nepočítají, dokud je nikdo neschválí. Půldny se počítají jako 0,5 dne, víkendy a svátky se neodečítají.</p>
         </dl>
       )}
     </div>
