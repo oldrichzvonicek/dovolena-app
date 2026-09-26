@@ -1,3 +1,4 @@
+import { CHAT_INTEGRATIONS_ENABLED } from "@/lib/plans";
 import {
   BarChart3,
   Bell,
@@ -125,7 +126,7 @@ export const sections: HelpSection[] = [
       "Typy absencí — barvy, řazení přetažením, z jakého limitu se čerpá, automatické schválení do X dní, poměrné krácení nároku u nových zaměstnanců, výchozí nároky. Nepoužívané typy lze skrýt.",
       "Provoz & kalendář — směny a pracovní dny, pravidla pro žádosti (předstih, zpětné zadávání, mínus), převod dovolenky do dalšího roku (max. dní a datum propadnutí), připomínky, kapacitní varování, blokované termíny, celozávodní dovolená a firemní logo.",
       "Fakturace & tarify — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Team, Pro) a doplňky (HR Insights, Účetní), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
-      "Integrace — napojení Slack, Microsoft Teams, Mattermost, Discord, Google Chat nebo libovolného webhooku; vyberete, které události se do kanálu posílají.",
+      ...(CHAT_INTEGRATIONS_ENABLED ? ["Integrace — napojení Slack, Microsoft Teams, Mattermost, Discord, Google Chat nebo libovolného webhooku; vyberete, které události se do kanálu posílají."] : []),
       "Historie změn — kdo, kdy a co v systému změnil.",
     ],
   },
@@ -162,7 +163,7 @@ export const sections: HelpSection[] = [
   },
 ];
 
-export const faqs: HelpFaq[] = [
+const ALL_FAQS: HelpFaq[] = [
   {
     q: "Jak se počítá můj zůstatek?",
     a: "Roční nárok + dny převedené z loňska − už vyčerpané − schválené do budoucna. U každé karty na nástěnce najdete odkaz „Jak se to počítá?“ s rozpisem. Čekající žádosti se do zůstatku nepočítají.",
@@ -429,7 +430,7 @@ export const faqs: HelpFaq[] = [
   {
     q: "Proč je některá funkce zamčená (zámek v menu)?",
     section: "Nastavení firmy (admin)",
-    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, integrace do Teams, Slacku a Discordu od tarifu Team, a od tarifu Pro webhooky, eskalace schvalování a zástupy, nárok podle odpracovaných let a Historie změn. HR Insights jsou v tarifu Pro v ceně, jinak se dají přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): po jeho naplnění nejde přidat, pozvat ani znovu aktivovat další člověk. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Fakturace & tarify.",
+    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, Historie změn a nárok podle odpracovaných let jsou od tarifu Team a eskalace schvalování se zástupy od tarifu Pro. HR Insights jsou v tarifu Pro v ceně, jinak se dají přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): po jeho naplnění nejde přidat, pozvat ani znovu aktivovat další člověk. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Fakturace & tarify.",
     roles: ["admin"],
   },
   {
@@ -547,7 +548,7 @@ export const faqs: HelpFaq[] = [
   },
   {
     q: "Kdy chodí týdenní přehled absencí?",
-    a: "Manažerům a adminům každé pondělí ráno e-mailem. Admin může navíc zapnout ranní přehled „kdo dnes chybí“ do Slacku nebo Teams.",
+    a: "Manažerům a adminům každé pondělí ráno e-mailem.",
     section: "Oznámení a e-maily",
     roles: ["manager", "admin"],
   },
@@ -583,6 +584,10 @@ export const faqs: HelpFaq[] = [
   },
 ];
 
+
+// Otázky o integracích do chatů se v první fázi nezobrazují (viz CHAT_INTEGRATIONS_ENABLED v plans.ts).
+const CHAT_QUESTIONS = new Set(["Jak propojím Dodio se Slackem nebo Teams?"]);
+export const faqs: HelpFaq[] = CHAT_INTEGRATIONS_ENABLED ? ALL_FAQS : ALL_FAQS.filter((f) => !CHAT_QUESTIONS.has(f.q));
 
 export const colorIcon: Record<HelpSection["color"], string> = {
   teal: "bg-teal-light text-teal-dark",

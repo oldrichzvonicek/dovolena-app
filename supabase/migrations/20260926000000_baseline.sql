@@ -165,8 +165,8 @@ as $$
     when 'chat_integrations' then plan_rank(c.plan) >= 2
     when 'webhooks' then plan_rank(c.plan) >= 3
     when 'escalation' then plan_rank(c.plan) >= 3
-    when 'seniority' then plan_rank(c.plan) >= 3
-    when 'audit_log' then plan_rank(c.plan) >= 3
+    when 'seniority' then plan_rank(c.plan) >= 2
+    when 'audit_log' then plan_rank(c.plan) >= 2
     else false
   end
   from companies c
@@ -604,7 +604,7 @@ begin
   end if;
   if auth.uid() is not null and new.seniority_enabled and not coalesce(old.seniority_enabled, false)
      and not coalesce(company_feature(new.id, 'seniority'), false) then
-    raise exception 'Nárok podle odpracovaných let je od tarifu Pro.';
+    raise exception 'Nárok podle odpracovaných let je od tarifu Team.';
   end if;
   if auth.uid() is not null and new.approval_reminder_hours is not null
      and new.approval_reminder_hours is distinct from old.approval_reminder_hours
@@ -2594,7 +2594,7 @@ begin
     raise exception 'Jen admin nebo HR.';
   end if;
   if not coalesce(company_has_feature('seniority'), false) then
-    raise exception 'Nárok podle odpracovaných let je od tarifu Pro.';
+    raise exception 'Nárok podle odpracovaných let je od tarifu Team.';
   end if;
   return query
     select p.id, p.name, h.hire_date,
@@ -2634,7 +2634,7 @@ begin
     raise exception 'Jen admin nebo HR.';
   end if;
   if not coalesce(company_has_feature('seniority'), false) then
-    raise exception 'Nárok podle odpracovaných let je od tarifu Pro.';
+    raise exception 'Nárok podle odpracovaných let je od tarifu Team.';
   end if;
   select id into vac_type from leave_types where company_id = current_company_id() and key = 'dovolena';
   if vac_type is null then

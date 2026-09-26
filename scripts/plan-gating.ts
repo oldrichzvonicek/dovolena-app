@@ -62,7 +62,7 @@ async function main() {
 
       // Historie změn (čtení admina)
       const audit = await c.from("audit_log").select("id").eq("company_id", cid).limit(1);
-      check(`${label} historie změn`, (audit.data ?? []).length > 0, rank(plan) >= 3);
+      check(`${label} historie změn`, (audit.data ?? []).length > 0, rank(plan) >= 2);
 
       // Integrace: chat od Team, webhooky od Pro
       const chat = await c.from("webhook_integrations").insert({ company_id: cid, provider: "slack", name: "t", url: "https://hooks.slack.com/services/T/B/X", events: ["request_created"], active: true }).select("id");
@@ -80,9 +80,9 @@ async function main() {
 
       // Nárok podle odpracovaných let
       const sen = await c.from("companies").update({ seniority_enabled: true }).eq("id", cid).select("id");
-      check(`${label} zapnutí nároku podle let`, !!(sen.data ?? []).length, rank(plan) >= 3);
+      check(`${label} zapnutí nároku podle let`, !!(sen.data ?? []).length, rank(plan) >= 2);
       const rpc = await c.rpc("apply_seniority_entitlements", { p_year: new Date().getFullYear() });
-      check(`${label} přepočet nároku podle let`, !rpc.error, rank(plan) >= 3);
+      check(`${label} přepočet nároku podle let`, !rpc.error, rank(plan) >= 2);
 
       // iCal (server)
       const ical = await fetch(`http://localhost:3000/api/ical/${secret!.calendar_token}`);

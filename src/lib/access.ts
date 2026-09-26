@@ -1,4 +1,5 @@
 import type { DbProfile } from "@/lib/supabase/types";
+import { CHAT_INTEGRATIONS_ENABLED } from "@/lib/plans";
 
 type Who = Pick<DbProfile, "role" | "staff_role"> | null | undefined;
 
@@ -21,7 +22,7 @@ export const canSeeAnalytics = (p: Who) => canSeeReports(p) || p?.role === "mana
 
 /** Settings sections the person may open (keys match the `?sekce=` values). */
 export function allowedSettingsSections(p: Who): string[] {
-  if (isAdminRole(p)) return ["users", "departments", "leave-types", "general", "billing", "integrations", "emails", "audit"];
+  if (isAdminRole(p)) return ["users", "departments", "leave-types", "general", "billing", ...(CHAT_INTEGRATIONS_ENABLED ? ["integrations"] : []), "emails", "audit"];
   if (isHr(p)) return ["users", "emails", "audit"];
   return [];
 }

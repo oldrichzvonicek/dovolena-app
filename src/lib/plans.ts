@@ -2,6 +2,12 @@
 // Zatím se limity uživatelů jen zobrazují, nevynucují. Funkce doplňků (HR Insights, Účetní) se vynucují.
 
 // Interní klíče zůstávají kvůli existujícím datům: "basic" se zobrazuje jako Starter, "starter" jako Team.
+/**
+ * Integrace do chatů (Teams, Slack, Discord …) a webhooky jsou v první fázi SKRYTÉ: nejsou v ceníku, v menu Nastavení, v Ctrl+K
+ * ani v Nápovědě. Kód, databázová pravidla a testy zůstávají — po přepnutí na true se vše vrátí.
+ */
+export const CHAT_INTEGRATIONS_ENABLED = false;
+
 export type PlanKey = "free" | "basic" | "starter" | "pro";
 
 export interface Plan {
@@ -30,7 +36,7 @@ export const PLANS: Plan[] = [
     monthly: 0,
     yearly: 0,
     tagline: "Pro úplné začátky: dovolená pod kontrolou bez tabulek.",
-    features: ["Až 5 uživatelů", "Žádosti, schvalování a týmový kalendář", "Notifikace v aplikaci a e-mailová upozornění", "Analytika: přehledy absencí, kapacita a nadcházející absence", "Chytré návrhy dovolené"],
+    features: ["Až 5 uživatelů", "Žádosti, schvalování a týmový kalendář", "Notifikace v aplikaci a e-mailová upozornění", "Schvalování žádostí přímo z e-mailu", "Analytika: přehledy absencí, kapacita a nadcházející absence", "Chytré návrhy dovolené"],
   },
   {
     key: "basic",
@@ -47,8 +53,8 @@ export const PLANS: Plan[] = [
     employeeLimit: 15,
     monthly: 590,
     yearly: 5900,
-    tagline: "Rostoucí firma, kde se žádosti a upozornění řeší přímo v Teams nebo Slacku.",
-    features: ["Až 15 uživatelů", "Vše z tarifu Starter", "Integrace do firemních nástrojů (Teams, Slack, Discord a další)"],
+    tagline: "Rostoucí firma, která chce vidět historii změn a automaticky přiznat dovolenou podle let ve firmě.",
+    features: ["Až 15 uživatelů", "Vše z tarifu Starter", ...(CHAT_INTEGRATIONS_ENABLED ? ["Integrace do firemních nástrojů (Teams, Slack, Discord a další)"] : []), "Historie změn", "Nárok podle odpracovaných let"],
   },
   {
     key: "pro",
@@ -66,8 +72,7 @@ export const PLANS: Plan[] = [
       "Vše z tarifu Team",
       "HR Insights a role HR",
       "Eskalace schvalování a zástupy",
-      "Historie změn",
-      "Nárok podle odpracovaných let",
+      ...(CHAT_INTEGRATIONS_ENABLED ? ["Webhooky"] : []),
       "Webhooky",
     ],
   },
@@ -152,8 +157,8 @@ export const FEATURE_MIN_PLAN: Record<PlanFeatureKey, PlanKey> = {
   chat_integrations: "starter",
   webhooks: "pro",
   escalation: "pro",
-  seniority: "pro",
-  audit_log: "pro",
+  seniority: "starter",
+  audit_log: "starter",
 };
 
 /** Název funkce pro zamčené karty a hlášky. */
@@ -207,7 +212,7 @@ export interface FeatureGroup {
   rows: FeatureRow[];
 }
 
-export const FEATURE_MATRIX: FeatureGroup[] = [
+const ALL_FEATURE_MATRIX: FeatureGroup[] = [
   {
     title: "Každodenní dovolená",
     rows: [
@@ -228,8 +233,9 @@ export const FEATURE_MATRIX: FeatureGroup[] = [
     ],
   },
   {
-    title: "Propojení",
+    title: "Schvalování",
     rows: [
+      { label: "Schvalování přímo z e-mailu", benefit: "Manažer schválí nebo zamítne žádost jedním kliknutím z e-mailu (odkaz platí 7 dní, rozhodnutí se vždy potvrzuje).", values: [true, true, true, true] },
       { feature: "chat_integrations", label: "Teams, Slack, Discord a další", benefit: "Nové žádosti a schválení se ukazují přímo ve firemním chatu.", values: [false, false, true, true] },
       { feature: "webhooks", label: "Webhooky", benefit: "Napojení na vlastní systémy.", values: [false, false, false, true] },
     ],
@@ -237,14 +243,20 @@ export const FEATURE_MATRIX: FeatureGroup[] = [
   {
     title: "Řízení a přehledy",
     rows: [
-      { feature: "escalation", label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
-      { feature: "seniority", label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, false, true] },
       { label: "Analytika", benefit: "Přehledy absencí, kapacita a nadcházející absence za firmu i oddělení.", values: [true, true, true, true] },
-      { feature: "audit_log", label: "Historie změn", benefit: "Kdo, kdy a co změnil — u žádostí, lidí i nastavení.", values: [false, false, false, true] },
+      { feature: "escalation", label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
+      { feature: "seniority", label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, true, true] },
+      { feature: "audit_log", label: "Historie změn", benefit: "Kdo, kdy a co změnil — u žádostí, lidí i nastavení.", values: [false, false, true, true] },
       { feature: "hr_insights", label: "HR Insights a role HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
     ],
   },
 ];
+
+/** Srovnávací tabulka; skryté funkce (integrace do chatů, webhooky) se v první fázi nezobrazují. */
+export const FEATURE_MATRIX: FeatureGroup[] = ALL_FEATURE_MATRIX.map((g) => ({
+  ...g,
+  rows: g.rows.filter((r) => CHAT_INTEGRATIONS_ENABLED || (r.feature !== "chat_integrations" && r.feature !== "webhooks")),
+}));
 
 /** Cena na osobu a měsíc při plném využití limitu tarifu (jen tarify s pevným limitem). */
 export function pricePerUser(plan: Plan): number | null {

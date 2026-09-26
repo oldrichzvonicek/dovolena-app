@@ -12,6 +12,7 @@ import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { cn, errorMessage } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { LockedFeature } from "@/components/shared/FeatureGate";
+import { flushIntegrationsNow } from "@/lib/integrations-client";
 import { useFeatures } from "@/lib/use-features";
 
 interface Row {
@@ -165,6 +166,23 @@ const ALL_EVENTS = Object.keys(EVENT_LABELS);
 
 /** Admin: connect chat channels through incoming webhooks and choose which events are posted there. */
 function IntegrationsPanelInner({ canWebhooks }: { canWebhooks: boolean }) {
+  const [flushing, setFlushing] = useState(false);
+  const [flushResult, setFlushResult] = useState<{ ok: boolean; text: string } | null>(null);
+  async function sendPending() {
+    setFlushing(true);
+    setFlushResult(null);
+    try {
+      const r = await flushIntegrationsNow();
+      const parts = [`odesláno ${r.delivered}`, r.failed ? `selhalo ${r.failed}` : "", r.expired ? `zahozeno starých ${r.expired}` : ""].filter(Boolean);
+      setFlushResult({ ok: r.failed === 0, text: r.events === 0 ? "Nic k odeslání." : `${parts.join(", ")}${r.lastError ? ` — ${r.lastError}` : ""}` });
+      await load();
+    } catch (e) {
+      setFlushResult({ ok: false, text: errorMessage(e) });
+    } finally {
+      setFlushing(false);
+    }
+  }
+
   const { profile } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -254,6 +272,15 @@ function IntegrationsPanelInner({ canWebhooks }: { canWebhooks: boolean }) {
         <p className="mt-1 text-sm text-muted">Dodio pošle vybrané události do chatu přes příchozí webhook. Adresa webhooku je tajná — vidí ji jen admin.</p>
 
         {rows.length === 0 && <p className="mt-4 text-sm text-muted">Zatím není napojeno nic.</p>}
+        {rows.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+            <Button variant="secondary" className="px-3 py-1.5 text-sm" disabled={flushing} onClick={sendPending}>
+              <Send size={14} /> {flushing ? "Odesílám…" : "Odeslat čekající zprávy teď"}
+            </Button>
+            <span className="text-xs text-muted">Zprávy se posílají hned po akci; tohle použijte, když nějaká nedorazila. Zprávy starší než 24 hodin se neposílají.</span>
+            {flushResult && <span className={flushResult.ok ? "text-teal-dark" : "text-danger-dark"}>{flushResult.text}</span>}
+          </div>
+        )}
         <div className="mt-4 space-y-3">
           {rows.map((r) => (
             <div key={r.id} className={cn("rounded border border-line p-4", !r.active && "opacity-60")}>
@@ -281,6 +308,11 @@ function IntegrationsPanelInner({ canWebhooks }: { canWebhooks: boolean }) {
                   </label>
                 ))}
               </div>
+              {validateWebhookUrl(r.url, r.provider) && (
+                <p className="mt-3 rounded bg-danger-light px-3 py-2 text-sm text-danger-dark">
+                  <strong>Zprávy se do tohoto kanálu neposílají — adresa není platná.</strong> {validateWebhookUrl(r.url, r.provider)} Odpojte kanál a přidejte ho znovu se správnou adresou.
+                </p>
+              )}
               <div className="mt-2 flex flex-wrap gap-x-4 text-xs text-muted">
                 {r.last_status && (
                   <span className={cn(!r.last_status.startsWith("OK") && "text-danger-dark")}>

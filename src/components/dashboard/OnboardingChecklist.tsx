@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { useOnDataChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
+import { CHAT_INTEGRATIONS_ENABLED } from "@/lib/plans";
 
 interface Step {
   key: string;
@@ -109,15 +110,19 @@ export function OnboardingChecklist() {
           cta: "Projít pravidla",
           done: seen.includes("rules"),
         },
-        {
-          key: "chat",
-          title: "Propojte chat (Slack, Teams…)",
-          hint: "Nové žádosti a ranní přehled přímo v kanálu.",
-          href: "/admin/settings?sekce=integrations",
-          cta: "Propojit",
-          done: (hooks.count ?? 0) > 0 || seen.includes("chat"),
-          optional: true,
-        },
+        ...(CHAT_INTEGRATIONS_ENABLED
+          ? [
+              {
+                key: "chat",
+                title: "Propojte chat (Slack, Teams…)",
+                hint: "Nové žádosti a ranní přehled přímo v kanálu.",
+                href: "/admin/settings?sekce=integrations",
+                cta: "Propojit",
+                done: (hooks.count ?? 0) > 0 || seen.includes("chat"),
+                optional: true,
+              },
+            ]
+          : []),
       ]);
     })();
     return () => {

@@ -101,7 +101,10 @@ describe("feature gating by plan", () => {
     expect(hasFeature("basic", [], "chat_integrations")).toBe(false);
     expect(hasFeature("starter", [], "chat_integrations")).toBe(true);
     expect(hasFeature("starter", [], "webhooks")).toBe(false);
-    expect(hasFeature("pro", [], "audit_log")).toBe(true);
+    expect(hasFeature("starter", [], "audit_log")).toBe(true);
+    expect(hasFeature("basic", [], "audit_log")).toBe(false);
+    expect(hasFeature("starter", [], "seniority")).toBe(true);
+    expect(hasFeature("basic", [], "seniority")).toBe(false);
     expect(hasFeature("enterprise", [], "escalation")).toBe(true);
     expect(hasFeature(undefined, [], "seniority")).toBe(false);
   });
@@ -109,7 +112,9 @@ describe("feature gating by plan", () => {
   it("names the cheapest plan that unlocks a feature", () => {
     expect(minPlanFor("exports").name).toBe("Starter");
     expect(minPlanFor("chat_integrations").name).toBe("Team");
-    expect(minPlanFor("audit_log").name).toBe("Pro");
+    expect(minPlanFor("audit_log").name).toBe("Team");
+    expect(minPlanFor("seniority").name).toBe("Team");
+    expect(minPlanFor("escalation").name).toBe("Pro");
     expect(minPlanFor("hr_insights").name).toBe("Pro");
     expect(minPlanFor("accountant").name).toBe("Starter");
   });

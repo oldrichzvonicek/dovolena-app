@@ -55,6 +55,8 @@ export async function fetchEntitlements(profileId: string, year: number) {
 // Writes
 // ---------------------------------------------------------------------------
 
+import { flushIntegrations } from "@/lib/integrations-client";
+
 export async function createLeaveRequest(payload: {
   profile_id: string;
   leave_type_id: string;
@@ -68,6 +70,7 @@ export async function createLeaveRequest(payload: {
 }) {
   const { error } = await supabase.from("leave_requests").insert(payload);
   if (error) throw error;
+  flushIntegrations();
 }
 
 export async function approveLeaveRequest(id: string, approverId: string) {
@@ -76,6 +79,7 @@ export async function approveLeaveRequest(id: string, approverId: string) {
     .update({ status: "approved", approved_by: approverId })
     .eq("id", id);
   if (error) throw error;
+  flushIntegrations();
 }
 
 export async function rejectLeaveRequest(id: string, approverId: string, reason: string) {
@@ -85,12 +89,14 @@ export async function rejectLeaveRequest(id: string, approverId: string, reason:
     .update({ status: "rejected", approved_by: approverId, rejection_reason: reason })
     .eq("id", id);
   if (error) throw error;
+  flushIntegrations();
 }
 
 /** Employee asks to cancel an already-approved future absence — notifies managers/admins. */
 export async function requestLeaveCancellation(id: string) {
   const { error } = await supabase.rpc("request_leave_cancellation", { p_request_id: id });
   if (error) throw error;
+  flushIntegrations();
 }
 
 /** Manager/admin decision on a cancellation request: approve deletes the absence, reject keeps it. */

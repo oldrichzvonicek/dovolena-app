@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyApprovalToken } from "@/lib/approval-token";
 import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
+import { dispatchIntegrationEvents } from "@/lib/integration-dispatch";
 
 export const dynamic = "force-dynamic";
 
@@ -32,5 +33,6 @@ export async function POST(req: NextRequest) {
     p_reason: reason,
   });
   if (error) return back("chyba");
+  if (data === "ok") await dispatchIntegrationEvents().catch(() => {});
   return back(String(data));
 }
