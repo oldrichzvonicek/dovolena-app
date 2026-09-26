@@ -4,16 +4,20 @@ import { verifyApprovalToken } from "@/lib/approval-token";
 import { appUrl } from "@/lib/email";
 import { headers } from "next/headers";
 import { allowRequest, clientIp } from "@/lib/rate-limit";
+import { computeBalance, remainingOf } from "@/lib/balances";
+import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Schválení žádosti – Dodio", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 const fmt = (iso: string) => `${+iso.slice(8, 10)}. ${+iso.slice(5, 7)}. ${iso.slice(0, 4)}`;
+const czDayWord = (n: number) => (n === 1 ? "den" : n >= 2 && n <= 4 ? "dny" : "dní");
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   return (
     <main className="flex min-h-screen items-start justify-center bg-paper px-4 py-10">
-      <div className="w-full max-w-md">
+      <div className={cn("w-full", wide ? "max-w-lg" : "max-w-md")}>
         <div className="mb-4 font-display text-xl text-teal-dark">Dodio</div>
         <div className="card p-6">{children}</div>
       </div>
@@ -53,13 +57,16 @@ export default async function ApprovePage(props: { params: Promise<{ token: stri
   const admin = createAdminClient();
   const { data: req } = await admin
     .from("leave_requests")
-    .select("status, start_date, end_date, working_days, half_day, note, rejection_reason, leave_type:leave_types(label), profile:profiles!leave_requests_profile_id_fkey(name, company_id)")
+    .select(
+      "status, start_date, end_date, working_days, half_day, note, rejection_reason, leave_type:leave_types(label, counts_against), profile:profiles!leave_requests_profile_id_fkey(id, name, company_id, department_id)"
+    )
     .eq("id", payload.r)
     .single();
   if (!req) return <Message {...RESULT_TEXT.not_found} />;
 
-  const profile = req.profile as unknown as { name: string; company_id: string } | null;
-  const type = (req.leave_type as unknown as { label: string } | null)?.label ?? "absenci";
+  const profile = req.profile as unknown as { id: string; name: string; company_id: string; department_id: string | null } | null;
+  const leaveType = req.leave_type as unknown as { label: string; counts_against: "vacation" | "sick" | "none" } | null;
+  const type = leaveType?.label ?? "absenci";
   const range = req.start_date === req.end_date ? fmt(req.start_date) : `${fmt(req.start_date)} – ${fmt(req.end_date)}`;
   const days = Number(req.working_days);
   const dayWord = days === 1 ? "pracovní den" : days > 1 && days < 5 ? "pracovní dny" : "pracovních dnů";
@@ -76,22 +83,123 @@ export default async function ApprovePage(props: { params: Promise<{ token: stri
     );
   }
 
+  // Kontext pro rozhodnutí, stejný jako v appce: zůstatek dovolené po schválení a kdo další z oddělení v tomto
+  // termínu chybí. Bez přihlášení (odkaz z e-mailu), proto se čte servisním klíčem — jen k tomuto jednomu požadavku.
+  let balanceLine: { before: number; after: number; unit: string } | null = null;
+  let overlapping: { name: string; label: string; start_date: string; end_date: string }[] = [];
+  let deptSize: number | null = null;
+  let deptName: string | null = null;
+
+  if (profile) {
+    const year = new Date().getFullYear();
+    const [{ data: company }, { data: ents }, { data: approvedReqs }] = await Promise.all([
+      admin.from("companies").select("max_carryover_days, carryover_expiry_md, work_days").eq("id", profile.company_id).single(),
+      leaveType?.counts_against === "vacation" || leaveType?.counts_against === "sick"
+        ? admin
+            .from("leave_entitlements")
+            .select("profile_id, year, total_days, opening_used_days, leave_type:leave_types(counts_against)")
+            .eq("profile_id", profile.id)
+            .in("year", [year - 1, year])
+        : Promise.resolve({ data: [] as unknown[] }),
+      leaveType?.counts_against === "vacation" || leaveType?.counts_against === "sick"
+        ? admin
+            .from("leave_requests")
+            .select("id, profile_id, start_date, end_date, working_days, leave_type:leave_types(counts_against)")
+            .eq("profile_id", profile.id)
+            .eq("status", "approved")
+            .gte("start_date", `${year - 1}-01-01`)
+        : Promise.resolve({ data: [] as unknown[] }),
+    ]);
+
+    if (leaveType?.counts_against === "vacation" || leaveType?.counts_against === "sick") {
+      const balance = computeBalance(
+        leaveType.counts_against,
+        (ents as never[]) ?? [],
+        (approvedReqs as never[]) ?? [],
+        year,
+        new Date().toLocaleDateString("sv-SE"),
+        {
+          max: company?.max_carryover_days !== null && company?.max_carryover_days !== undefined ? Number(company.max_carryover_days) : null,
+          expiryMD: (company?.carryover_expiry_md as string | null) ?? null,
+        },
+        (company?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS
+      );
+      const before = remainingOf(balance);
+      balanceLine = { before, after: before - days, unit: leaveType.counts_against === "vacation" ? "dovolené" : "sick days" };
+    }
+
+    if (profile.department_id) {
+      const [{ data: dept }, { data: colleagues }, { data: overlap }] = await Promise.all([
+        admin.from("departments").select("name").eq("id", profile.department_id).single(),
+        admin.from("profiles").select("id", { count: "exact", head: true }).eq("department_id", profile.department_id).eq("active", true),
+        admin
+          .from("leave_requests")
+          .select("start_date, end_date, leave_type:leave_types(label, hide_from_colleagues), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id, active)")
+          .eq("status", "approved")
+          .lte("start_date", req.end_date)
+          .gte("end_date", req.start_date),
+      ]);
+      deptName = (dept?.name as string | undefined) ?? null;
+      deptSize = (colleagues as unknown as { length: number } | null)?.length ?? null;
+      type OverlapRow = { start_date: string; end_date: string; leave_type: { label: string; hide_from_colleagues: boolean } | null; profile: { id: string; name: string; department_id: string | null; active: boolean } | null };
+      overlapping = ((overlap as unknown as OverlapRow[]) ?? [])
+        .filter((o) => o.profile?.active && o.profile.department_id === profile.department_id && o.profile.id !== profile.id)
+        .map((o) => ({ name: o.profile!.name, label: o.leave_type?.hide_from_colleagues ? "Nepřítomen" : (o.leave_type?.label ?? "Absence"), start_date: o.start_date, end_date: o.end_date }))
+        .sort((a, b) => a.start_date.localeCompare(b.start_date));
+    }
+  }
+
   const failure = searchParams.vysledek && searchParams.vysledek !== "ok" ? RESULT_TEXT[searchParams.vysledek] : null;
   const reject = searchParams.akce === "zamitnout" || searchParams.vysledek === "reason_required";
 
   return (
-    <Shell>
+    <Shell wide>
       <h1 className="font-display text-h2">Žádost o absenci ke schválení</h1>
       <div className="mt-4 rounded border border-line p-4">
         <div className="font-medium">{profile?.name ?? "Zaměstnanec"}</div>
         <div className="mt-1 text-sm">
           {type} · {range}
         </div>
-        <div className="text-sm text-muted">
-          {req.half_day ? "půlden" : `${days} ${dayWord}`}
-        </div>
+        <div className="text-sm text-muted">{req.half_day ? "půlden" : `${days} ${dayWord}`}</div>
         {req.note && <div className="mt-2 text-sm text-muted">Poznámka: {req.note}</div>}
       </div>
+
+      {balanceLine && (
+        <div className="mt-3 rounded border border-line p-3 text-sm">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
+              balanceLine.after < 0 ? "bg-danger-light text-danger-dark" : balanceLine.after < 3 ? "bg-warning-light text-warning-dark" : "bg-paper text-ink"
+            )}
+          >
+            Zůstatek {balanceLine.unit}: {balanceLine.before} → po schválení {balanceLine.after} {czDayWord(Math.round(Math.abs(balanceLine.after)))}
+            {balanceLine.after < 0 ? " (minus)" : ""}
+          </span>
+        </div>
+      )}
+
+      {deptName && (
+        <div className="mt-3 rounded border border-line p-4">
+          <div className="text-sm font-medium">
+            {deptName}
+            {deptSize !== null && <span className="font-normal text-muted"> ({deptSize} lidí)</span>} — kdo v tomto termínu ještě chybí
+          </div>
+          {overlapping.length === 0 ? (
+            <p className="mt-1.5 text-sm text-muted">✓ Nikdo další z oddělení nemá ve stejném termínu schválenou absenci.</p>
+          ) : (
+            <ul className="mt-1.5 space-y-1 text-sm">
+              {overlapping.map((o, i) => (
+                <li key={i} className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate">{o.name}</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {o.label} · {o.start_date === o.end_date ? fmt(o.start_date) : `${fmt(o.start_date)} – ${fmt(o.end_date)}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {failure && <p className="mt-3 rounded bg-danger-light px-3 py-2 text-sm text-danger-dark">{failure.title}. {failure.text}</p>}
 
