@@ -229,8 +229,9 @@ export default function RequestsPage() {
       <div className="max-w-4xl p-4 sm:p-8">
         <CompactBalances />
 
-        <div className="mb-3 flex justify-end">
-          <NewRequestSplit />
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-h2">Historie žádostí</h2>
+          <NewRequestSplit primary />
         </div>
 
         {rows.length > 0 && (

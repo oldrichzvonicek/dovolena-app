@@ -17,7 +17,7 @@ const QUICK_KEYS = ["dovolena", "home_office", "sick"];
  * Jediné místo pro založení žádosti: velké tlačítko „Nová žádost“ otevře formulář, šipka vedle něj nabídne
  * nejčastější druhy absence (Dovolená, Home Office, Sick Day) a formulář se otevře rovnou s nimi.
  */
-export function NewRequestSplit() {
+export function NewRequestSplit({ primary = false }: { primary?: boolean } = {}) {
   const { profile } = useAuth();
   const [types, setTypes] = useState<DbLeaveType[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,7 +57,11 @@ export function NewRequestSplit() {
     setModalOpen(true);
   }
 
-  const btn = "flex items-center gap-1.5 border border-line bg-white text-sm font-medium text-ink hover:bg-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink";
+  const btn = cn(
+    "flex items-center gap-1.5 border text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink",
+    // Výrazná varianta pro stránky, kde je zakládání žádosti hlavní akcí (Moje žádosti).
+    primary ? "border-teal bg-teal text-white hover:bg-teal-dark" : "border-line bg-white text-ink hover:bg-paper"
+  );
 
   return (
     <div ref={wrapRef} className="relative" data-tour="header-new-request">
@@ -72,7 +76,7 @@ export function NewRequestSplit() {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-label="Vybrat druh absence"
-            className={cn(btn, "-ml-px rounded-r px-2 py-2")}
+            className={cn(btn, "-ml-px rounded-r px-2 py-2", primary && "border-l-white/40")}
           >
             <ChevronDown size={15} className={cn("transition-transform", menuOpen && "rotate-180")} />
           </button>
