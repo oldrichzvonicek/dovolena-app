@@ -37,3 +37,12 @@ describe("reducesPresence", () => {
     expect(reducesPresence("dovolena")).toBe(true);
   });
 });
+
+describe("errorMessage: české hlášky z přihlašování", () => {
+  it("překládá časté chyby Supabase Auth", async () => {
+    const { errorMessage } = await import("./utils");
+    expect(errorMessage({ message: "New password should be different from the old password." })).toBe("Nové heslo musí být jiné než to dosavadní.");
+    expect(errorMessage({ message: "Password should be at least 8 characters." })).toBe("Heslo musí mít aspoň 8 znaků.");
+    expect(errorMessage({ message: "Invalid login credentials" })).toBe("Nesprávný e-mail nebo heslo.");
+  });
+});
