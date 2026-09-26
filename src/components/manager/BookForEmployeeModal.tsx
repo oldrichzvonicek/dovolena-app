@@ -5,7 +5,7 @@ import { UserPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { countWorkingDays, workingDaysPhrase } from "@/lib/working-days";
+import { countWorkingDays, czechHolidayName, workingDaysPhrase } from "@/lib/working-days";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { bookLeaveForEmployee, fetchCompany } from "@/lib/admin-data";
@@ -103,6 +103,33 @@ export function BookForEmployeeModal({
     return countWorkingDays(startDate, endDate, workDays);
   }, [startDate, endDate, durationMode, hoursValue, dailyHours, workDays]);
 
+  // Proč nejde absenci zadat: říká se to přímo u data i u tlačítka (tooltip), ne jen červeným textem dole.
+  const dateProblem = useMemo(() => {
+    if (durationMode !== "full" && durationMode !== "half" && durationMode !== "hours") return null;
+    if (workingDays > 0) return null;
+    if (startDate && startDate === endDate) {
+      const d = new Date(`${startDate}T12:00:00`);
+      if (czechHolidayName(d)) return `Vybrané datum je státní svátek (${czechHolidayName(d)}).`;
+      return "Vybrané datum připadá na nepracovní den (víkend).";
+    }
+    return "Zvolený termín nezahrnuje žádný pracovní den.";
+  }, [durationMode, workingDays, startDate, endDate]);
+  const submitDisabledReason = !employeeId ? "Nejdřív vyberte zaměstnance." : !typeId ? "Nejdřív vyberte druh absence." : dateProblem;
+
+  /** Posune termín na nejbližší následující pracovní den. */
+  function shiftToWorkingDay() {
+    let d = new Date(`${startDate}T12:00:00`);
+    for (let i = 0; i < 14; i++) {
+      const iso = d.toLocaleDateString("sv-SE");
+      if (countWorkingDays(iso, iso, workDays) > 0) {
+        setStartDate(iso);
+        setEndDate(iso);
+        return;
+      }
+      d = new Date(d.getTime() + 86400_000);
+    }
+  }
+
   async function handleSubmit() {
     if (!profile || !employeeId || !typeId) return;
     setSubmitting(true);
@@ -136,7 +163,25 @@ export function BookForEmployeeModal({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent title="Zadat absenci za zaměstnance">
+      <DialogContent
+        title="Zadat absenci za zaměstnance"
+        footer={
+          <div>
+            {error && <p className="mb-2 text-sm text-danger">{error}</p>}
+            <div className="flex items-center justify-end gap-2">
+              {workingDays <= 0 && <span className="mr-auto text-xs text-danger-dark">Termín nezahrnuje žádný pracovní den.</span>}
+              <Button variant="secondary" onClick={() => setOpen(false)}>
+                Zrušit
+              </Button>
+              <span title={submitDisabledReason ?? undefined}>
+                <Button variant="primary" onClick={handleSubmit} disabled={!!submitDisabledReason || submitting}>
+                  {submitting ? "Ukládám…" : "Zadat jako schválené"}
+                </Button>
+              </span>
+            </div>
+          </div>
+        }
+      >
         <div className="space-y-4">
           <p className="text-sm text-muted">Vytvoří se rovnou jako schválené — hodí se pro telefonicky nahlášenou nemoc apod.</p>
 
@@ -228,7 +273,8 @@ export function BookForEmployeeModal({
                   setStartDate(v);
                   if (v > endDate) setEndDate(v);
                 }}
-                className="w-full rounded border border-line px-3 py-2 text-sm"
+                className={`w-full rounded border px-3 py-2 text-sm ${dateProblem ? "border-danger" : "border-line"}`}
+                aria-invalid={!!dateProblem}
               />
             </div>
             <div>
@@ -247,6 +293,14 @@ export function BookForEmployeeModal({
             </div>
           </div>
 
+          {dateProblem && (
+            <p className="-mt-2 flex flex-wrap items-center gap-x-2 text-xs text-danger-dark" role="alert">
+              {dateProblem}
+              <button type="button" onClick={shiftToWorkingDay} className="font-medium underline">
+                Posunout na nejbližší pracovní den
+              </button>
+            </p>
+          )}
           <div className="rounded bg-paper px-3 py-2 text-sm text-ink">
             Celkem: <span className="font-medium">{workingDaysPhrase(workingDays)}</span>
           </div>
@@ -261,17 +315,6 @@ export function BookForEmployeeModal({
             />
           </div>
 
-          {error && <p className="text-sm text-danger">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Zrušit
-            </Button>
-            {workingDays <= 0 && <span className="mr-auto text-xs text-danger-dark">Termín nezahrnuje žádný pracovní den.</span>}
-            <Button variant="primary" onClick={handleSubmit} disabled={submitting || !employeeId || !typeId || workingDays <= 0}>
-              {submitting ? "Ukládám…" : "Zadat jako schválené"}
-            </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

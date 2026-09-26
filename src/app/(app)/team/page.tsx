@@ -25,6 +25,7 @@ import { fetchLeaveTypes } from "@/lib/data";
 import { loadBalances } from "@/lib/balances";
 import { DbDepartment, DbLeaveType } from "@/lib/supabase/types";
 import { cn, formatNumber } from "@/lib/utils";
+import { showToast } from "@/lib/toast";
 import { LoadingLines } from "@/components/ui/skeleton";
 import { fetchDecisionScope } from "@/lib/approval-scope";
 
@@ -138,6 +139,45 @@ export default function TeamPage() {
   const visibleRows = rows
     .filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()))
     .filter((r) => deptFilter === "all" || (deptFilter === "none" ? !r.department_id : r.department_id === deptFilter));
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selected.has(r.id));
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const toggleAllVisible = () =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (allVisibleSelected) visibleRows.forEach((r) => n.delete(r.id));
+      else visibleRows.forEach((r) => n.add(r.id));
+      return n;
+    });
+
+  /** Hromadná změna u všech zaškrtnutých (oddělení, nadřízený nebo zástup). Člověk nemůže být svým vlastním nadřízeným ani zástupem. */
+  async function bulkApply(field: "department" | "manager" | "substitute", raw: string) {
+    const value = raw === "none" ? null : raw;
+    const ids = Array.from(selected).filter((id) => field === "department" || id !== value);
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    try {
+      for (const id of ids) {
+        if (field === "department") await handleDepartmentChange(id, value);
+        else if (field === "manager") await handleManagerChange(id, value);
+        else await handleSubstituteChange(id, value);
+      }
+      showToast(`Změna uložena u ${ids.length} ${ids.length === 1 ? "člověka" : "lidí"}.`);
+      setSelected(new Set());
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Změnu se nepodařilo uložit.", "error");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function handleDepartmentChange(id: string, departmentId: string | null) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, department_id: departmentId } : r)));
@@ -264,11 +304,61 @@ export default function TeamPage() {
               </span>
             </div>
 
+            {selected.size > 0 && (
+              <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-teal/40 bg-teal-light px-4 py-2.5 text-sm shadow-sm" role="region" aria-label="Hromadné akce">
+                <span className="mr-1 font-medium">Vybráno: {selected.size}</span>
+                <Select value="" onValueChange={(v) => bulkApply("manager", v)} disabled={bulkBusy}>
+                  <SelectTrigger className="w-48 bg-white py-1.5 text-xs" aria-label="Nastavit nadřízeného">
+                    <SelectValue placeholder="Nastavit nadřízeného…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Bez nadřízeného</SelectItem>
+                    {people.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value="" onValueChange={(v) => bulkApply("department", v)} disabled={bulkBusy}>
+                  <SelectTrigger className="w-48 bg-white py-1.5 text-xs" aria-label="Přidělit do oddělení">
+                    <SelectValue placeholder="Přidělit do oddělení…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Bez oddělení</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value="" onValueChange={(v) => bulkApply("substitute", v)} disabled={bulkBusy}>
+                  <SelectTrigger className="w-48 bg-white py-1.5 text-xs" aria-label="Nastavit zástup">
+                    <SelectValue placeholder="Nastavit zástup…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Bez zástupu</SelectItem>
+                    {people.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-xs text-muted underline hover:text-ink">
+                  Zrušit výběr
+                </button>
+              </div>
+            )}
             <div className="card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="table-cards w-full text-sm">
                   <thead>
                     <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-muted">
+                      <th className="w-10 px-3 py-3">
+                        <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} aria-label="Vybrat všechny zobrazené" className="h-3.5 w-3.5" />
+                      </th>
                       <th className="px-5 py-3 font-medium">Jméno</th>
                       <th className="px-3 py-3 font-medium">Oddělení</th>
                       <th className="px-3 py-3 font-medium">Nadřízený</th>
@@ -281,7 +371,10 @@ export default function TeamPage() {
                     {visibleRows.map((e) => {
                       const others = people.filter((p) => p.id !== e.id);
                       return (
-                        <tr key={e.id} className="border-b border-line last:border-0">
+                        <tr key={e.id} className={cn("border-b border-line last:border-0", selected.has(e.id) && "bg-teal-light/30")}>
+                          <td className="px-3 py-3">
+                            <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleOne(e.id)} aria-label={`Vybrat ${e.name}`} className="h-3.5 w-3.5" />
+                          </td>
                           <td className="cell-title px-5 py-3 font-medium">{e.name}</td>
                           <td className="px-3 py-2" data-label="Oddělení">
                             <EditableCell
@@ -356,7 +449,7 @@ export default function TeamPage() {
                     })}
                     {visibleRows.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-5 py-8 text-center text-sm text-muted">
+                        <td colSpan={7} className="px-5 py-8 text-center text-sm text-muted">
                           Nikdo neodpovídá hledání.
                         </td>
                       </tr>

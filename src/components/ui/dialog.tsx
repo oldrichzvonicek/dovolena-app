@@ -11,10 +11,13 @@ export function DialogContent({
   className,
   children,
   title,
+  footer,
 }: {
   className?: string;
   children: React.ReactNode;
   title: string;
+  /** Akční lišta (Zrušit / Uložit) pevně u spodního okraje okna: zůstává vidět, i když se obsah posouvá. */
+  footer?: React.ReactNode;
 }) {
   return (
     <DialogPrimitive.Portal>
@@ -32,6 +35,7 @@ export function DialogContent({
           </DialogPrimitive.Close>
         </div>
         <div className="min-h-0 overflow-y-auto">{children}</div>
+        {footer && <div className="mt-3 shrink-0 border-t border-line bg-white pt-3">{footer}</div>}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

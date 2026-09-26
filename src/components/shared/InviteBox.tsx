@@ -11,6 +11,7 @@ import { DbDepartment, Role } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { useJoinLink } from "@/lib/use-join-link";
+import { showToast } from "@/lib/toast";
 
 export function InviteBox() {
   const { profile } = useAuth();
@@ -97,7 +98,8 @@ export function InviteColleagueButton() {
     }
   }
 
-  async function sendEmail() {
+  /** Založí pozvánku (role + oddělení vázané na e-mail) a buď ji pošle e-mailem, nebo zkopíruje odkaz k registraci. */
+  async function createInvite(mode: "send" | "copy") {
     if (!profile || !email.trim() || !name.trim()) return;
     setBusy(true);
     setError(null);
@@ -118,11 +120,21 @@ export function InviteColleagueButton() {
           role,
         },
       ]);
-      const subject = encodeURIComponent("Pozvánka do Dodio");
-      const body = encodeURIComponent(
-        `Ahoj ${name.trim().split(" ")[0]},\n\nzaregistruj se prosím na tomto odkazu, stejným e-mailem, na který tě zvu: ${url ?? window.location.origin + "/login"}\n\nPo registraci budeš rovnou zařazen(a) do firmy.`
-      );
-      window.location.href = `mailto:${email.trim()}?subject=${subject}&body=${body}`;
+      if (mode === "copy") {
+        const target = url ?? `${window.location.origin}/login`;
+        try {
+          await navigator.clipboard.writeText(target);
+          showToast("Pozvánka je založená a odkaz zkopírovaný. Pošlete ho nováčkovi, ať se zaregistruje stejným e-mailem.");
+        } catch {
+          showToast("Pozvánka je založená. Odkaz zkopírujte ručně ze záložky „Kopírovat odkaz“.", "info");
+        }
+      } else {
+        const res = await fetch("/api/invite/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails: [email.trim().toLowerCase()] }) })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        if (res && res.sent > 0) showToast("Pozvánka odeslána e-mailem.");
+        else showToast("Pozvánka je založená, ale e-mail se nepodařilo odeslat. Použijte „Vytvořit a kopírovat odkaz“ a pošlete ho ručně.", "error");
+      }
       setEmail("");
       setName("");
       setOpen(false);
@@ -174,7 +186,7 @@ export function InviteColleagueButton() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted">
-              Vytvoří pozvánku s přednastavenou rolí a oddělením a otevře e-mail s odkazem (aplikace zatím e-maily sama neodesílá). Nováček se po registraci stejným e-mailem rovnou zařadí.
+              Vytvoří pozvánku s přednastavenou rolí a oddělením. Nováček dostane e-mail s odkazem, nebo mu odkaz pošlete sami. Po registraci stejným e-mailem se rovnou zařadí.
             </p>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jméno a příjmení" aria-label="Jméno a příjmení" className="w-full rounded border border-line px-3 py-2 text-sm" />
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="E-mail nováčka" aria-label="E-mail nováčka" className="w-full rounded border border-line px-3 py-2 text-sm" />
@@ -204,9 +216,12 @@ export function InviteColleagueButton() {
               </Select>
             </div>
             {error && <p className="text-sm text-danger-dark">{error}</p>}
-            <div className="flex justify-end">
-              <Button onClick={sendEmail} disabled={busy || !email.trim() || !name.trim()}>
-                {busy ? "Vytvářím…" : "Vytvořit pozvánku a otevřít e-mail"}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => createInvite("copy")} disabled={busy || !email.trim() || !name.trim()}>
+                <Copy size={15} /> Vytvořit a kopírovat odkaz
+              </Button>
+              <Button onClick={() => createInvite("send")} disabled={busy || !email.trim() || !name.trim()}>
+                {busy ? "Vytvářím…" : "Odeslat pozvánku e-mailem"}
               </Button>
             </div>
           </div>

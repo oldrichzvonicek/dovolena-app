@@ -97,11 +97,27 @@ export function EditEmployeeModal({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title={`Upravit — ${employee.name}`}>
-        <div className="space-y-4">
-          {employee.email && <p className="text-sm text-muted">{employee.email}</p>}
+      <DialogContent
+        title={`Upravit — ${employee.name}`}
+        className="max-w-2xl"
+        footer={
+          <div>
+            {error && <p className="mb-2 text-sm text-danger">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={onClose}>
+                Zrušit
+              </Button>
+              <Button variant="primary" onClick={handleSave} disabled={submitting}>
+                {submitting ? "Ukládám…" : "Uložit"}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2">
+          {employee.email && <p className="text-sm text-muted md:col-span-2">{employee.email}</p>}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="contents">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Role</label>
               <Select value={role} onValueChange={(v) => setRole(v as Role)} disabled={!isAdmin}>
@@ -135,7 +151,7 @@ export function EditEmployeeModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="contents">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Nadřízený</label>
               <Select value={managerId} onValueChange={setManagerId}>
@@ -207,7 +223,7 @@ export function EditEmployeeModal({
             <p className="mt-1 text-xs text-muted">Podle něj se počítá poměrná dovolená v roce nástupu a příplatek za odpracované roky (Nastavení → Typy absencí).</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="contents">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Datum ukončení pracovního poměru</label>
               <input
@@ -232,7 +248,7 @@ export function EditEmployeeModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="contents">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Dovolená / rok</label>
               <input
@@ -273,16 +289,6 @@ export function EditEmployeeModal({
             </div>
           )}
 
-          {error && <p className="text-sm text-danger">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={onClose}>
-              Zrušit
-            </Button>
-            <Button variant="primary" onClick={handleSave} disabled={submitting}>
-              {submitting ? "Ukládám…" : "Uložit"}
-            </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
