@@ -226,6 +226,41 @@ async function main() {
       info(`${r} deaktivuje emp2`, (data ?? []).length > 0);
       await sb.from("profiles").update({ active: true, deactivated_at: null }).eq("id", users.emp2.id);
     }
+    // Překryv absencí: nikdo nemá dvě nepřítomnosti ve stejný den (ani zadáním za něj), výjimky půldny a práce
+    {
+      const base = day(100);
+      const next = (() => {
+        const d = new Date(`${base}T12:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + 1);
+        while ([0, 6].includes(d.getUTCDay())) d.setUTCDate(d.getUTCDate() + 1);
+        return d.toISOString().slice(0, 10);
+      })();
+      const ins = async (who: Role, profile: Role, type: string, start: string, end: string, half = false) =>
+        users[who].client.from("leave_requests").insert({ profile_id: users[profile].id, leave_type_id: type, start_date: start, end_date: end, working_days: half ? 0.5 : 1, half_day: half, status: half ? "approved" : "pending" }).select("id");
+      const first = await ins("emp2", "emp2", t("dovolena"), base, next);
+      expect("emp2 zadá první dovolenou", !first.error, true);
+      const dup = await ins("emp2", "emp2", t("dovolena"), base, base);
+      expect("emp2 zadá dovolenou přes už zapsanou", !dup.error, false);
+      const bookDup = await ins("admin", "emp2", t("dovolena"), base, base);
+      expect("admin zadá emp2 absenci přes už zapsanou", !bookDup.error, false);
+      const ho = await ins("emp2", "emp2", t("home_office"), base, base);
+      expect("emp2 zadá Home Office přes dovolenou (práce)", !ho.error, true);
+      const halfA = await ins("emp1", "emp1", t("lekar"), base, base, true);
+      const halfB = await ins("emp1", "emp1", t("lekar"), base, base, true);
+      expect("emp1 zadá dva půldny v jednom dni", !halfA.error && !halfB.error, true);
+      const full = await ins("emp1", "emp1", t("dovolena"), base, base);
+      expect("emp1 zadá celý den přes půlden", !full.error, false);
+      // celozávodní dovolená přeskočí lidi s absencí a neaktivní
+      const before = await sb.from("leave_requests").select("id", { count: "exact", head: true }).eq("leave_type_id", t("dovolena")).eq("start_date", base).eq("end_date", base);
+      const cw = await users.admin.client.rpc("create_company_wide_leave", { target_company_id: cid, target_leave_type_id: t("dovolena"), p_start_date: base, p_end_date: base, p_working_days: 1, p_note: "test" });
+      const { data: got } = await sb.from("leave_requests").select("profile_id").eq("leave_type_id", t("dovolena")).eq("start_date", base).eq("end_date", base);
+      const gotIds = new Set((got ?? []).map((r) => r.profile_id));
+      expect("celozávodní dovolená proběhla", !cw.error, true);
+      expect("celozávodní dovolená přeskočila emp2 (už má dovolenou)", gotIds.size - (before.count ?? 0) >= 0 && (got ?? []).filter((r) => r.profile_id === users.emp2.id).length === 1, true);
+      expect("celozávodní dovolená přeskočila deaktivovaného", gotIds.has(users.inactive.id), false);
+      expect("celozávodní dovolená zapsala člověku bez absence (mgr)", gotIds.has(users.mgr.id), true);
+      await sb.from("leave_requests").delete().eq("start_date", base).in("profile_id", [users.emp1.id, users.emp2.id, users.mgr.id, users.hr.id, users.acct.id, users.admin.id]);
+    }
     // RPC
     const rpcRoles: [string, string, Record<string, unknown>, Role[]][] = [
       ["import_employees", "import zaměstnanců", { target_company_id: cid, rows: [] }, ["admin", "hr"]],

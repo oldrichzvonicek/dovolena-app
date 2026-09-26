@@ -354,18 +354,32 @@ security definer
 as $$
 declare
   n int;
+  tgt_present boolean;
 begin
+  perform set_config('dodio.skip_overlap', '1', true);
   if current_user_role() is distinct from 'admin' or current_company_id() is distinct from target_company_id then
     raise exception 'Jen admin firmy může naplánovat celozávodní dovolenou.';
   end if;
 
   -- target_department_ids null (or left out) means "everyone"; a non-null
   -- array restricts the company-wide leave to just those departments.
+  select t.counts_as_present into tgt_present from leave_types t where t.id = target_leave_type_id;
+
+  -- Jen aktivní lidé a jen ti, kdo v tomto termínu ještě nemají jinou nepřítomnost (jinak by se jim dny odečetly dvakrát).
   insert into leave_requests (profile_id, leave_type_id, start_date, end_date, half_day, working_days, status, note, approved_by)
   select p.id, target_leave_type_id, p_start_date, p_end_date, false, p_working_days, 'approved', p_note, auth.uid()
   from profiles p
   where p.company_id = target_company_id
-    and (target_department_ids is null or p.department_id = any(target_department_ids));
+    and p.active
+    and (target_department_ids is null or p.department_id = any(target_department_ids))
+    and (
+      coalesce(tgt_present, false)
+      or not exists (
+        select 1 from leave_requests r join leave_types t on t.id = r.leave_type_id
+        where r.profile_id = p.id and r.status <> 'rejected' and not t.counts_as_present
+          and r.start_date <= p_end_date and r.end_date >= p_start_date
+      )
+    );
 
   get diagnostics n = row_count;
   return n;
@@ -3116,7 +3130,6 @@ declare
   prev_used numeric;
   carry numeric := 0;
   allowed_neg numeric;
-  new_present boolean;
 begin
   -- Server (service role), SQL Editor a security definer funkce (např. celozávodní volno) se nekontrolují.
   if auth.uid() is null or current_user not in ('authenticated', 'anon') then
@@ -3186,24 +3199,6 @@ begin
     return new;
   end if;
 
-  -- Překryv s vlastní absencí: dvě nepřítomnosti (ne práce jako Home Office) se nesmí krýt. Výjimka: dva půldny
-  -- v jednom dni. Zamítnuté žádosti se nepočítají. Týká se jen vlastních žádostí (hromadné akce a zadání za
-  -- někoho jiného tímto neprochází).
-  select t.counts_as_present into new_present from leave_types t where t.id = new.leave_type_id;
-  if not coalesce(new_present, false) and exists (
-    select 1
-    from leave_requests r
-    join leave_types t on t.id = r.leave_type_id
-    where r.profile_id = new.profile_id
-      and r.status <> 'rejected'
-      and r.id is distinct from new.id
-      and not t.counts_as_present
-      and r.start_date <= new.end_date and r.end_date >= new.start_date
-      and not (r.half_day and new.half_day)
-  ) then
-    raise exception 'V tomto termínu už máte jinou absenci.';
-  end if;
-
   -- Zpětné zadávání
   if new.start_date < today_cz then
     if not coalesce(c.backdating_allowed, true) then
@@ -3262,6 +3257,49 @@ begin
   return new;
 end;
 $$;
+
+-- Překryv absencí: člověk nesmí mít dvě nepřítomnosti ve stejný den (dny by se odečetly dvakrát). Výjimky: dva půldny
+-- v jednom dni a typy, kdy člověk pracuje (Home Office). Zamítnuté žádosti se nepočítají. Platí pro vlastní žádosti
+-- i pro zadání za někoho jiného; celozávodní dovolená si překryvy řeší sama (nastaví příznak dodio.skip_overlap).
+create or replace function guard_leave_overlap()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  is_present boolean;
+begin
+  if auth.uid() is null or coalesce(current_setting('dodio.skip_overlap', true), '') = '1' or new.status = 'rejected' then
+    return new;
+  end if;
+  if tg_op = 'UPDATE'
+     and (new.start_date, new.end_date, new.half_day, new.leave_type_id, new.status, new.profile_id)
+         is not distinct from (old.start_date, old.end_date, old.half_day, old.leave_type_id, old.status, old.profile_id) then
+    return new;
+  end if;
+  select t.counts_as_present into is_present from leave_types t where t.id = new.leave_type_id;
+  if not coalesce(is_present, false) and exists (
+    select 1
+    from leave_requests r
+    join leave_types t on t.id = r.leave_type_id
+    where r.profile_id = new.profile_id
+      and r.status <> 'rejected'
+      and r.id is distinct from new.id
+      and not t.counts_as_present
+      and r.start_date <= new.end_date and r.end_date >= new.start_date
+      and not (r.half_day and new.half_day)
+  ) then
+    raise exception 'V tomto termínu už má zaměstnanec zapsanou jinou absenci. Ve stejný den nejde mít dvě.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists a_guard_leave_overlap on leave_requests;
+create trigger a_guard_leave_overlap
+  before insert or update on leave_requests
+  for each row execute function guard_leave_overlap();
 
 drop trigger if exists a_leave_requests_rules on leave_requests;
 create trigger a_leave_requests_rules

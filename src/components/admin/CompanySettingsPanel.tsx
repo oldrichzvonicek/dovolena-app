@@ -621,7 +621,8 @@ function CompanyWideLeaveSection({ companyId, leaveTypes }: { companyId: string;
       <SectionHeader icon={<CheckCircle2 size={15} />} title="Celozávodní dovolená" />
       <p className="mt-1 text-sm text-muted">
         Naplánuje schválenou dovolenou rovnou všem (nebo vybraným) zaměstnancům firmy (např. vánoční odstávka) — u
-        každého se rovnou odečte ze zůstatku.
+        každého se rovnou odečte ze zůstatku. Přeskočí neaktivní lidi a ty, kdo mají v tomto termínu už jinou absenci
+        (dny by se jim odečetly dvakrát).
       </p>
 
       <div className="mt-4">

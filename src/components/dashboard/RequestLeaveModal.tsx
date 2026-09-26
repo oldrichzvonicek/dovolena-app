@@ -79,7 +79,7 @@ export function RequestLeaveModal({
   const [coveringId, setCoveringId] = useState<string>("");
   const [conflict, setConflict] = useState<{ names: string[]; teamCount: number; teamSize: number } | null>(null);
   // Vlastní žádosti (schválené i čekající), které se překrývají s vybraným termínem.
-  const [ownOverlap, setOwnOverlap] = useState<{ id: string; label: string; status: string; start_date: string; end_date: string }[]>([]);
+  const [ownOverlap, setOwnOverlap] = useState<{ id: string; label: string; status: string; start_date: string; end_date: string; half_day: boolean; present: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [company, setCompany] = useState<DbCompany | null>(null);
@@ -88,6 +88,8 @@ export function RequestLeaveModal({
 
   const selectedType = leaveTypes.find((t) => t.id === typeId);
   const privateType = !!selectedType && (selectedType.counts_against === "sick" || selectedType.hide_from_colleagues);
+  // Stejné pravidlo jako v databázi: dvě nepřítomnosti se nesmí krýt (výjimka: dva půldny, a práce jako Home Office).
+  const blockingOverlap = ownOverlap.filter((o) => !selectedType?.counts_as_present && !o.present && !(o.half_day && durationMode === "half"));
 
   useEffect(() => {
     if (!open || !profile) return;
@@ -244,7 +246,7 @@ export function RequestLeaveModal({
     let cancelled = false;
     let q = createClient()
       .from("leave_requests")
-      .select("id, start_date, end_date, status, leave_type:leave_types(label)")
+      .select("id, start_date, end_date, status, half_day, leave_type:leave_types(label, counts_as_present)")
       .eq("profile_id", profile.id)
       .in("status", ["approved", "pending"])
       .lte("start_date", endDate)
@@ -253,12 +255,14 @@ export function RequestLeaveModal({
     q.then(({ data }) => {
       if (cancelled) return;
       setOwnOverlap(
-        ((data as unknown as { id: string; start_date: string; end_date: string; status: string; leave_type: { label: string } | null }[]) ?? []).map((r) => ({
+        ((data as unknown as { id: string; start_date: string; end_date: string; status: string; half_day: boolean; leave_type: { label: string; counts_as_present: boolean } | null }[]) ?? []).map((r) => ({
           id: r.id,
           label: r.leave_type?.label ?? "Absence",
           status: r.status,
           start_date: r.start_date,
           end_date: r.end_date,
+          half_day: !!r.half_day,
+          present: !!r.leave_type?.counts_as_present,
         }))
       );
     });
@@ -456,7 +460,23 @@ export function RequestLeaveModal({
           <span className="text-muted">— víkendy a státní svátky odečteny automaticky</span>
         </div>
 
-        {ownOverlap.length > 0 && (
+        {blockingOverlap.length > 0 && (
+          <div className="flex items-start gap-2 rounded border border-danger/40 bg-danger-light px-3 py-2 text-sm text-danger-dark" role="alert">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span>
+              <strong>V tomto termínu už máte jinou absenci:</strong>{" "}
+              {blockingOverlap.map((o, i) => (
+                <span key={o.id}>
+                  {i > 0 && "; "}
+                  {o.label} {formatRange(o.start_date, o.end_date)} ({o.status === "approved" ? "schváleno" : "čeká na schválení"})
+                </span>
+              ))}
+              . Ve stejný den nejde mít dvě absence. Zvolte jiný termín, nebo původní žádost upravte či zrušte v Moje žádosti.
+            </span>
+          </div>
+        )}
+
+        {ownOverlap.length > 0 && blockingOverlap.length === 0 && (
           <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning-light px-3 py-2 text-sm text-ink" role="alert">
             <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning-dark" />
             <span>
@@ -467,7 +487,7 @@ export function RequestLeaveModal({
                   <strong>{o.label}</strong> {formatRange(o.start_date, o.end_date)} ({o.status === "approved" ? "schváleno" : "čeká na schválení"})
                 </span>
               ))}
-              . Zkontrolujte, že nežádáte o tentýž den dvakrát — dny by se odečetly dvakrát.
+              . Půldny se mohou sejít v jednom dni a práce z domu se s absencí nevylučuje.
             </span>
           </div>
         )}
@@ -546,7 +566,7 @@ export function RequestLeaveModal({
           <Button
             variant="primary"
             onClick={handleSubmit}
-            disabled={submitting || !typeId || !!policyError || (!!blackoutWarning && !overrideBlackout)}
+            disabled={submitting || !typeId || !!policyError || blockingOverlap.length > 0 || (!!blackoutWarning && !overrideBlackout)}
           >
             {submitting ? "Odesílám…" : isEditing ? "Uložit změny" : blackoutWarning ? "Odeslat i přesto" : "Odeslat ke schválení"}
           </Button>
