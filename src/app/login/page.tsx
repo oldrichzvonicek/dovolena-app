@@ -10,9 +10,9 @@ import { AppLogo } from "@/components/shared/AppLogo";
 import { claimInvite } from "@/lib/admin-data";
 import { joinCompanyByCode, publicCompanyNameByCode } from "@/lib/join-link";
 import { saveOnboardingIntent } from "@/lib/onboarding-intent";
-import { errorMessage } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
 
-type Mode = "signin" | "signup" | "join" | "forgot";
+type Mode = "signin" | "signup" | "join" | "forgot" | "invitee";
 
 export default function LoginPage() {
   return (
@@ -41,10 +41,12 @@ function LoginForm() {
 
   const inviteCode = searchParams.get("pozvanka");
   const legacyLink = searchParams.get("company"); // starý odkaz s číslem firmy — už neplatí
-  const [mode, setMode] = useState<Mode>(inviteCode ? "join" : "signin");
+  // Pozvánka e-mailem: odkaz nese adresu pozvaného (?zvan=), formulář je jen „zvolte si heslo“ a pozvánka se hned uplatní.
+  const invitedEmail = searchParams.get("zvan");
+  const [mode, setMode] = useState<Mode>(inviteCode ? "join" : invitedEmail ? "invitee" : "signin");
   const [inviteCompanyName, setInviteCompanyName] = useState<string | null>(null);
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(invitedEmail ?? "");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -175,6 +177,36 @@ function LoginForm() {
     setInfo("Odkaz pro obnovení hesla jsme odeslali, pokud je tento e-mail u nás zaregistrovaný. Zkontrolujte schránku, případně i složku Spam.");
   }
 
+  async function handleInvitee(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+    if (signUpError) {
+      setLoading(false);
+      setError(czechAuthError(signUpError.message));
+      return;
+    }
+    // Když je zapnuté potvrzování e-mailu, relace vznikne až po potvrzení; pozvánka se pak uplatní při prvním přihlášení.
+    if (!signUpData.session) {
+      setLoading(false);
+      setInfo("Účet je vytvořený. Potvrďte e-mail (přišel vám potvrzovací odkaz) a pak se přihlaste. Do firmy vás zařadíme automaticky.");
+      keepMessage.current = true;
+      setMode("signin");
+      return;
+    }
+    try {
+      const claimed = await claimInvite();
+      if (!claimed) throw new Error("K tomuto e-mailu jsme nenašli pozvánku. Použijte adresu, na kterou přišla.");
+      await refreshProfile();
+      router.push("/dashboard");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     if (!inviteCode) return;
@@ -225,6 +257,7 @@ function LoginForm() {
             {mode === "signin" && "Přihlaste se ke svému účtu"}
             {mode === "signup" && "Založte firmu a svůj účet"}
             {mode === "join" && (inviteCompanyName ? `Připojte se k firmě ${inviteCompanyName}` : "Připojte se k firmě")}
+            {mode === "invitee" && "Dokončete registraci: zvolte si heslo a rovnou se zařadíte do firmy"}
             {mode === "forgot" && "Zadejte e-mail a pošleme vám odkaz pro obnovení hesla"}
           </p>
         </div>
@@ -237,7 +270,9 @@ function LoginForm() {
                 ? handleSignUp
                 : mode === "forgot"
                   ? handleForgotPassword
-                  : handleJoin
+                  : mode === "invitee"
+                    ? handleInvitee
+                    : handleJoin
           }
           className="space-y-3"
         >
@@ -274,8 +309,9 @@ function LoginForm() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-              placeholder="jan@firma.cz" aria-label="jan@firma.cz"
+              readOnly={mode === "invitee"}
+              className={cn("w-full rounded border border-line px-3 py-2 text-sm", mode === "invitee" && "bg-paper text-muted")}
+              placeholder="jan@firma.cz" aria-label="E-mail"
             />
           </div>
 
@@ -325,7 +361,9 @@ function LoginForm() {
                   ? "Založit firmu a účet"
                   : mode === "forgot"
                     ? "Poslat odkaz pro obnovení"
-                    : "Připojit se a vytvořit účet"}
+                    : mode === "invitee"
+                      ? "Dokončit registraci"
+                      : "Připojit se a vytvořit účet"}
           </Button>
         </form>
 
@@ -339,7 +377,7 @@ function LoginForm() {
           >
             Zpět na přihlášení
           </button>
-        ) : mode === "join" ? (
+        ) : mode === "join" || mode === "invitee" ? (
           <button
             onClick={() => {
               setMode("signin");

@@ -121,7 +121,7 @@ export function InviteColleagueButton() {
         },
       ]);
       if (mode === "copy") {
-        const target = url ?? `${window.location.origin}/login`;
+        const target = `${window.location.origin}/login?zvan=${encodeURIComponent(email.trim().toLowerCase())}`;
         try {
           await navigator.clipboard.writeText(target);
           showToast("Pozvánka je založená a odkaz zkopírovaný. Pošlete ho nováčkovi, ať se zaregistruje stejným e-mailem.");

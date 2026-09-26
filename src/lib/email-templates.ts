@@ -214,9 +214,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     paragraphs: (v) => [
       hello(v),
       `${v.pozvatel} vás zve do firmy ${v.firma} v aplikaci Dodio pro správu absencí.`,
-      "Zaregistrujte se prosím na odkazu níže stejným e-mailem, na který jste pozvánku dostali. Nováčky zařadíme do firmy automaticky.",
+      "Klikněte na tlačítko níže, zvolte si heslo a hned se zařadíte do firmy. Adresa je už předvyplněná.",
     ],
-    cta: { label: "Přijmout pozvánku", path: "/login" },
+    cta: { label: "Dokončit registraci", path: "/login" },
     optOut: false,
   },
   {
