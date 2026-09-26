@@ -20,7 +20,14 @@
 
 ## 3. Vercel
 1. Importujte repozitář, framework Next.js, `npm run build`.
-2. `vercel.json` obsahuje cron úlohy `/api/cron/process` (odesílání fronty) a `/api/cron/daily` (eskalace, pondělní přehled, změny tarifů). Nastavení je pro plán **Hobby** (každá jednou denně, 5:00 a 6:00 UTC). Pro ostrý provoz změňte `process` na `*/10 * * * *` (vyžaduje plán Pro) nebo ho volejte z Supabase `pg_cron` + `pg_net`; jinak by e-maily s žádostmi odcházely jen jednou denně.
+2. `vercel.json` obsahuje cron úlohy `/api/cron/process` (odesílání fronty) a `/api/cron/daily` (eskalace, pondělní přehled, změny tarifů). Nastavení je pro plán **Hobby** (každá jednou denně, 5:00 a 6:00 UTC). Pro ostrý provoz změňte `process` na `*/10 * * * *` (vyžaduje plán Pro), nebo použijte krok 3a níže (zdarma, přes Supabase).
+
+## 3a. Časté odesílání fronty e-mailů zdarma (bez Vercel Pro)
+`schema.sql` obsahuje `pg_cron` úlohu `dodio-process-emails`, která volá `/api/cron/process` každé 3 minuty přímo z databáze (Vercel Hobby dovoluje jen denní cron, což by u schvalování žádostí bylo pomalé). Adresa aplikace je v SQL napevno (`https://dodio-app.vercel.app` — při jiné doméně ji v `schema.sql` upravte), ale **tajný `CRON_SECRET` se do souboru neukládá** (ten je ve verzovaném gitu). Po nahrání `schema.sql` proto v Supabase → **SQL Editor** spusťte navíc, jen jednou a ručně, tento příkaz s vaší hodnotou `CRON_SECRET` (stejnou, jakou máte ve Vercelu):
+```sql
+alter database postgres set app.settings.cron_secret = 'sem vložte CRON_SECRET z Vercelu';
+```
+Ověření, že úloha běží: `select * from cron.job;` a `select * from cron.job_run_details order by start_time desc limit 5;`.
 
 ## 4. Kontrola před spuštěním
 - `npm test` (jednotkové testy zůstatků, pracovních dnů, formátování) a `npm run build` musí projít.

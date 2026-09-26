@@ -3573,3 +3573,33 @@ begin
   end loop;
 end
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Odesílání fronty e-mailů každé 3 minuty (Vercel Hobby dovoluje jen denní cron úlohu — /api/cron/process by tam bez
+-- tohohle čekal na frontu i skoro 24 hodin, což u schvalování žádostí nejde). Volá se přímo z databáze přes pg_cron
+-- + pg_net, zdarma, bez potřeby placeného Vercelu. Tajný CRON_SECRET se sem NEUKLÁDÁ (schema.sql je ve gitu) —
+-- nastavuje se zvlášť příkazem `alter database postgres set app.settings.cron_secret = '...'`, který spustíte ručně
+-- v Supabase SQL editoru (návod v DEPLOY.md). Bez nastaveného tajemství úloha běží, ale server ji 401 odmítne.
+-- ---------------------------------------------------------------------------
+create extension if not exists pg_cron with schema extensions;
+create extension if not exists pg_net with schema extensions;
+
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = 'dodio-process-emails') then
+    perform cron.unschedule('dodio-process-emails');
+  end if;
+end
+$$;
+
+select cron.schedule(
+  'dodio-process-emails',
+  '*/3 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://dodio-app.vercel.app/api/cron/process',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.settings.cron_secret', true)),
+    body := '{}'::jsonb
+  );
+  $$
+);
