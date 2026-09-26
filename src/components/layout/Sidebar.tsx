@@ -140,12 +140,13 @@ export function Sidebar() {
         .from("leave_requests")
         .select("id", { count: "exact", head: true })
         .eq("status", "pending")
+        .neq("profile_id", profile.id)
         .then(({ count }) => setPendingCount(count ?? 0));
       return;
     }
     // A manager's badge counts only the requests they may decide (their people).
     Promise.all([
-      supabase.from("leave_requests").select("id, profile:profiles!leave_requests_profile_id_fkey(manager_id, department_id)").eq("status", "pending"),
+      supabase.from("leave_requests").select("id, profile:profiles!leave_requests_profile_id_fkey(manager_id, department_id)").eq("status", "pending").neq("profile_id", profile.id),
       fetchDecisionScope(profile),
     ]).then(([{ data }, scope]) => {
       const rows = (data as unknown as { profile: { manager_id: string | null; department_id: string | null } | null }[]) ?? [];

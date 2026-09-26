@@ -6,7 +6,7 @@ import { AlertTriangle, Check, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { approveLeaveRequest, rejectLeaveRequest } from "@/lib/data";
-import { ApprovalWarnings, computeApprovalWarnings, fetchMyDepartmentIds, hasOtherApprover } from "@/lib/approval-checks";
+import { ApprovalWarnings, computeApprovalWarnings, fetchMyDepartmentIds, autoApproveOwnPending } from "@/lib/approval-checks";
 import { fetchDecisionScope } from "@/lib/approval-scope";
 import { formatRange } from "@/lib/working-days";
 import { formatNumber } from "@/lib/utils";
@@ -40,6 +40,7 @@ export function PendingApprovalsWidget({ onChanged }: { onChanged?: () => void }
 
   async function load() {
     if (!profile || !isManager) return;
+    await autoApproveOwnPending(profile).catch(() => false);
     const { data } = await createClient()
       .from("leave_requests")
       .select(
@@ -47,9 +48,8 @@ export function PendingApprovalsWidget({ onChanged }: { onChanged?: () => void }
       )
       .eq("status", "pending")
       .order("start_date", { ascending: true });
-    const otherApprover = await hasOtherApprover(profile.company_id, profile.id);
     const scope = await fetchDecisionScope(profile);
-    const list = ((data as unknown as Row[]) ?? []).filter((r) => r.profile && r.leave_type && scope.canDecide(r.profile) && (!otherApprover || r.profile.id !== profile.id));
+    const list = ((data as unknown as Row[]) ?? []).filter((r) => r.profile && r.leave_type && scope.canDecide(r.profile) && r.profile.id !== profile.id);
     // Own direct reports first, same ordering convention as the Ke schválení page.
     const mine = await fetchMyDepartmentIds(profile.company_id, profile.id);
     const isMine = (r: Row) => r.profile?.manager_id === profile.id || (!!r.profile?.department_id && mine.has(r.profile.department_id));

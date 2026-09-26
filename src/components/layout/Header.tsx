@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { HelpCircle, Menu, Plus } from "lucide-react";
+import { HelpCircle, Menu } from "lucide-react";
 import { TOGGLE_NAV_EVENT } from "@/components/layout/Sidebar";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TOGGLE_HELP_EVENT } from "@/components/layout/HelpDrawer";
-import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
-import { Button } from "@/components/ui/button";
-import { emitDataChanged } from "@/lib/events";
+import { NewRequestSplit } from "@/components/layout/NewRequestSplit";
 
 export function Header({ title, subtitle }: { title: string; subtitle?: string }) {
   useEffect(() => {
@@ -29,14 +27,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
         {subtitle && <p className="mt-1 hidden text-sm text-muted sm:block">{subtitle}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <RequestLeaveModal
-          trigger={
-            <Button variant="secondary" className="px-3 text-sm sm:px-5" aria-label="Nová žádost" data-tour="header-new-request">
-              <Plus size={15} /> <span className="hidden sm:inline">Nová žádost</span>
-            </Button>
-          }
-          onSaved={emitDataChanged}
-        />
+        <NewRequestSplit />
         <button
           onClick={() => window.dispatchEvent(new Event(TOGGLE_HELP_EVENT))}
           className="hidden rounded p-2 text-muted hover:bg-white hover:text-ink sm:block"

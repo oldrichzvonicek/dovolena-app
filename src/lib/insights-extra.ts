@@ -66,7 +66,7 @@ function eachWorkingDay(r: { start_date: string; end_date: string }, workDays: n
 // ------------------------------------------------------------------------------------------ 1) hokejka dovolené
 export interface VacationCurve {
   /** Dny dovolené (schválené i čekající) po měsících letošního roku. */
-  months: { month: number; days: number; future: boolean }[];
+  months: { month: number; days: number; future: boolean; /** Kdo má v měsíci dovolenou (pro tooltip grafu). */ ids: string[] }[];
   /** Lidé, kterým zbývá dovolená, kterou ještě nemají naplánovanou. */
   unplanned: { id: string; days: number }[];
   totalUnplanned: number;
@@ -79,8 +79,9 @@ export function vacationCurve(requests: XRequest[], today: string, workDays: num
   const months = Array.from({ length: 12 }, (_, i) => {
     const from = `${year}-${String(i + 1).padStart(2, "0")}-01`;
     const to = format(new Date(year, i + 1, 0), "yyyy-MM-dd");
-    const days = requests.filter((r) => isVacation(r) && live(r)).reduce((s, r) => s + daysWithin(r, from, to, workDays), 0);
-    return { month: i + 1, days: Math.round(days * 10) / 10, future: to > today };
+    const inMonth = requests.filter((r) => isVacation(r) && live(r) && daysWithin(r, from, to, workDays) > 0);
+    const days = inMonth.reduce((s, r) => s + daysWithin(r, from, to, workDays), 0);
+    return { month: i + 1, days: Math.round(days * 10) / 10, future: to > today, ids: Array.from(new Set(inMonth.map((r) => r.profile_id))) };
   });
   const pendingFuture = new Map<string, number>();
   for (const r of requests) if (isVacation(r) && r.status === "pending" && r.end_date >= today) pendingFuture.set(r.profile_id, (pendingFuture.get(r.profile_id) ?? 0) + Number(r.working_days));
@@ -101,7 +102,7 @@ export interface BridgeShare {
   adjoining: number;
   pct: number;
   /** Dny dovolené podle dne v týdnu (1 = pondělí … 7 = neděle). */
-  byWeekday: { weekday: number; days: number }[];
+  byWeekday: { weekday: number; days: number; ids: string[] }[];
 }
 
 export function bridgeShare(requests: XRequest[], today: string, workDays: number[]): BridgeShare {
@@ -109,13 +110,17 @@ export function bridgeShare(requests: XRequest[], today: string, workDays: numbe
   const vac = requests.filter((r) => isVacation(r) && live(r) && r.start_date >= since && !r.half_day);
   let adjoining = 0;
   const byDay = new Map<number, number>();
+  const whoDay = new Map<number, Set<string>>();
   for (const r of vac) {
     const before = addDays(parseISO(r.start_date), -1);
     const after = addDays(parseISO(r.end_date), 1);
     if (!isWorkingDay(before, workDays) || !isWorkingDay(after, workDays)) adjoining++;
-    eachWorkingDay(r, workDays, (d) => byDay.set(isoWeekday(d), (byDay.get(isoWeekday(d)) ?? 0) + 1));
+    eachWorkingDay(r, workDays, (d) => {
+      byDay.set(isoWeekday(d), (byDay.get(isoWeekday(d)) ?? 0) + 1);
+      whoDay.set(isoWeekday(d), (whoDay.get(isoWeekday(d)) ?? new Set()).add(r.profile_id));
+    });
   }
-  return { total: vac.length, adjoining, pct: pct(adjoining, vac.length), byWeekday: workDays.map((w) => ({ weekday: w, days: byDay.get(w) ?? 0 })) };
+  return { total: vac.length, adjoining, pct: pct(adjoining, vac.length), byWeekday: workDays.map((w) => ({ weekday: w, days: byDay.get(w) ?? 0, ids: Array.from(whoDay.get(w) ?? []) })) };
 }
 
 // ------------------------------------------------------------------------------------------ 3) zástupy
@@ -245,7 +250,7 @@ export interface HomeOfficeShare {
   /** Podíl pracovních dnů stráveného na Home Office za posledních 90 dní, v %. */
   overallPct: number;
   /** Podíl podle dne v týdnu, v %. */
-  byWeekday: { weekday: number; pct: number }[];
+  byWeekday: { weekday: number; pct: number; ids: string[] }[];
   byDept: { dept: string; pct: number }[];
 }
 
@@ -259,6 +264,7 @@ export function homeOfficeShare(requests: XRequest[], people: XPerson[], depts: 
   for (let d = parseISO(from); iso(d) <= today; d = addDays(d, 1)) if (isWorkingDay(d, workDays)) dayCount.set(isoWeekday(d), (dayCount.get(isoWeekday(d)) ?? 0) + 1);
   const totalDays = Array.from(dayCount.values()).reduce((s, n) => s + n, 0);
   const perWeekday = new Map<number, number>();
+  const whoWeekday = new Map<number, Set<string>>();
   const perPerson = new Map<string, number>();
   for (const r of ho)
     eachWorkingDay(
@@ -266,6 +272,7 @@ export function homeOfficeShare(requests: XRequest[], people: XPerson[], depts: 
       workDays,
       (d) => {
         perWeekday.set(isoWeekday(d), (perWeekday.get(isoWeekday(d)) ?? 0) + 1);
+        whoWeekday.set(isoWeekday(d), (whoWeekday.get(isoWeekday(d)) ?? new Set()).add(r.profile_id));
         perPerson.set(r.profile_id, (perPerson.get(r.profile_id) ?? 0) + 1);
       },
       from,
@@ -281,7 +288,7 @@ export function homeOfficeShare(requests: XRequest[], people: XPerson[], depts: 
   byDept.sort((a, b) => b.pct - a.pct);
   return {
     overallPct: pct(overall, active.length * totalDays),
-    byWeekday: workDays.map((w) => ({ weekday: w, pct: pct(perWeekday.get(w) ?? 0, active.length * (dayCount.get(w) ?? 0)) })),
+    byWeekday: workDays.map((w) => ({ weekday: w, pct: pct(perWeekday.get(w) ?? 0, active.length * (dayCount.get(w) ?? 0)), ids: Array.from(whoWeekday.get(w) ?? []) })),
     byDept,
   };
 }

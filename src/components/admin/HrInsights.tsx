@@ -85,6 +85,9 @@ function RechargeRow({ id, left, pct, tone, ids, names, open, onToggle }: { id: 
 /** U „Žádná dovolená“ je špatné vysoké číslo, u ostatních voleb nízké. */
 const warnRecharge = (pct: number, limit: number, min: number): "warning" | undefined => (min === 0 ? (pct > 100 - limit ? "warning" : undefined) : pct < limit ? "warning" : undefined);
 
+/** Výchozí odhad průměrných denních nákladů na osobu, dokud admin nezadá vlastní (jen pro orientační částku závazku). */
+const DEFAULT_DAILY_COST = 2500;
+
 type InsightTab = "plan" | "people" | "flow";
 const TABS: { key: InsightTab; label: string }[] = [
   { key: "plan", label: "Kapacita a plánování" },
@@ -291,7 +294,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   return (
     <div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {extra && <ExtraSummary extra={extra} />}
+        {extra && <ExtraSummary extra={extra} tab={tab} />}
         <div className="flex flex-wrap gap-1.5 lg:col-span-2" role="tablist" aria-label="Oblast přehledu">
           {TABS.map((t) => (
             <button
@@ -363,9 +366,9 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
             <Empty text="Zatím málo rozhodnutí." />
           ) : (
             <>
-              <Row left="Celkem (medián)" right={hours(data.speed.overallMedianHours)} />
+              <Row left="Celkem (medián)" right={hours(data.speed.overallMedianHours)} tone={data.speed.overallMedianHours > 24 ? "warning" : undefined} />
               {data.speed.rows.map((r) => (
-                <Row key={r.actorId} left={`${r.name} · ${r.decisions}×`} right={`${hours(r.medianHours)}${r.rejectedPct > 0 ? ` · zamítá ${r.rejectedPct} %` : ""}`} tone={r.medianHours >= 48 ? "danger" : r.medianHours >= 24 ? "warning" : undefined} />
+                <Row key={r.actorId} left={`${r.name} · ${r.decisions}×`} right={`${hours(r.medianHours)}${r.rejectedPct > 0 ? ` · zamítá ${r.rejectedPct} %` : ""}`} tone={r.rejectedPct > 10 ? "danger" : r.medianHours > 24 ? "warning" : undefined} />
               ))}
             </>
           )}
@@ -374,8 +377,13 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
 
         {tab === "people" && (
         <Card icon={<Wallet size={17} className="text-teal-dark" />} title="Závazek z nevyčerpané dovolené" hint="Součet nevyčerpaných dní; dny nad strop převodu propadnou. Částka podle průměrných denních nákladů.">
-          <Row left="Nevyčerpáno celkem" right={`${formatNumber(data.liability.totalDays)} ${dayWord(data.liability.totalDays)}${data.liability.amount !== null ? ` · ${data.liability.amount.toLocaleString("cs-CZ")} Kč` : ""}`} />
-          <Row left="Propadne při převodu" right={`${formatNumber(data.liability.forfeitDays)} ${dayWord(data.liability.forfeitDays)}${data.liability.forfeitAmount !== null ? ` · ${data.liability.forfeitAmount.toLocaleString("cs-CZ")} Kč` : ""}`} tone={data.liability.forfeitDays > 0 ? "warning" : undefined} />
+          <Row left="Nevyčerpáno celkem" right={`${formatNumber(data.liability.totalDays)} ${dayWord(data.liability.totalDays)}`} />
+          <Row
+            left={data.dailyCost === null ? `Odhadovaný finanční závazek (při ${DEFAULT_DAILY_COST.toLocaleString("cs-CZ")} Kč/den)` : "Finanční závazek firmy"}
+            right={`${Math.round(data.liability.totalDays * (data.dailyCost ?? DEFAULT_DAILY_COST)).toLocaleString("cs-CZ")} Kč`}
+            tone={data.liability.totalDays > 0 ? "warning" : undefined}
+          />
+          <Row left="Propadne při převodu" right={`${formatNumber(data.liability.forfeitDays)} ${dayWord(data.liability.forfeitDays)}${data.liability.forfeitDays > 0 ? ` · ${Math.round(data.liability.forfeitDays * (data.dailyCost ?? DEFAULT_DAILY_COST)).toLocaleString("cs-CZ")} Kč` : ""}`} tone={data.liability.forfeitDays > 0 ? "warning" : undefined} />
           {isAdmin ? (
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <label className="text-xs text-muted" htmlFor="avg-cost">
@@ -390,13 +398,13 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
                   setCostMsg(null);
                 }}
                 onBlur={saveCost}
-                placeholder="např. 2 500"
+                placeholder={String(DEFAULT_DAILY_COST)}
                 className="w-28 rounded border border-line px-2 py-1 text-right text-sm"
               />
               {costMsg && <span className="text-xs text-muted">{costMsg}</span>}
             </div>
           ) : (
-            data.dailyCost === null && <p className="text-xs text-muted">Sazbu pro přepočet na koruny nastavuje admin.</p>
+            data.dailyCost === null && <p className="text-xs text-muted">Částka je odhad podle výchozí sazby {DEFAULT_DAILY_COST.toLocaleString("cs-CZ")} Kč/den. Skutečnou sazbu nastavuje admin.</p>
           )}
         </Card>
         )}
@@ -543,6 +551,7 @@ function Seasonality({ points, series }: { points: MonthPoint[]; series: TrendSe
 
 /** Po odděleních: jména seřazená tak, aby nahoře byli lidé, kteří loni hlavní období neměli. */
 function FairRota({ data, periodKey }: { data: Data; periodKey: string }) {
+  const [open, setOpen] = useState<string | null>(null);
   const period = MAIN_PERIODS.find((p) => p.key === periodKey) ?? MAIN_PERIODS[0];
   // sezóna: pokud už jsme po jejím konci, ukazujeme příští
   const now = new Date();
@@ -553,30 +562,46 @@ function FairRota({ data, periodKey }: { data: Data; periodKey: string }) {
   const entries = Array.from(rota.entries()).filter(([, rows]) => rows.length > 0);
   if (entries.length === 0) return <p className="text-muted">Žádná data.</p>;
   return (
-    <div className="space-y-3">
+    <div className="space-y-1.5">
       <p className="text-xs text-muted">
-        Sezóna {format(parseISO(window.from), "d. M. yyyy", { locale: cs })} – {format(parseISO(window.to), "d. M. yyyy", { locale: cs })}
+        Sezóna {format(parseISO(window.from), "d. M. yyyy", { locale: cs })} – {format(parseISO(window.to), "d. M. yyyy", { locale: cs })}. Kliknutím na oddělení uvidíte jména.
       </p>
-      {entries.map(([deptId, rows]) => (
-        <div key={deptId ?? "none"}>
-          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">{deptId ? data.deptNames.get(deptId) ?? "Oddělení" : "Bez oddělení"}</div>
-          <div className="space-y-1">
-            {rows.slice(0, 8).map((r) => {
-              const priority = r.lastSeason === 0 && r.thisSeason === 0;
-              return (
-                <div key={r.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className={cn("min-w-0 truncate", priority && "font-medium")}>{r.name}</span>
-                  <span className="shrink-0 text-xs text-muted">
-                    loni {formatNumber(r.lastSeason)} · letos {formatNumber(r.thisSeason)}
-                    {priority && <span className="ml-1.5 rounded-sm bg-teal-light px-1.5 py-0.5 text-teal-dark">bez loňska</span>}
-                  </span>
-                </div>
-              );
-            })}
-            {rows.length > 8 && <div className="text-xs text-muted">a dalších {rows.length - 8}</div>}
+      {entries.map(([deptId, rows]) => {
+        const key = deptId ?? "none";
+        const isOpen = open === key;
+        const planning = rows.filter((r) => r.thisSeason > 0).length;
+        const priority = rows.filter((r) => r.lastSeason === 0 && r.thisSeason === 0).length;
+        return (
+          <div key={key} className="rounded border border-line">
+            <button type="button" onClick={() => setOpen(isOpen ? null : key)} aria-expanded={isOpen} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-paper">
+              <span className="min-w-0 truncate font-medium">
+                <span className="mr-1.5 text-xs text-muted">{isOpen ? "▾" : "▸"}</span>
+                {deptId ? data.deptNames.get(deptId) ?? "Oddělení" : "Bez oddělení"}
+              </span>
+              <span className="shrink-0 text-xs text-muted">
+                {rows.length} {rows.length === 1 ? "člověk" : "lidí"} · letos plánuje {planning}
+                {priority > 0 && <span className="ml-1.5 rounded-sm bg-teal-light px-1.5 py-0.5 text-teal-dark">{priority} bez loňska</span>}
+              </span>
+            </button>
+            {isOpen && (
+              <div className="space-y-1 border-t border-line px-3 py-2">
+                {rows.map((r) => {
+                  const noLast = r.lastSeason === 0 && r.thisSeason === 0;
+                  return (
+                    <div key={r.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className={cn("min-w-0 truncate", noLast && "font-medium")}>{r.name}</span>
+                      <span className="shrink-0 text-xs text-muted">
+                        loni {formatNumber(r.lastSeason)} · letos {formatNumber(r.thisSeason)}
+                        {noLast && <span className="ml-1.5 rounded-sm bg-teal-light px-1.5 py-0.5 text-teal-dark">bez loňska</span>}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -18,7 +18,7 @@ import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
 import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
 import { fairnessHint, mainPeriodOf, type InRequest } from "@/lib/insights";
-import { computeApprovalWarnings, fetchMyDepartmentIds, hasOtherApprover } from "@/lib/approval-checks";
+import { computeApprovalWarnings, fetchMyDepartmentIds, autoApproveOwnPending } from "@/lib/approval-checks";
 import { fetchDecisionScope } from "@/lib/approval-scope";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { useSearchParams } from "next/navigation";
@@ -68,6 +68,7 @@ export function PendingApprovals() {
     const supabase = createClient();
     const year = new Date().getFullYear();
 
+    await autoApproveOwnPending(profile).catch(() => false);
     const { data } = await supabase
       .from("leave_requests")
       .select(
@@ -83,12 +84,11 @@ export function PendingApprovals() {
     // the FIFO order from the query above is preserved within each group.
     const mine = await fetchMyDepartmentIds(profile.company_id, profile.id);
     setMyDepts(mine);
-    const otherApprover = await hasOtherApprover(profile.company_id, profile.id);
     // Only requests this approver may decide: their people (manager / department head / deputy / substitute) or everything for an admin.
     const scope = await fetchDecisionScope(profile);
     const rows = ((data as unknown as PendingRow[]) ?? [])
       .filter((r) => scope.canDecide(r.profile))
-      .filter((r) => !otherApprover || r.profile.id !== profile.id)
+      .filter((r) => r.profile.id !== profile.id)
       .sort((a, b) => {
       const aMine = a.profile.manager_id === profile.id || (a.profile.department_id && mine.has(a.profile.department_id)) ? 0 : 1;
       const bMine = b.profile.manager_id === profile.id || (b.profile.department_id && mine.has(b.profile.department_id)) ? 0 : 1;

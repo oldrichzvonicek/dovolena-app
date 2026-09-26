@@ -8,7 +8,6 @@ import { WhoIsOutToday } from "@/components/dashboard/WhoIsOutToday";
 import { UpcomingLeave } from "@/components/dashboard/UpcomingLeave";
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
 import { BridgeDays } from "@/components/dashboard/BridgeDays";
-import { NewRequestButton } from "@/components/dashboard/NewRequestButton";
 import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsWidget";
 import { CancellationRequests } from "@/components/manager/CancellationRequests";
 import { useAuth } from "@/lib/auth-context";
@@ -32,7 +31,6 @@ export default function DashboardPage() {
   const mine = (
     <div className="space-y-6">
       <BalanceCards />
-      <NewRequestButton onSaved={refresh} />
       <UpcomingLeave />
       <BridgeDays onSaved={refresh} />
     </div>
@@ -46,7 +44,7 @@ export default function DashboardPage() {
     </div>
   );
 
-  // Pro všechny stejně: nahoře moje absence a rychlé žádosti, pod nimi týmový přehled (u manažera a admina i schvalování).
+  // Pro všechny stejně: nahoře moje absence, pod nimi týmový přehled (u manažera a admina i schvalování).
   return (
     <div key={refreshKey}>
       <Header title={`Vítejte zpět, ${firstName}`} subtitle={subtitle} />

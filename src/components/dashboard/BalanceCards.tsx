@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { HelpCircle } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { countWorkingDays, dayWord } from "@/lib/working-days";
 import { useAuth } from "@/lib/auth-context";
@@ -47,8 +48,17 @@ function BalanceCard({
   const remainingPct = total > 0 ? (remaining / total) * 100 : 0;
   const low = total > 0 && (remaining <= 2 || remainingPct <= 20);
   return (
-    <div className={cn("card flex-1 p-5", low && "border-warning/40")}>
-      <div className="flex items-center gap-1.5 text-sm text-muted">
+    <div className={cn("card relative flex-1 p-5", low && "border-warning/40")}>
+      <button
+        onClick={() => setExplain((v) => !v)}
+        aria-expanded={explain}
+        aria-label="Jak se to počítá?"
+        title="Jak se to počítá?"
+        className="absolute right-3 top-3 rounded p-1 text-muted hover:bg-paper hover:text-ink"
+      >
+        <HelpCircle size={15} />
+      </button>
+      <div className="flex items-center gap-1.5 pr-6 text-sm text-muted">
         {label}
         {low && (
           <span className="rounded-sm bg-warning-light px-1.5 py-0.5 text-[11px] font-medium text-warning-dark">
@@ -59,26 +69,16 @@ function BalanceCard({
       {/* Jedno číslo, jasný význam: kolik ZBÝVÁ z ročního nároku. Pruh pod ním ukazuje, kam se zbytek poděl. */}
       <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
         <span className="font-display text-3xl">{fmt(remaining)}</span>
-        <span className="text-sm text-muted">
-          {unit} zbývá z {fmt(total)}
-        </span>
+        <span className="text-sm text-muted">{dayWord(remaining)} zbývá</span>
       </div>
       <SegmentedBar used={used} upcoming={upcoming} total={total} color={color} />
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
-        <span className="flex items-center gap-1">
-          <span className={cn("h-2 w-2 rounded-sm", solidClass[color])} /> Vyčerpáno {fmt(used)}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+        <span className="flex items-center gap-1.5">
+          <span className={cn("h-2 w-2 rounded-sm", solidClass[color])} /> Vyčerpáno: {fmt(used)} {dayWord(used)}
         </span>
-        {upcoming > 0 && (
-          <span className="flex items-center gap-1">
-            <span className={cn("h-2 w-2 rounded-sm", lightClass[color])} /> Schváleno do budoucna {fmt(upcoming)}
-          </span>
-        )}
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-sm border border-line bg-paper" /> Zbývá {fmt(remaining)}
+        <span className="flex items-center gap-1.5">
+          <span className={cn("h-2 w-2 rounded-sm", lightClass[color])} /> Naplánováno: {fmt(upcoming)} {dayWord(upcoming)}
         </span>
-        <button onClick={() => setExplain((v) => !v)} aria-expanded={explain} className="ml-auto underline hover:text-ink">
-          {explain ? "Skrýt výpočet" : "Jak se to počítá?"}
-        </button>
       </div>
       {explain && (
         <dl className="mt-2 space-y-1 rounded border border-line bg-paper p-3 text-xs">

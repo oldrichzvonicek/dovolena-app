@@ -11,6 +11,7 @@ import { ABSENT_TYPE } from "@/lib/leave-kinds";
 import { fetchMaskedAbsences } from "@/lib/data";
 import { TeamCapacity } from "@/components/dashboard/TeamCapacity";
 import { LoadingLines } from "@/components/ui/skeleton";
+import { leaveIconFor, LeaveTypeIcon } from "@/components/shared/LeaveTypeIcon";
 
 interface Row {
   id: string;
@@ -109,7 +110,10 @@ export function WhoIsOutToday() {
             department: row.profile?.department ?? null,
           };
         });
-        setAllRows([...mapped, ...hiddenRows].sort((a, b) => a.start_date.localeCompare(b.start_date)));
+        // Vlastní absence člověka může přijít z obou zdrojů (plná i zamaskovaná); stejný člověk a termín se ukáže jen jednou.
+        const seen = new Set(mapped.map((m) => `${m.profile?.id}|${m.start_date}|${m.end_date}`));
+        const extraHidden = hiddenRows.filter((h) => !seen.has(`${h.profile?.id}|${h.start_date}|${h.end_date}`));
+        setAllRows([...mapped, ...extraHidden].sort((a, b) => a.start_date.localeCompare(b.start_date)));
         setLoading(false);
         const coverIds = Array.from(new Set(mapped.map((m) => m.covering_profile_id).filter((x): x is string => !!x)));
         if (coverIds.length > 0) {
@@ -288,8 +292,10 @@ export function WhoIsOutToday() {
                     onFocus={c ? (e) => { const b = e.currentTarget.getBoundingClientRect(); setTip({ x: b.left, y: b.bottom - 8, name: p.name, req: c }); } : undefined}
                     onBlur={c ? () => setTip(null) : undefined}
                     onClick={c ? (e) => { const b = e.currentTarget.getBoundingClientRect(); setTip({ x: b.left, y: b.bottom - 8, name: p.name, req: c }); } : undefined}
-                    className={cn("h-4 rounded-sm", c ? colorDot[c.leave_type?.color ?? "teal"] : "bg-paper", week.isos[i] === todayISO && "ring-1 ring-inset ring-ink/40")}
-                  />
+                    className={cn("flex h-5 items-center justify-center rounded-sm", c ? colorDot[c.leave_type?.color ?? "teal"] : "bg-paper", week.isos[i] === todayISO && "ring-1 ring-inset ring-ink/40")}
+                  >
+                    {c?.leave_type && leaveIconFor(c.leave_type.key) && <LeaveTypeIcon name={leaveIconFor(c.leave_type.key)!} size={12} className="text-white" />}
+                  </span>
                 ))}
               </Fragment>
             ))}

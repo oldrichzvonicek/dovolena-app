@@ -13,6 +13,7 @@ import { DbBlackoutPeriod, DbCompany, DbLeaveType, DbProfile } from "@/lib/supab
 import { createLeaveRequest, fetchMaskedAbsences, updateLeaveRequest } from "@/lib/data";
 import { fetchBlackoutPeriods, fetchCompany } from "@/lib/admin-data";
 import { errorMessage } from "@/lib/utils";
+import { hasOtherApprover } from "@/lib/approval-checks";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { reducesPresence } from "@/lib/leave-kinds";
 
@@ -337,7 +338,10 @@ export function RequestLeaveModal({
         note: privateType ? undefined : note || undefined,
         covering_profile_id: coveringId || null,
       };
+      // Admin, nad kterým nikdo není (jediný schvalovatel ve firmě), si žádost schvaluje automaticky; jinak by čekala sama na sebe.
+      const topApprover = !isEditing && profile.role === "admin" && !(await hasOtherApprover(profile.company_id, profile.id));
       const autoApproved =
+        topApprover ||
         selectedType?.requires_approval === false ||
         (selectedType?.auto_approve_max_days != null && workingDays <= Number(selectedType.auto_approve_max_days));
       if (isEditing) {

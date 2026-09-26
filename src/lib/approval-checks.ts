@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchCompany } from "@/lib/admin-data";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { reducesPresence } from "@/lib/leave-kinds";
-import { fetchMaskedAbsences } from "@/lib/data";
+import { approveLeaveRequest, fetchMaskedAbsences } from "@/lib/data";
 
 export interface ApprovalCheckRow {
   id: string;
@@ -83,6 +83,18 @@ export async function hasOtherApprover(companyId: string, selfId: string): Promi
     .eq("active", true)
     .neq("id", selfId);
   return (count ?? 0) > 0;
+}
+
+/**
+ * Vlastní žádost se nikdy nezobrazuje ve vlastní frontě ke schválení. Když nad adminem nikdo není (je jediným schvalovatelem
+ * ve firmě), jeho žádosti se schvalují samy; tahle funkce dodělá případné starší čekající žádosti. Vrací true, když něco schválila.
+ */
+export async function autoApproveOwnPending(profile: { id: string; company_id: string; role: string }): Promise<boolean> {
+  if (profile.role !== "admin") return false;
+  if (await hasOtherApprover(profile.company_id, profile.id)) return false;
+  const { data } = await createClient().from("leave_requests").select("id").eq("profile_id", profile.id).eq("status", "pending");
+  for (const r of data ?? []) await approveLeaveRequest(r.id as string, profile.id);
+  return (data ?? []).length > 0;
 }
 
 /** Departments the user heads or deputizes for — "their team" for approvals and the Můj tým scope (a deputy covers the head). */

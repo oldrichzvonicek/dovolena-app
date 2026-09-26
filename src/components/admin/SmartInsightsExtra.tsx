@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
-import { CalendarRange, Clock3, Home, KeyRound, Link2, Scale, Sparkles, Stethoscope, TrendingUp, UserRoundPlus } from "lucide-react";
+import { CalendarRange, Clock3, Home, KeyRound, Link2, Scale, Sparkles, Stethoscope, TrendingUp, UserRoundPlus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
 import { loadBalances, remainingOf } from "@/lib/balances";
@@ -28,7 +28,7 @@ import {
   type XPerson,
   type XRequest,
 } from "@/lib/insights-extra";
-import { Card, Empty, Row } from "@/components/admin/insight-ui";
+import { Bars, Card, Empty, Row } from "@/components/admin/insight-ui";
 import { cn } from "@/lib/utils";
 import { formatKc } from "@/lib/plans";
 
@@ -115,16 +115,27 @@ const GROUPS: Record<"plan" | "people" | "flow", string[]> = {
 
 const DOT: Record<Finding["severity"], string> = { 3: "bg-danger", 2: "bg-warning", 1: "bg-teal" };
 
-/** Jedna karta s nejdůležitějšími zjištěními týdne. */
-export function ExtraSummary({ extra }: { extra: ExtraInsights }) {
-  const top = extra.findings.slice(0, 5);
+/** Ke které záložce zjištění patří (podle karty, ze které vzniklo). */
+const TAB_OF: Record<string, "plan" | "people" | "flow"> = { curve: "plan", key: "plan", subs: "plan", bridge: "plan", moves: "people", lead: "flow", decisions: "flow", sick: "flow", home: "flow" };
+
+/** Štíhlý pruh se zjištěními týdne jen k tématu aktuální záložky; jde zavřít. */
+export function ExtraSummary({ extra, tab }: { extra: ExtraInsights; tab: "plan" | "people" | "flow" }) {
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const list = extra.findings.filter((f) => TAB_OF[f.card] === tab).slice(0, 4);
+  if (closed[tab]) return null;
   return (
-    <Card className="lg:col-span-2" icon={<Sparkles size={17} className="text-teal-dark" />} title="Shrnutí týdne" hint="To nejdůležitější ze všech karet níže, seřazené podle naléhavosti. Nejde o hodnocení jednotlivců.">
-      {top.length === 0 ? (
-        <Empty text="Tento týden není nic, co by vyžadovalo pozornost." />
+    <div className="relative rounded-lg border border-line bg-white px-4 py-3 text-sm lg:col-span-2" role="status">
+      <button type="button" onClick={() => setClosed({ ...closed, [tab]: true })} aria-label="Zavřít shrnutí" className="absolute right-2 top-2 rounded p-1 text-muted hover:bg-paper hover:text-ink">
+        <X size={14} />
+      </button>
+      <div className="mb-1.5 flex items-center gap-1.5 pr-6 text-xs font-medium uppercase tracking-wide text-muted">
+        <Sparkles size={13} className="text-teal-dark" /> Shrnutí týdne k tomuto tématu
+      </div>
+      {list.length === 0 ? (
+        <p className="text-muted">✓ Na této záložce není nic naléhavého.</p>
       ) : (
-        <ul className="space-y-2">
-          {top.map((f, i) => (
+        <ul className="space-y-1.5">
+          {list.map((f, i) => (
             <li key={i} className="flex gap-2.5">
               <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", DOT[f.severity])} aria-label={f.severity === 3 ? "Řešit hned" : f.severity === 2 ? "Pozor" : "K zamyšlení"} />
               <span>{f.text}</span>
@@ -132,22 +143,6 @@ export function ExtraSummary({ extra }: { extra: ExtraInsights }) {
           ))}
         </ul>
       )}
-      {extra.findings.length > top.length && <p className="text-xs text-muted">a dalších {extra.findings.length - top.length} zjištění v kartách níže.</p>}
-    </Card>
-  );
-}
-
-function Bars({ items, unit = "", highlight }: { items: { label: string; value: number; muted?: boolean }[]; unit?: string; highlight?: (v: number) => boolean }) {
-  const max = Math.max(1, ...items.map((i) => i.value));
-  return (
-    <div className="flex items-end gap-1.5" style={{ height: 96 }}>
-      {items.map((i) => (
-        <div key={i.label} className="flex flex-1 flex-col items-center justify-end gap-1" title={`${i.label}: ${i.value}${unit}`}>
-          <span className="text-[10px] text-muted">{i.value > 0 ? i.value : ""}</span>
-          <div className={cn("w-full rounded-t", highlight?.(i.value) ? "bg-warning/70" : i.muted ? "bg-teal/25" : "bg-teal/60")} style={{ height: `${Math.max(2, (i.value / max) * 64)}px` }} />
-          <span className="text-[10px] text-muted">{i.label}</span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -177,7 +172,7 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
     <>
       {show("curve") && (
       <Card className="lg:col-span-2" icon={<TrendingUp size={17} className="text-teal-dark" />} title="Hokejka dovolené" hint="Dny dovolené (schválené i čekající) po měsících letošního roku a dovolená, kterou si lidé ještě nenaplánovali.">
-        <Bars items={r.curve.months.map((m) => ({ label: MONTH[m.month - 1], value: m.days, muted: m.future }))} unit=" dní" />
+        <Bars items={r.curve.months.map((m) => ({ label: MONTH[m.month - 1], value: m.days, muted: m.future, ids: m.ids }))} unit=" dní" axisUnit="pracovní dny dovolené v měsíci (světlejší = ještě před námi)" nameOf={nameOf} />
         {r.curve.unplanned.length === 0 ? (
           <Empty text="Všichni mají zbývající dovolenou naplánovanou." />
         ) : (
@@ -230,7 +225,7 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
         ) : (
           <>
             <Row left={`Dovolené navazující na víkend nebo svátek (z ${r.bridge.total})`} right={`${r.bridge.pct} %`} tone={r.bridge.pct >= 70 ? "warning" : undefined} />
-            <Bars items={r.bridge.byWeekday.map((w) => ({ label: WEEKDAY[w.weekday], value: w.days }))} unit=" dní" />
+            <Bars items={r.bridge.byWeekday.map((w) => ({ label: WEEKDAY[w.weekday], value: w.days, ids: w.ids }))} unit=" dní" axisUnit="dny dovolené za poslední rok podle dne v týdnu" nameOf={nameOf} />
           </>
         )}
       </Card>
@@ -257,13 +252,13 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
           <Empty text="Zatím nejsou vyřízené žádosti." />
         ) : (
           <>
-            <Row left={`Celá firma (${r.decisions.overall.decided} vyřízených)`} right={`${r.decisions.overall.rejectedPct} % zamítnuto`} />
+            <Row left={`Celá firma (${r.decisions.overall.decided} vyřízených)`} right={`${r.decisions.overall.rejectedPct} % zamítnuto`} tone={r.decisions.overall.rejectedPct > 10 ? "danger" : undefined} />
             {r.decisions.byDept.slice(0, 5).map((d) => (
-              <Row key={d.dept} left={`${d.dept} (${d.decided})`} right={`${d.rejectedPct} %`} tone={d.rejectedPct >= 40 ? "warning" : undefined} />
+              <Row key={d.dept} left={`${d.dept} (${d.decided})`} right={`${d.rejectedPct} %`} tone={d.rejectedPct > 10 ? "danger" : undefined} />
             ))}
             {r.decisions.byApprover.length > 0 && <div className="pt-1 text-[11px] font-medium uppercase tracking-wide text-muted">Podle schvalovatele</div>}
             {r.decisions.byApprover.slice(0, 5).map((a) => (
-              <Row key={a.approverId} left={`${nameOf(a.approverId)} (${a.decided})`} right={`${a.rejectedPct} %`} />
+              <Row key={a.approverId} left={`${nameOf(a.approverId)} (${a.decided})`} right={`${a.rejectedPct} %`} tone={a.rejectedPct > 10 ? "danger" : undefined} />
             ))}
           </>
         )}
@@ -277,7 +272,7 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
         ) : (
           <>
             <Row left="Celá firma" right={`${r.home.overallPct} %`} />
-            <Bars items={r.home.byWeekday.map((w) => ({ label: WEEKDAY[w.weekday], value: w.pct }))} unit=" %" />
+            <Bars items={r.home.byWeekday.map((w) => ({ label: WEEKDAY[w.weekday], value: w.pct, ids: w.ids }))} unit=" %" axisUnit="% lidí na Home Office (90 dní)" nameOf={nameOf} />
             {r.home.byDept.slice(0, 6).map((d) => (
               <Row key={d.dept} left={d.dept} right={`${d.pct} %`} />
             ))}
@@ -292,7 +287,7 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
             <Empty text="Za poslední rok žádné krátké nemoci." />
           ) : (
             <>
-              <Bars items={r.sick.shortByStartWeekday.map((w) => ({ label: WEEKDAY[w.weekday], value: w.count }))} />
+              <Bars items={r.sick.shortByStartWeekday.map((w) => ({ label: WEEKDAY[w.weekday], value: w.count }))} axisUnit="počet krátkých nemocí podle dne začátku" />
               <Row left={`Krátké nemoci (z ${r.sick.episodes} všech)`} right={`${r.sick.shortEpisodes}`} />
               <Row left="Začínají v pondělí nebo v pátek" right={`${r.sick.mondayFridayPct} %`} tone={r.sick.shortEpisodes >= 8 && r.sick.mondayFridayPct >= 60 ? "warning" : undefined} />
             </>
