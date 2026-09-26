@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { canSeeAnalytics, canSeeReports, canSeeSettings } from "@/lib/access";
+import { canSeeAnalytics, canSeeInsights, canSeeReports, canSeeSettings } from "@/lib/access";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { HelpDrawer } from "@/components/layout/HelpDrawer";
@@ -32,11 +32,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isManager = isAdmin || profile?.role === "manager";
   const adminArea = pathname.startsWith("/admin");
   const analyticsArea = pathname.startsWith("/admin/overview");
+  const insightsArea = pathname.startsWith("/admin/insights");
   const exportsArea = pathname.startsWith("/admin/exports");
   const settingsArea = pathname.startsWith("/admin/settings");
   const forbidden =
     !!profile &&
-    ((adminArea && !isAdmin && !(analyticsArea && canSeeAnalytics(profile)) && !(exportsArea && canSeeReports(profile)) && !(settingsArea && canSeeSettings(profile))) ||
+    ((adminArea && !isAdmin && !(analyticsArea && canSeeAnalytics(profile)) && !(insightsArea && canSeeInsights(profile)) && !(exportsArea && canSeeReports(profile)) && !(settingsArea && canSeeSettings(profile))) ||
       ((pathname.startsWith("/approvals") || pathname.startsWith("/team")) && !isManager));
 
   useEffect(() => {

@@ -106,6 +106,13 @@ export function useExtraInsights(companyId: string | undefined, enabled: boolean
   return state;
 }
 
+/** Které karty patří do které záložky. */
+const GROUPS: Record<"plan" | "people" | "flow", string[]> = {
+  plan: ["curve", "key", "subs", "bridge"],
+  people: ["moves"],
+  flow: ["lead", "decisions", "home", "sick"],
+};
+
 const DOT: Record<Finding["severity"], string> = { 3: "bg-danger", 2: "bg-warning", 1: "bg-teal" };
 
 /** Jedna karta s nejdůležitějšími zjištěními týdne. */
@@ -163,10 +170,12 @@ function Names({ ids, nameOf, limit = 6 }: { ids: string[]; nameOf: (id: string)
 }
 
 /** Devět dalších karet. Vkládá se do mřížky karet Smart HR Insights. */
-export function ExtraCards({ extra }: { extra: ExtraInsights }) {
+export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "plan" | "people" | "flow" }) {
   const { results: r, nameOf, dailyCost } = extra;
+  const show = (key: string) => GROUPS[group].includes(key);
   return (
     <>
+      {show("curve") && (
       <Card className="lg:col-span-2" icon={<TrendingUp size={17} className="text-teal-dark" />} title="Hokejka dovolené" hint="Dny dovolené (schválené i čekající) po měsících letošního roku a dovolená, kterou si lidé ještě nenaplánovali.">
         <Bars items={r.curve.months.map((m) => ({ label: MONTH[m.month - 1], value: m.days, muted: m.future }))} unit=" dní" />
         {r.curve.unplanned.length === 0 ? (
@@ -182,7 +191,9 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
           </>
         )}
       </Card>
+      )}
 
+      {show("key") && (
       <Card icon={<KeyRound size={17} className="text-teal-dark" />} title="Kolize vedoucích" hint="Kdy v příštích 90 dnech chybí vedoucí oddělení i jeho zástupce zároveň, a oddělení bez zástupce vedoucího.">
         {r.key.clashes.length === 0 && r.key.noDeputy.length === 0 && <Empty text="Žádné kolize ani chybějící zástupci." />}
         {r.key.clashes.slice(0, 6).map((c, i) => (
@@ -192,7 +203,9 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
           <Row key={d.dept} left={`${d.dept}: chybí zástupce vedoucího`} right="doplnit" tone="warning" />
         ))}
       </Card>
+      )}
 
+      {show("subs") && (
       <Card icon={<Link2 size={17} className="text-teal-dark" />} title="Zástupy" hint="Kdo má určený zástup, kdo zastupuje víc kolegů a kdy v příštích 60 dnech chybí člověk i jeho zástup.">
         {r.subs.clashes.length === 0 && <Empty text="Nikdo nechybí zároveň se svým zástupem." />}
         {r.subs.clashes.slice(0, 6).map((c, i) => (
@@ -208,7 +221,9 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
           </>
         )}
       </Card>
+      )}
 
+      {show("bridge") && (
       <Card icon={<CalendarRange size={17} className="text-teal-dark" />} title="Víkendy a mosty" hint="Jak často dovolená navazuje na víkend či svátek a které dny v týdnu jsou nejvíc obsazené (poslední rok).">
         {r.bridge.total === 0 ? (
           <Empty text="Zatím nejsou data." />
@@ -219,7 +234,9 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
           </>
         )}
       </Card>
+      )}
 
+      {show("lead") && (
       <Card icon={<Clock3 size={17} className="text-teal-dark" />} title="Předstih žádostí" hint="Kolik dní před nástupem lidé o dovolenou žádají. Oddělení s aspoň 5 lidmi.">
         {r.lead.overall.requests === 0 ? (
           <Empty text="Zatím nejsou data." />
@@ -232,7 +249,9 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
           </>
         )}
       </Card>
+      )}
 
+      {show("decisions") && (
       <Card icon={<Scale size={17} className="text-teal-dark" />} title="Schvalování a zamítání" hint="Podíl zamítnutých dovolených za poslední rok. Oddělení a schvalovatelé se aspoň 5 vyřízenými žádostmi.">
         {r.decisions.overall.decided === 0 ? (
           <Empty text="Zatím nejsou vyřízené žádosti." />
@@ -249,7 +268,9 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
           </>
         )}
       </Card>
+      )}
 
+      {show("home") && (
       <Card icon={<Home size={17} className="text-teal-dark" />} title="Home Office" hint="Podíl pracovních dnů na Home Office za posledních 90 dní, podle dne v týdnu a oddělení.">
         {!r.home ? (
           <Empty text={`Málo lidí na smysluplný souhrn (aspoň ${MIN_GROUP}).`} />
@@ -263,8 +284,9 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
           </>
         )}
       </Card>
+      )}
 
-      {r.sick && (
+      {show("sick") && r.sick && (
         <Card icon={<Stethoscope size={17} className="text-teal-dark" />} title="Krátké nemoci (souhrnně)" hint="Jen souhrn za celou firmu, bez jmen a bez rozpadu na oddělení. Krátká nemoc = do 2 pracovních dnů; ukazuje, ve který den v týdnu začíná.">
           {r.sick.shortEpisodes === 0 ? (
             <Empty text="Za poslední rok žádné krátké nemoci." />
@@ -278,6 +300,7 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
         </Card>
       )}
 
+      {show("moves") && (
       <Card icon={<UserRoundPlus size={17} className="text-teal-dark" />} title="Nováčci a odchody" hint="Nováčci za posledních 90 dní a lidé, kteří za posledních 180 dní odešli, s nevyčerpanou dovolenou a odhadem vyrovnání.">
         {r.moves.joiners.length === 0 && r.moves.leavers.length === 0 && <Empty text="Za poslední dobu žádní nováčci ani odchody." />}
         {r.moves.joiners.length > 0 && <div className="text-[11px] font-medium uppercase tracking-wide text-muted">Nováčci</div>}
@@ -290,6 +313,7 @@ export function ExtraCards({ extra }: { extra: ExtraInsights }) {
         ))}
         {r.moves.leavers.some((l) => l.remaining > 0) && dailyCost === null && <p className="text-xs text-muted">Odhad částky doplníte zadáním průměrných nákladů na den v kartě Závazek z dovolené.</p>}
       </Card>
+      )}
     </>
   );
 }

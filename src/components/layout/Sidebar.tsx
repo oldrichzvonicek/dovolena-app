@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useFeatures } from "@/lib/use-features";
 import type { FeatureKey } from "@/lib/plans";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock } from "lucide-react";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { useOnDataChanged } from "@/lib/events";
 import { fetchDecisionScope } from "@/lib/approval-scope";
-import { allowedSettingsSections, canSeeReports, canSeeSettings } from "@/lib/access";
+import { allowedSettingsSections, canSeeInsights, canSeeReports, canSeeSettings } from "@/lib/access";
 import { AppLogo } from "@/components/shared/AppLogo";
 
 export const TOGGLE_NAV_EVENT = "dodio:toggle-nav";
@@ -29,6 +29,7 @@ const managerNav = [
 
 const adminNav = [
   { href: "/admin/overview", label: "Analytika", icon: BarChart3 },
+  { href: "/admin/insights", label: "Smart HR", icon: Sparkles, feature: "hr_insights" as FeatureKey },
   { href: "/admin/exports", label: "Exporty", icon: Download, feature: "exports" as FeatureKey },
 ];
 
@@ -222,7 +223,7 @@ export function Sidebar() {
               {isAdmin ? "Administrace" : profile.staff_role === "hr" ? "HR" : "Mzdy"}
             </div>
             <div className="space-y-1">
-              {adminNav.map((item) => (
+              {adminNav.filter((item) => item.href !== "/admin/insights" || canSeeInsights(profile)).map((item) => (
                 <NavLink key={item.href} {...item} active={pathname === item.href} locked={isLocked((item as { feature?: FeatureKey }).feature)} />
               ))}
             </div>

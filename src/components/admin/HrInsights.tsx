@@ -85,6 +85,13 @@ function RechargeRow({ id, left, pct, tone, ids, names, open, onToggle }: { id: 
 /** U „Žádná dovolená“ je špatné vysoké číslo, u ostatních voleb nízké. */
 const warnRecharge = (pct: number, limit: number, min: number): "warning" | undefined => (min === 0 ? (pct > 100 - limit ? "warning" : undefined) : pct < limit ? "warning" : undefined);
 
+type InsightTab = "plan" | "people" | "flow";
+const TABS: { key: InsightTab; label: string }[] = [
+  { key: "plan", label: "Kapacita a plánování" },
+  { key: "people", label: "Lidé a zůstatky" },
+  { key: "flow", label: "Schvalování a zdraví" },
+];
+
 type TrendSeries = "absencePct" | "vacationPct" | "homeOfficePct" | "sickPct";
 const SERIES: { key: TrendSeries; label: string }[] = [
   { key: "absencePct", label: "Absence celkem" },
@@ -113,6 +120,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   const [periodKey, setPeriodKey] = useState(MAIN_PERIODS[0].key);
   const [rechargeMin, setRechargeMin] = useState(5);
   const [rechargeOpen, setRechargeOpen] = useState<string | null>(null);
+  const [tab, setTab] = useState<InsightTab>("plan");
   const extra = useExtraInsights(profile?.company_id, !!profile && allowed && unlocked && !features.loading, departmentId);
 
   useEffect(() => {
@@ -258,7 +266,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   }
 
   if (!profile || !allowed || features.loading) return null;
-  if (!unlocked) return profile.role === "admin" ? <LockedInsights /> : null;
+  if (!unlocked) return <LockedInsights />;
   if (error) return <p className="text-sm text-danger-dark">Smart HR Insights se nepodařilo načíst: {error}</p>;
   if (!data) return null;
 
@@ -282,9 +290,22 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
 
   return (
     <div>
-      <h2 className="mb-3 text-label uppercase tracking-wide text-muted">Smart HR Insights</h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {extra && <ExtraSummary extra={extra} />}
+        <div className="flex flex-wrap gap-1.5 lg:col-span-2" role="tablist" aria-label="Oblast přehledu">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTab(t.key)}
+              className={cn("rounded-full border px-4 py-1.5 text-sm", tab === t.key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {tab === "plan" && (
         <Card
           className="lg:col-span-2"
           icon={<CalendarClock size={17} className="text-teal-dark" />}
@@ -323,7 +344,9 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
             </div>
           )}
         </Card>
+        )}
 
+        {tab === "flow" && (
         <Card icon={<HeartPulse size={17} className="text-teal-dark" />} title="Nemocnost (souhrnně)" hint={`Posledních 90 dní. Jen oddělení s alespoň ${MIN_GROUP} lidmi, nikdy jména ani jednotlivci.`}>
           {data.sick.rows.length === 0 && !data.sick.company && <Empty text="Málo lidí na smysluplný souhrn." />}
           {data.sick.company && <Row left={`Celá firma (${data.sick.company.size} lidí)`} right={`${formatNumber(data.sick.company.sharePct)} % pracovních dnů`} />}
@@ -332,7 +355,9 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           ))}
           {data.sick.hiddenDepartments > 0 && <p className="text-xs text-muted">Menší oddělení ({data.sick.hiddenDepartments}) se z důvodu ochrany soukromí nezobrazují.</p>}
         </Card>
+        )}
 
+        {tab === "flow" && (
         <Card icon={<Clock size={17} className="text-teal-dark" />} title="Rychlost schvalování" hint="Jak dlouho žádost čeká na rozhodnutí — medián za posledních 90 dní, schvalovatelé s aspoň 3 rozhodnutími.">
           {data.speed.rows.length === 0 ? (
             <Empty text="Zatím málo rozhodnutí." />
@@ -345,7 +370,9 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
             </>
           )}
         </Card>
+        )}
 
+        {tab === "people" && (
         <Card icon={<Wallet size={17} className="text-teal-dark" />} title="Závazek z nevyčerpané dovolené" hint="Součet nevyčerpaných dní; dny nad strop převodu propadnou. Částka podle průměrných denních nákladů.">
           <Row left="Nevyčerpáno celkem" right={`${formatNumber(data.liability.totalDays)} ${dayWord(data.liability.totalDays)}${data.liability.amount !== null ? ` · ${data.liability.amount.toLocaleString("cs-CZ")} Kč` : ""}`} />
           <Row left="Propadne při převodu" right={`${formatNumber(data.liability.forfeitDays)} ${dayWord(data.liability.forfeitDays)}${data.liability.forfeitAmount !== null ? ` · ${data.liability.forfeitAmount.toLocaleString("cs-CZ")} Kč` : ""}`} tone={data.liability.forfeitDays > 0 ? "warning" : undefined} />
@@ -372,7 +399,9 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
             data.dailyCost === null && <p className="text-xs text-muted">Sazbu pro přepočet na koruny nastavuje admin.</p>
           )}
         </Card>
+        )}
 
+        {tab === "people" && (
         <Card icon={<Scale size={17} className="text-teal-dark" />} title="Zůstatky" hint="V minusu a dny, které propadnou při přenosu">
           {data.overdrawn.length === 0 && data.forfeit.length === 0 && <Empty text="Všichni jsou v pořádku." />}
           {data.overdrawn.map((p) => (
@@ -382,7 +411,9 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
             <Row key={`f-${p.name}`} left={`${p.name} — propadne při přenosu`} right={`${formatNumber(p.days)} ${dayWord(p.days)}`} tone="warning" />
           ))}
         </Card>
+        )}
 
+        {tab === "plan" && (
         <Card
           className="lg:col-span-2"
           icon={<LineChart size={17} className="text-teal-dark" />}
@@ -404,7 +435,9 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           <TrendChart points={data.trend} series={series} />
           <Seasonality points={data.trend.slice(12)} series={series} />
         </Card>
+        )}
 
+        {tab === "people" && (
         <Card icon={<BatteryCharging size={17} className="text-teal-dark" />} title="Dobití baterií" hint={`${rechargeOpt.hint} Oddělení s aspoň ${MIN_GROUP} lidmi; kliknutím na řádek uvidíte jména.`}>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Délka dovolené">
             {RECHARGE_OPTIONS.map((o) => (
@@ -427,7 +460,9 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           ))}
           {recharge.hiddenDepartments > 0 && <p className="text-xs text-muted">Menší oddělení ({recharge.hiddenDepartments}) se z důvodu ochrany soukromí nezobrazují.</p>}
         </Card>
+        )}
 
+        {tab === "plan" && (
         <Card icon={<Users size={17} className="text-teal-dark" />} title="Férové plánování hlavních období" hint="Kdo měl loni totéž období a kdo letos už něco plánuje. Nahoře jsou ti, kdo loni neměli. Jen dovolená.">
           <div className="flex gap-1.5" role="group" aria-label="Období">
             {MAIN_PERIODS.map((p) => (
@@ -443,7 +478,8 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           </div>
           <FairRota data={data} periodKey={periodKey} />
         </Card>
-        {extra && <ExtraCards extra={extra} />}
+        )}
+        {extra && <ExtraCards extra={extra} group={tab} />}
       </div>
     </div>
   );
@@ -554,7 +590,7 @@ function LockedInsights() {
         <LineChart size={18} className="text-teal-dark" /> Smart HR Insights <InfoTip text={addon.info} label="Co jsou Smart HR Insights" />
       </div>
       <p className="mt-1 text-sm text-muted">
-        Předpověď kapacity týmu, trendy, anonymní nemocnost, závazek z dovolené a férové plánování hlavních období. Ve vašem tarifu nejsou zahrnuty.
+        Shrnutí týdne, předpověď kapacity, hokejka dovolené, zástupy a kolize vedoucích, trendy, anonymní nemocnost, závazek z dovolené a férové plánování. Ve vašem tarifu nejsou zahrnuty.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
         <span>

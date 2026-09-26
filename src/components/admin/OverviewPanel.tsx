@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DbDepartment } from "@/lib/supabase/types";
 import { LeaveColor } from "@/lib/supabase/types";
 import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationReport";
-import { HrInsights } from "@/components/admin/HrInsights";
+import { canSeeInsights } from "@/lib/access";
 import { reducesPresence } from "@/lib/leave-kinds";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { useFeatures } from "@/lib/use-features";
@@ -508,7 +508,15 @@ export function OverviewPanel() {
       {/* Not scoped to the month/year switcher above — always "starting from today", so it's pulled visually apart with its own heading + divider rather than sitting right under the monthly cards. */}
       {state && (
         <div className="space-y-6">
-          <HrInsights departmentId={deptFilter} />
+          {canSeeInsights(profile) && (
+            <Link href="/admin/insights" className="card flex items-center justify-between gap-3 p-4 text-sm hover:bg-paper">
+              <span>
+                <span className="font-display text-h2">Smart HR</span>
+                <span className="mt-0.5 block text-xs text-muted">Shrnutí týdne, předpověď kapacity, hokejka dovolené, zástupy a další přehledy najdete na samostatné stránce.</span>
+              </span>
+              <span className="shrink-0 font-medium text-teal-dark">Otevřít →</span>
+            </Link>
+          )}
 
           <h2 className="mb-3 text-label uppercase tracking-wide text-muted">Nezávisle na vybraném období</h2>
           <div className="card overflow-hidden">

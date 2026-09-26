@@ -17,6 +17,9 @@ export const isAccountant = (p: Who) => p?.staff_role === "accountant";
 /** Analytika + Exporty. */
 export const canSeeReports = (p: Who) => isAdminRole(p) || !!p?.staff_role;
 
+/** Smart HR (přehledy pro vedení lidí): admin a HR. Manažer a účetní ho nevidí. */
+export const canSeeInsights = (p: Who) => isAdminRole(p) || isHr(p);
+
 /** Analytika: admin, HR a účetní za celou firmu, manažer jen za svá oddělení (výběr dat řeší OverviewPanel). */
 export const canSeeAnalytics = (p: Who) => canSeeReports(p) || p?.role === "manager";
 

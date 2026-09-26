@@ -532,7 +532,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Co je „Férové plánování hlavních období“ a „Dobití baterií“?",
-    a: "Dvě další karty v Smart HR Insights (Analytika). Férové plánování ukazuje pro Vánoce a léto, kdo měl loni totéž období a kdo letos už něco plánuje, takže je vidět, kdo je na řadě. U žádostí v těchto obdobích to vidí i schvalovatel jako krátkou poznámku. Dobití baterií je podíl lidí v oddělení, kteří v posledním půlroce měli souvislou dovolenou aspoň 2, 3, 4 nebo 5 dní (nebo naopak neměli ani den dovolené – přepíná se nad kartou). Zobrazuje se za celou firmu a oddělení s aspoň 5 lidmi; kliknutím na řádek se ukážou jména lidí, kteří do skupiny spadají. Trendy za 12 měsíců srovnávají absenci, dovolenou, Home Office a nemoc (souhrnně) s minulým rokem.",
+    a: "Dvě další karty ve Smart HR (samostatná položka v menu). Férové plánování ukazuje pro Vánoce a léto, kdo měl loni totéž období a kdo letos už něco plánuje, takže je vidět, kdo je na řadě. U žádostí v těchto obdobích to vidí i schvalovatel jako krátkou poznámku. Dobití baterií je podíl lidí v oddělení, kteří v posledním půlroce měli souvislou dovolenou aspoň 2, 3, 4 nebo 5 dní (nebo naopak neměli ani den dovolené – přepíná se nad kartou). Zobrazuje se za celou firmu a oddělení s aspoň 5 lidmi; kliknutím na řádek se ukážou jména lidí, kteří do skupiny spadají. Trendy za 12 měsíců srovnávají absenci, dovolenou, Home Office a nemoc (souhrnně) s minulým rokem.",
     section: "Analytika a Exporty (admin)",
     roles: ["admin"],
   },
@@ -575,7 +575,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Proč nevidím Ke schválení, Můj tým nebo Analytiku?",
-    a: "Ke schválení a Můj tým vidí jen manažeři a admini. Analytiku a Exporty vidí admin a lidé s doplňkovou rolí HR nebo Účetní. Když si myslíte, že je máte mít, požádejte admina o změnu role.",
+    a: "Ke schválení a Můj tým vidí jen manažeři a admini. Analytiku a Exporty vidí admin a lidé s doplňkovou rolí HR nebo Účetní, Smart HR jen admin a HR. Když si myslíte, že je máte mít, požádejte admina o změnu role.",
     section: "Účet",
   },
   {

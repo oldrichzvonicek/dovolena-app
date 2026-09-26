@@ -15,9 +15,10 @@ import {
   Settings,
   User,
   Users,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { allowedSettingsSections, canSeeAnalytics, canSeeReports } from "@/lib/access";
+import { allowedSettingsSections, canSeeAnalytics, canSeeInsights, canSeeReports } from "@/lib/access";
 import { createClient } from "@/lib/supabase/client";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ const managerItems: Item[] = [
 ];
 const adminItems: Item[] = [
   { href: "/admin/overview", label: "Analytika", icon: BarChart3, group: "Administrace" },
+  { href: "/admin/insights", label: "Smart HR", icon: Sparkles, group: "Administrace" },
   { href: "/admin/exports", label: "Exporty", icon: Download, group: "Administrace" },
   { href: "/admin/settings?sekce=users", label: "Nastavení firmy — Uživatelé", icon: Settings, group: "Administrace" },
   { href: "/admin/settings?sekce=departments", label: "Nastavení firmy — Oddělení", icon: Settings, group: "Administrace" },
@@ -103,6 +105,7 @@ export function CommandPalette() {
     const staffItems = adminItems.filter((i) => {
       if (isAdmin) return true;
       if ((i.href ?? "").startsWith("/admin/settings")) return allowed.some((k) => (i.href ?? "").endsWith("=" + k));
+      if ((i.href ?? "").startsWith("/admin/insights")) return canSeeInsights(profile);
       return (i.href ?? "").startsWith("/admin/overview") ? canSeeAnalytics(profile) : canSeeReports(profile);
     });
     return [...actions, ...mainItems, ...(isManager ? managerItems : []), ...staffItems, helpItem];
