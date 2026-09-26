@@ -1,5 +1,5 @@
 // Tariffs and prices (CZK, bez DPH nebylo upřesněno). Edit here to change what the app shows.
-// Zatím se limity uživatelů jen zobrazují, nevynucují. Funkce doplňků (HR Insights, Účetní) se vynucují.
+// Zatím se limity uživatelů jen zobrazují, nevynucují. Funkce doplňků (Smart HR Insights, Účetní) se vynucují.
 
 // Interní klíče zůstávají kvůli existujícím datům: "basic" se zobrazuje jako Starter, "starter" jako Team.
 /**
@@ -68,9 +68,9 @@ export const PLANS: Plan[] = [
     recommended: true,
     tagline: "Firma, která lidi opravdu řídí: přehledy, pravidla a žádné limity.",
     features: [
-      "Bez horního limitu uživatelů (do 30 v ceně, každý další 39 Kč)",
+      "Bez horního limitu uživatelů",
       "Vše z tarifu Team",
-      "HR Insights a role HR",
+      "Smart HR Insights a role HR",
       "Eskalace schvalování a zástupy",
       ...(CHAT_INTEGRATIONS_ENABLED ? ["Webhooky"] : []),
       "Webhooky",
@@ -120,7 +120,7 @@ export interface Addon {
 export const ADDONS: Addon[] = [
   {
     key: "hr_insights",
-    name: "HR Insights",
+    name: "Smart HR Insights",
     monthly: 200,
     yearly: 2000,
     availableOn: ["free", "basic", "starter"],
@@ -163,7 +163,7 @@ export const FEATURE_MIN_PLAN: Record<PlanFeatureKey, PlanKey> = {
 
 /** Název funkce pro zamčené karty a hlášky. */
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
-  hr_insights: "HR Insights",
+  hr_insights: "Smart HR Insights",
   accountant: "Role Účetní",
   exports: "Exporty (CSV, Excel), mzdový podklad a vyrovnání",
   ical: "iCal export kalendáře",
@@ -247,7 +247,7 @@ const ALL_FEATURE_MATRIX: FeatureGroup[] = [
       { feature: "escalation", label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
       { feature: "seniority", label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, true, true] },
       { feature: "audit_log", label: "Historie změn", benefit: "Kdo, kdy a co změnil — u žádostí, lidí i nastavení.", values: [false, false, true, true] },
-      { feature: "hr_insights", label: "HR Insights a role HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
+      { feature: "hr_insights", label: "Smart HR Insights a role HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
     ],
   },
 ];

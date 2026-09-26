@@ -19,6 +19,7 @@ import { reducesPresence } from "@/lib/leave-kinds";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { useFeatures } from "@/lib/use-features";
 import { fetchAnalyticsDepartmentIds } from "@/lib/approval-scope";
+import { fetchAll } from "@/lib/fetch-all";
 
 interface State {
   employeeCount: number;
@@ -157,15 +158,19 @@ export function OverviewPanel() {
           scopeIds || deptFilter !== "all"
             ? supabase.from("leave_requests").select("id, profile:profiles!leave_requests_profile_id_fkey(department_id)").eq("status", "pending")
             : supabase.from("leave_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
-          supabase
-            .from("leave_requests")
-            .select(
-              "start_date, end_date, working_days, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id, department:departments!profiles_department_id_fkey(name))"
-            )
-            .eq("status", "approved")
-            // Absences overlapping the period (their days are split between periods), not only those starting in it.
-            .lte("start_date", monthEnd)
-            .gte("end_date", monthStart),
+          fetchAll<Record<string, unknown>>((a, b) =>
+            supabase
+              .from("leave_requests")
+              .select(
+                "id, start_date, end_date, working_days, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id, department:departments!profiles_department_id_fkey(name))"
+              )
+              .eq("status", "approved")
+              // Absences overlapping the period (their days are split between periods), not only those starting in it.
+              .lte("start_date", monthEnd)
+              .gte("end_date", monthStart)
+              .order("id")
+              .range(a, b) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>
+          ),
           supabase
             .from("leave_requests")
             .select(

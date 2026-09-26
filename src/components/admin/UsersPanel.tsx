@@ -329,7 +329,7 @@ export function UsersPanel() {
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <InviteUserModal onInvited={load} onCopyLink={copyGenericLink} />
+        <InviteUserModal onInvited={load} />
         <Button variant="secondary" onClick={copyGenericLink}>
           <Link2 size={14} /> Kopírovat registrační odkaz
         </Button>

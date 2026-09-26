@@ -1,4 +1,4 @@
-// HR Insights — čisté výpočty nad načtenými daty (žádný přístup k databázi), aby šly použít v prohlížeči i v serverové
+// Smart HR Insights — čisté výpočty nad načtenými daty (žádný přístup k databázi), aby šly použít v prohlížeči i v serverové
 // týdenní kontrole a snadno testovat. Zásady: agregace místo jmen u citlivých údajů (nemoc se nikdy nevypisuje
 // po jednotlivcích, skupiny menší než MIN_GROUP se neukazují), každý postřeh vychází z dat, která jdou dohledat.
 import { addDays, format, parseISO, startOfWeek } from "date-fns";
@@ -431,6 +431,8 @@ export interface RechargeScore {
   size: number;
   /** Podíl lidí, kteří za posledních ~6 měsíců měli souvislou dovolenou aspoň `minDays` pracovních dní. */
   pct: number;
+  /** ID lidí, kteří do zvolené skupiny spadají (jména si doplní obrazovka; zobrazují se až po rozkliknutí). */
+  ids: string[];
 }
 
 /**
@@ -444,13 +446,15 @@ export function rechargeScore(
   today: string,
   windowDays = 182,
   minDays = 5
-): { rows: RechargeScore[]; company: { size: number; pct: number } | null; hiddenDepartments: number } {
+): { rows: RechargeScore[]; company: { size: number; pct: number; ids: string[] } | null; hiddenDepartments: number } {
   const since = format(addDays(parseISO(today), -windowDays), "yyyy-MM-dd");
-  const recharged = new Set(
+  // minDays = 0 → „žádná dovolená“: počítá se podíl lidí, kteří za období neměli ani den dovolené.
+  const withVacation = new Set(
     requests
-      .filter((r) => r.leave_type?.counts_against === "vacation" && r.status !== "pending" && Number(r.working_days) >= minDays && r.end_date >= since && r.start_date <= today)
+      .filter((r) => r.leave_type?.counts_against === "vacation" && r.status !== "pending" && Number(r.working_days) >= Math.max(minDays, 0.5) && r.end_date >= since && r.start_date <= today)
       .map((r) => r.profile_id)
   );
+  const recharged = minDays <= 0 ? { has: (id: string) => !withVacation.has(id) } : withVacation;
   const rows: RechargeScore[] = [];
   let hidden = 0;
   for (const d of depts) {
@@ -460,9 +464,11 @@ export function rechargeScore(
       hidden++;
       continue;
     }
-    rows.push({ dept: d.name, size: members.length, pct: Math.round((members.filter((m) => recharged.has(m.id)).length / members.length) * 100) });
+    const ids = members.filter((m) => recharged.has(m.id)).map((m) => m.id);
+    rows.push({ dept: d.name, size: members.length, pct: Math.round((ids.length / members.length) * 100), ids });
   }
   rows.sort((a, b) => a.pct - b.pct);
-  const company = people.length >= MIN_GROUP ? { size: people.length, pct: Math.round((people.filter((p) => recharged.has(p.id)).length / people.length) * 100) } : null;
+  const companyIds = people.filter((p) => recharged.has(p.id)).map((p) => p.id);
+  const company = people.length >= MIN_GROUP ? { size: people.length, pct: Math.round((companyIds.length / people.length) * 100), ids: companyIds } : null;
   return { rows, company, hiddenDepartments: hidden };
 }

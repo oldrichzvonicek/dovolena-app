@@ -236,7 +236,7 @@ async function main() {
         return d.toISOString().slice(0, 10);
       })();
       const ins = async (who: Role, profile: Role, type: string, start: string, end: string, half = false) =>
-        users[who].client.from("leave_requests").insert({ profile_id: users[profile].id, leave_type_id: type, start_date: start, end_date: end, working_days: half ? 0.5 : 1, half_day: half, status: half ? "approved" : "pending" }).select("id");
+        users[who].client.from("leave_requests").insert({ profile_id: users[profile].id, leave_type_id: type, start_date: start, end_date: end, working_days: half ? 0.5 : 1, half_day: half, status: "pending" }).select("id");
       const first = await ins("emp2", "emp2", t("dovolena"), base, next);
       expect("emp2 zadá první dovolenou", !first.error, true);
       const dup = await ins("emp2", "emp2", t("dovolena"), base, base);
@@ -256,7 +256,7 @@ async function main() {
       const { data: got } = await sb.from("leave_requests").select("profile_id").eq("leave_type_id", t("dovolena")).eq("start_date", base).eq("end_date", base);
       const gotIds = new Set((got ?? []).map((r) => r.profile_id));
       expect("celozávodní dovolená proběhla", !cw.error, true);
-      expect("celozávodní dovolená přeskočila emp2 (už má dovolenou)", gotIds.size - (before.count ?? 0) >= 0 && (got ?? []).filter((r) => r.profile_id === users.emp2.id).length === 1, true);
+      expect("celozávodní dovolená přeskočila emp2 (už má dovolenou)", gotIds.size - (before.count ?? 0) >= 0 && (got ?? []).filter((r) => r.profile_id === users.emp2.id).length === 0, true);
       expect("celozávodní dovolená přeskočila deaktivovaného", gotIds.has(users.inactive.id), false);
       expect("celozávodní dovolená zapsala člověku bez absence (mgr)", gotIds.has(users.mgr.id), true);
       await sb.from("leave_requests").delete().eq("start_date", base).in("profile_id", [users.emp1.id, users.emp2.id, users.mgr.id, users.hr.id, users.acct.id, users.admin.id]);

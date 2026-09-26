@@ -35,12 +35,12 @@ describe("plans", () => {
 });
 
 describe("add-ons", () => {
-  it("prices HR Insights at 200 and Účetní at 100 per month", () => {
+  it("prices Smart HR Insights at 200 and Účetní at 100 per month", () => {
     expect(ADDONS.find((a) => a.key === "hr_insights")!.monthly).toBe(200);
     expect(ADDONS.find((a) => a.key === "accountant")!.monthly).toBe(100);
   });
 
-  it("HR Insights: add-on for Free, Basic and Starter, included in Pro", () => {
+  it("Smart HR Insights: add-on for Free, Basic and Starter, included in Pro", () => {
     expect(hasFeature("basic", ["hr_insights"], "hr_insights")).toBe(true);
     expect(hasFeature("enterprise", [], "hr_insights")).toBe(true);
     expect(hasFeature("free", [], "hr_insights")).toBe(false);
@@ -64,7 +64,7 @@ describe("add-ons", () => {
     keys.forEach((k, i) => {
       expect(row("Role Účetní").values[i] === true || row("Role Účetní").values[i] === "addon").toBe(true);
       expect(row("Role Účetní").values[i] === true).toBe(hasFeature(k, [], "accountant"));
-      expect(row("HR Insights").values[i] === true).toBe(hasFeature(k, [], "hr_insights"));
+      expect(row("Smart HR Insights").values[i] === true).toBe(hasFeature(k, [], "hr_insights"));
     });
   });
 

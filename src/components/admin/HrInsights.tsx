@@ -6,6 +6,7 @@ import { cs } from "date-fns/locale";
 import { BatteryCharging, CalendarClock, Clock, HeartPulse, LineChart, Scale, Users, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { fetchAll } from "@/lib/fetch-all";
 import { useFeatures } from "@/lib/use-features";
 import { ADDONS, formatKc } from "@/lib/plans";
 import { InfoTip } from "@/components/ui/info-tip";
@@ -48,6 +49,40 @@ interface Data {
   workDays: number[];
 }
 
+/** Volby karty „Dobití baterií“: 0 = kolik lidí za půlrok nemělo ani den dovolené, jinak souvislá dovolená aspoň N pracovních dní. */
+const RECHARGE_OPTIONS: { value: number; label: string; hint: string }[] = [
+  { value: 0, label: "Žádná dovolená", hint: "Podíl lidí, kteří v posledním půlroce neměli ani den dovolené." },
+  { value: 2, label: "Aspoň 2 dny", hint: "Podíl lidí, kteří v posledním půlroce měli souvislou dovolenou aspoň 2 dny." },
+  { value: 3, label: "Aspoň 3 dny", hint: "Podíl lidí, kteří v posledním půlroce měli souvislou dovolenou aspoň 3 dny." },
+  { value: 4, label: "Aspoň 4 dny", hint: "Podíl lidí, kteří v posledním půlroce měli souvislou dovolenou aspoň 4 dny." },
+  { value: 5, label: "Aspoň 5 dní", hint: "Podíl lidí, kteří v posledním půlroce měli souvislou dovolenou aspoň 5 dní." },
+];
+
+/** Řádek karty „Dobití baterií“; po kliknutí ukáže jména lidí, kteří do zvolené skupiny spadají. */
+function RechargeRow({ id, left, pct, tone, ids, names, open, onToggle }: { id: string; left: string; pct: number; tone?: "danger" | "warning"; ids: string[]; names: Map<string, string>; open: string | null; onToggle: (id: string | null) => void }) {
+  const isOpen = open === id;
+  const list = ids.map((i) => names.get(i) ?? "Neznámý").sort((a, b) => a.localeCompare(b, "cs"));
+  return (
+    <div className="border-b border-line pb-1.5 last:border-0">
+      <button type="button" onClick={() => onToggle(isOpen ? null : id)} aria-expanded={isOpen} className="flex w-full items-center justify-between gap-3 text-left hover:text-teal-dark">
+        <span className="min-w-0 truncate">
+          <span className="mr-1.5 text-xs text-muted">{isOpen ? "▾" : "▸"}</span>
+          {left}
+        </span>
+        <span className={cn("shrink-0 font-medium", tone === "warning" && "text-warning-dark", tone === "danger" && "text-danger-dark")}>{pct} %</span>
+      </button>
+      {isOpen && (
+        <div className="mt-1.5 rounded bg-paper px-3 py-2 text-xs">
+          {list.length === 0 ? <span className="text-muted">Nikdo takový.</span> : <span>{list.join(", ")}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** U „Žádná dovolená“ je špatné vysoké číslo, u ostatních voleb nízké. */
+const warnRecharge = (pct: number, limit: number, min: number): "warning" | undefined => (min === 0 ? (pct > 100 - limit ? "warning" : undefined) : pct < limit ? "warning" : undefined);
+
 type TrendSeries = "absencePct" | "vacationPct" | "homeOfficePct" | "sickPct";
 const SERIES: { key: TrendSeries; label: string }[] = [
   { key: "absencePct", label: "Absence celkem" },
@@ -80,7 +115,7 @@ const Empty = ({ text }: { text: string }) => <p className="text-muted">✓ {tex
 const hours = (h: number) => (h < 1 ? "do hodiny" : h < 48 ? `${formatNumber(h)} h` : `${formatNumber(Math.round((h / 24) * 10) / 10)} dní`);
 
 /**
- * HR Insights (admin + HR): předpověď kapacity, nemocnost jen souhrnně (nikdy po jménech), rychlost schvalování,
+ * Smart HR Insights (admin + HR): předpověď kapacity, nemocnost jen souhrnně (nikdy po jménech), rychlost schvalování,
  * závazek z nevyčerpané dovolené a zůstatky. Výpočty jsou v lib/insights.ts.
  */
 export function HrInsights({ departmentId = "all" }: { departmentId?: string }) {
@@ -95,6 +130,8 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   const [costMsg, setCostMsg] = useState<string | null>(null);
   const [series, setSeries] = useState<TrendSeries>("absencePct");
   const [periodKey, setPeriodKey] = useState(MAIN_PERIODS[0].key);
+  const [rechargeMin, setRechargeMin] = useState(5);
+  const [rechargeOpen, setRechargeOpen] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile || !allowed || features.loading || !unlocked) return;
@@ -110,12 +147,16 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
       const [{ data: people }, { data: depts }, { data: reqs }, { data: company }, { data: hrs }, balances, { data: decisions }, { data: history }] = await Promise.all([
         departmentId === "all" ? q : q.eq("department_id", departmentId),
         supabase.from("departments").select("id, name, capacity_warning_percent").eq("company_id", profile.company_id),
-        supabase
-          .from("leave_requests")
-          .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against, counts_as_present)")
-          .in("status", ["approved", "pending"])
-          .gte("end_date", since90)
-          .lte("start_date", horizon),
+        fetchAll<Record<string, unknown>>((a, b) =>
+          supabase
+            .from("leave_requests")
+            .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against, counts_as_present)")
+            .in("status", ["approved", "pending"])
+            .gte("end_date", since90)
+            .lte("start_date", horizon)
+            .order("id")
+            .range(a, b) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>
+        ),
         supabase.from("companies").select("capacity_warning_percent, max_carryover_days, work_days").eq("id", profile.company_id).single(),
         supabase.from("company_hr_settings").select("avg_daily_cost").eq("company_id", profile.company_id).maybeSingle(),
         loadBalances(profile.company_id),
@@ -127,12 +168,15 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           .order("created_at", { ascending: false })
           .limit(1000),
         // Two years of approved / pending requests for trends, seasonal fairness and the "recharge" score.
-        supabase
-          .from("leave_requests")
-          .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against, counts_as_present)")
-          .in("status", ["approved", "pending"])
-          .gte("end_date", since24m)
-          .limit(8000),
+        fetchAll<Record<string, unknown>>((a, b) =>
+          supabase
+            .from("leave_requests")
+            .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against, counts_as_present)")
+            .in("status", ["approved", "pending"])
+            .gte("end_date", since24m)
+            .order("id")
+            .range(a, b) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>
+        ),
       ]);
 
       type P = { id: string; name: string; department_id: string | null };
@@ -233,9 +277,19 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
 
   if (!profile || !allowed || features.loading) return null;
   if (!unlocked) return profile.role === "admin" ? <LockedInsights /> : null;
-  if (error) return <p className="text-sm text-danger-dark">HR Insights se nepodařilo načíst: {error}</p>;
+  if (error) return <p className="text-sm text-danger-dark">Smart HR Insights se nepodařilo načíst: {error}</p>;
   if (!data) return null;
 
+  const recharge = rechargeScore(
+    data.rotaPeople,
+    Array.from(data.deptNames, ([id, name]) => ({ id, name })),
+    data.rotaRequests,
+    format(new Date(), "yyyy-MM-dd"),
+    182,
+    rechargeMin
+  );
+  const rechargeNames = new Map(data.rotaPeople.map((p) => [p.id, p.name]));
+  const rechargeOpt = RECHARGE_OPTIONS.find((o) => o.value === rechargeMin) ?? RECHARGE_OPTIONS[4];
   const weekHeads = data.heat[0]?.weeks ?? [];
   const cellClass = (pct: number, breach: boolean, pending: number) =>
     cn(
@@ -246,7 +300,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
 
   return (
     <div>
-      <h2 className="mb-3 text-label uppercase tracking-wide text-muted">HR Insights</h2>
+      <h2 className="mb-3 text-label uppercase tracking-wide text-muted">Smart HR Insights</h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card
           className="lg:col-span-2"
@@ -368,13 +422,27 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           <Seasonality points={data.trend.slice(12)} series={series} />
         </Card>
 
-        <Card icon={<BatteryCharging size={17} className="text-teal-dark" />} title="Dobití baterií" hint={`Podíl lidí, kteří v posledním půlroce měli souvislou dovolenou aspoň 5 dní. Jen souhrny, oddělení s aspoň ${MIN_GROUP} lidmi.`}>
-          {data.recharge.company === null && data.recharge.rows.length === 0 && <Empty text="Málo lidí na smysluplný souhrn." />}
-          {data.recharge.company && <Row left={`Celá firma (${data.recharge.company.size} lidí)`} right={`${data.recharge.company.pct} %`} tone={data.recharge.company.pct < 50 ? "warning" : undefined} />}
-          {data.recharge.rows.map((r) => (
-            <Row key={r.dept} left={`${r.dept} (${r.size})`} right={`${r.pct} %`} tone={r.pct < 40 ? "warning" : undefined} />
+        <Card icon={<BatteryCharging size={17} className="text-teal-dark" />} title="Dobití baterií" hint={`${rechargeOpt.hint} Oddělení s aspoň ${MIN_GROUP} lidmi; kliknutím na řádek uvidíte jména.`}>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Délka dovolené">
+            {RECHARGE_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                onClick={() => setRechargeMin(o.value)}
+                aria-pressed={rechargeMin === o.value}
+                className={cn("rounded-full border px-3 py-1 text-xs", rechargeMin === o.value ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          {recharge.company === null && recharge.rows.length === 0 && <Empty text="Málo lidí na smysluplný souhrn." />}
+          {recharge.company && (
+            <RechargeRow id="__firma" left={`Celá firma (${recharge.company.size} lidí)`} pct={recharge.company.pct} tone={warnRecharge(recharge.company.pct, 50, rechargeMin)} ids={recharge.company.ids} names={rechargeNames} open={rechargeOpen} onToggle={setRechargeOpen} />
+          )}
+          {recharge.rows.map((r) => (
+            <RechargeRow key={r.dept} id={r.dept} left={`${r.dept} (${r.size})`} pct={r.pct} tone={warnRecharge(r.pct, 40, rechargeMin)} ids={r.ids} names={rechargeNames} open={rechargeOpen} onToggle={setRechargeOpen} />
           ))}
-          {data.recharge.hiddenDepartments > 0 && <p className="text-xs text-muted">Menší oddělení ({data.recharge.hiddenDepartments}) se z důvodu ochrany soukromí nezobrazují.</p>}
+          {recharge.hiddenDepartments > 0 && <p className="text-xs text-muted">Menší oddělení ({recharge.hiddenDepartments}) se z důvodu ochrany soukromí nezobrazují.</p>}
         </Card>
 
         <Card icon={<Users size={17} className="text-teal-dark" />} title="Férové plánování hlavních období" hint="Kdo měl loni totéž období a kdo letos už něco plánuje. Nahoře jsou ti, kdo loni neměli. Jen dovolená.">
@@ -493,13 +561,13 @@ function FairRota({ data, periodKey }: { data: Data; periodKey: string }) {
   );
 }
 
-/** Zamčená ukázka pro firmy bez HR Insights (Free / Starter / Team): vysvětlení a cesta k doplňku nebo vyššímu tarifu. */
+/** Zamčená ukázka pro firmy bez Smart HR Insights (Free / Starter / Team): vysvětlení a cesta k doplňku nebo vyššímu tarifu. */
 function LockedInsights() {
   const addon = ADDONS.find((a) => a.key === "hr_insights")!;
   return (
     <div className="card border-dashed p-5">
       <div className="flex items-center gap-2 font-display text-h2">
-        <LineChart size={18} className="text-teal-dark" /> HR Insights <InfoTip text={addon.info} label="Co jsou HR Insights" />
+        <LineChart size={18} className="text-teal-dark" /> Smart HR Insights <InfoTip text={addon.info} label="Co jsou Smart HR Insights" />
       </div>
       <p className="mt-1 text-sm text-muted">
         Předpověď kapacity týmu, trendy, anonymní nemocnost, závazek z dovolené a férové plánování hlavních období. Ve vašem tarifu nejsou zahrnuty.

@@ -214,7 +214,7 @@ export default function TeamPage() {
 
   return (
     <div>
-      <Header title="Můj tým" subtitle="Přehled členů týmu, jejich zůstatků a zařazení" />
+      <Header title={isAdmin ? "Zaměstnanci" : "Můj tým"} subtitle={isAdmin ? "Přehled všech lidí ve firmě, jejich zůstatků a zařazení" : "Přehled členů týmu, jejich zůstatků a zařazení"} />
       <div className="space-y-6 p-4 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {isAdmin ? (

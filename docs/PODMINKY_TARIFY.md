@@ -31,7 +31,7 @@
     dostupná (např. historie změn se po celou dobu nadále ukládá).
 4.2 Každý tarif má limit počtu aktivních uživatelů. Přesahuje-li jejich počet limit nižšího tarifu, existující uživatelé
     zůstávají aktivní, ale **nelze přidat, pozvat ani znovu aktivovat další**, dokud počet neklesne pod limit.
-4.3 Doplňky (HR Insights, role Účetní) se ukončují ke stejnému dni, pokud nejsou součástí nového tarifu.
+4.3 Doplňky (Smart HR Insights, role Účetní) se ukončují ke stejnému dni, pokud nejsou součástí nového tarifu.
 
 ## 5. Měsíční platba
 5.1 Změna tarifu se provede vždy od dalšího zúčtovacího období. Při zvýšení platí vyšší tarif ihned a doplatí se poměrná

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
+import { allowRequest, tooManyRequests } from "@/lib/rate-limit";
 
 /**
  * Deletes a company member entirely (auth user + profile, cascaded by the
@@ -11,7 +11,7 @@ import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
  * of the SAME company as the target before touching anything.
  */
 export async function POST(req: NextRequest) {
-  const { targetProfileId } = await req.json();
+  const { targetProfileId } = (await req.json().catch(() => ({}))) as { targetProfileId?: unknown };
   if (!targetProfileId || typeof targetProfileId !== "string") {
     return NextResponse.json({ error: "Chybí ID uživatele." }, { status: 400 });
   }

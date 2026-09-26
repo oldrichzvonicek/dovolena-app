@@ -207,6 +207,7 @@ export function Sidebar() {
                 <NavLink
                   key={item.href}
                   {...item}
+                  label={item.href === "/team" && isAdmin ? "Zaměstnanci" : item.label}
                   badge={item.href === "/approvals" ? pendingCount : undefined}
                   active={pathname === item.href}
                 />

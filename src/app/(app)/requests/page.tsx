@@ -198,7 +198,7 @@ export default function RequestsPage() {
 
   return (
     <div>
-      <Header title="Moje žádosti" subtitle="Historie tvých absencí a stav schválení" />
+      <Header title="Moje žádosti" subtitle="Historie vašich absencí a stav schválení" />
       <div className="max-w-4xl p-4 sm:p-8">
         <CompactBalances />
 
@@ -320,7 +320,7 @@ export default function RequestsPage() {
                       <div className="mt-0.5 text-xs text-muted">
                         {formatNumber(Number(r.working_days))} {dayWord(Number(r.working_days))}
                         {Number(r.working_days) === 0 && <span className="ml-1 rounded-sm bg-paper px-1.5 py-0.5 text-[11px] ring-1 ring-line">víkend nebo svátek</span>}
-                        {r.approver && <> · Schválil: {r.approver.name}</>}
+                        {r.approver && <> · {r.status === "rejected" ? "Zamítl" : "Schválil"}: {r.approver.name}</>}
                       </div>
                     </div>
                   </div>

@@ -214,6 +214,8 @@ begin
     raise exception 'U vašeho tarifu není evidována platnost. Napište nám a změnu nastavíme.';
   end if;
   eff := greatest(c.plan_paid_until, current_date) + 1;
+  -- Jen tyto funkce smějí měnit naplánovanou změnu (plán, doplňky ani platnost se tím nemění).
+  perform set_config('dodio.plan_change', '1', true);
   update companies set pending_plan = p_plan, pending_plan_from = eff, pending_plan_notified = false where id = c.id;
   return eff;
 end;
@@ -229,6 +231,7 @@ begin
   if current_user_role() is distinct from 'admin' then
     raise exception 'Změnu tarifu může zrušit jen admin firmy.';
   end if;
+  perform set_config('dodio.plan_change', '1', true);
   update companies set pending_plan = null, pending_plan_from = null, pending_plan_notified = false where id = current_company_id();
 end;
 $$;
@@ -694,8 +697,9 @@ as $$
 begin
   if auth.uid() is not null and (new.plan is distinct from old.plan or new.addons is distinct from old.addons
       or new.billing_period is distinct from old.billing_period or new.plan_paid_until is distinct from old.plan_paid_until
-      or new.pending_plan is distinct from old.pending_plan or new.pending_plan_from is distinct from old.pending_plan_from
-      or new.pending_plan_notified is distinct from old.pending_plan_notified) then
+      or (coalesce(current_setting('dodio.plan_change', true), '') <> '1'
+          and (new.pending_plan is distinct from old.pending_plan or new.pending_plan_from is distinct from old.pending_plan_from
+               or new.pending_plan_notified is distinct from old.pending_plan_notified))) then
     raise exception 'Tarif, doplňky a jeho platnost mění provozovatel služby.';
   end if;
   if auth.uid() is not null and new.seniority_enabled and not coalesce(old.seniority_enabled, false)

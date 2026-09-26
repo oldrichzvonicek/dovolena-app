@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const firstName = profile?.name.split(" ")[0] ?? "";
   const isMyNameDay = isNameDayFor(now, firstName);
 
-  const subtitle = `${today.charAt(0).toUpperCase()}${today.slice(1)}${isMyNameDay ? " · Dnes máš svátek — všechno nejlepší! 🎉" : ""}`;
+  const subtitle = `${today.charAt(0).toUpperCase()}${today.slice(1)}${isMyNameDay ? " · Dnes máte svátek — všechno nejlepší! 🎉" : ""}`;
   const refresh = () => setRefreshKey((k) => k + 1);
 
   const mine = (
@@ -49,7 +49,7 @@ export default function DashboardPage() {
   // Pro všechny stejně: nahoře moje absence a rychlé žádosti, pod nimi týmový přehled (u manažera a admina i schvalování).
   return (
     <div key={refreshKey}>
-      <Header title={`Vítej zpět, ${firstName}`} subtitle={subtitle} />
+      <Header title={`Vítejte zpět, ${firstName}`} subtitle={subtitle} />
       <div className="p-4 pb-0 sm:p-8 sm:pb-0">
         <div className="space-y-6">
           <OnboardingChecklist />

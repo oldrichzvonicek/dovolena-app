@@ -125,7 +125,7 @@ export const sections: HelpSection[] = [
       "Oddělení — vedoucí a zástupce vedoucího, sloučení duplicit.",
       "Typy absencí — barvy, řazení přetažením, z jakého limitu se čerpá, automatické schválení do X dní, poměrné krácení nároku u nových zaměstnanců, výchozí nároky. Nepoužívané typy lze skrýt.",
       "Provoz & kalendář — směny a pracovní dny, pravidla pro žádosti (předstih, zpětné zadávání, mínus), převod dovolenky do dalšího roku (max. dní a datum propadnutí), připomínky, kapacitní varování, blokované termíny, celozávodní dovolená a firemní logo.",
-      "Fakturace & tarify — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Team, Pro) a doplňky (HR Insights, Účetní), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
+      "Fakturace & tarify — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Team, Pro) a doplňky (Smart HR Insights, Účetní), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
       ...(CHAT_INTEGRATIONS_ENABLED ? ["Integrace — napojení Slack, Microsoft Teams, Mattermost, Discord, Google Chat nebo libovolného webhooku; vyberete, které události se do kanálu posílají."] : []),
       "Historie změn — kdo, kdy a co v systému změnil.",
     ],
@@ -430,7 +430,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Proč je některá funkce zamčená (zámek v menu)?",
     section: "Nastavení firmy (admin)",
-    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, Historie změn a nárok podle odpracovaných let jsou od tarifu Team a eskalace schvalování se zástupy od tarifu Pro. HR Insights jsou v tarifu Pro v ceně, jinak se dají přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): po jeho naplnění nejde přidat, pozvat ani znovu aktivovat další člověk. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Fakturace & tarify.",
+    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, Historie změn a nárok podle odpracovaných let jsou od tarifu Team a eskalace schvalování se zástupy od tarifu Pro. Smart HR Insights jsou v tarifu Pro v ceně, jinak se dají přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): po jeho naplnění nejde přidat, pozvat ani znovu aktivovat další člověk. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Fakturace & tarify.",
     roles: ["admin"],
   },
   {
@@ -525,14 +525,14 @@ const ALL_FAQS: HelpFaq[] = [
     roles: ["admin"],
   },
   {
-    q: "Co ukazují HR Insights a jak se počítají?",
+    q: "Co ukazují Smart HR Insights a jak se počítají?",
     a: "V Analytice (jen admin a HR): předpověď kapacity oddělení na 13 týdnů (schválené absence, čekající žádosti jako rámeček), souhrn nemocnosti po odděleních, rychlost schvalování (medián od podání do rozhodnutí za 90 dní), závazek z nevyčerpané dovolené a zůstatky. Nemocnost se zobrazuje jen souhrnně za oddělení s aspoň 5 lidmi, nikdy po jménech. Každé pondělí přijde HR a adminům e-mail, když je co řešit.",
     section: "Analytika a Exporty (admin)",
     roles: ["admin"],
   },
   {
     q: "Co je „Férové plánování hlavních období“ a „Dobití baterií“?",
-    a: "Dvě další karty v HR Insights (Analytika). Férové plánování ukazuje pro Vánoce a léto, kdo měl loni totéž období a kdo letos už něco plánuje, takže je vidět, kdo je na řadě. U žádostí v těchto obdobích to vidí i schvalovatel jako krátkou poznámku. Dobití baterií je podíl lidí v oddělení, kteří v posledním půlroce měli souvislou dovolenou aspoň 5 dní. Zobrazuje se jen souhrnně za oddělení s aspoň 5 lidmi. Trendy za 12 měsíců srovnávají absenci, dovolenou, Home Office a nemoc (souhrnně) s minulým rokem.",
+    a: "Dvě další karty v Smart HR Insights (Analytika). Férové plánování ukazuje pro Vánoce a léto, kdo měl loni totéž období a kdo letos už něco plánuje, takže je vidět, kdo je na řadě. U žádostí v těchto obdobích to vidí i schvalovatel jako krátkou poznámku. Dobití baterií je podíl lidí v oddělení, kteří v posledním půlroce měli souvislou dovolenou aspoň 2, 3, 4 nebo 5 dní (nebo naopak neměli ani den dovolené – přepíná se nad kartou). Zobrazuje se za celou firmu a oddělení s aspoň 5 lidmi; kliknutím na řádek se ukážou jména lidí, kteří do skupiny spadají. Trendy za 12 měsíců srovnávají absenci, dovolenou, Home Office a nemoc (souhrnně) s minulým rokem.",
     section: "Analytika a Exporty (admin)",
     roles: ["admin"],
   },

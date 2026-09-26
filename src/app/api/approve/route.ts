@@ -33,6 +33,6 @@ export async function POST(req: NextRequest) {
     p_reason: reason,
   });
   if (error) return back("chyba");
-  if (data === "ok") await dispatchIntegrationEvents().catch(() => {});
+  if (data === "ok" && payload.r) await dispatchIntegrationEvents().catch(() => {});
   return back(String(data));
 }

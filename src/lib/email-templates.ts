@@ -208,7 +208,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     name: "Pozvánka do firmy",
     when: "Admin nebo HR pozve člověka e-mailem.",
     to: "Zvaný",
-    live: false,
+    live: true,
     vars: ["jmeno", "pozvatel", "firma", "odkaz"],
     subject: (v) => `${v.pozvatel} vás zve do Dodia (${v.firma})`,
     paragraphs: (v) => [

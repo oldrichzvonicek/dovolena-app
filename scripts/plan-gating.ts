@@ -92,13 +92,13 @@ async function main() {
       const acct = await c.from("profiles").update({ staff_role: "accountant" }).eq("id", emp.id).select("id");
       check(`${label} role Účetní`, !!(acct.data ?? []).length, rank(plan) >= 1);
       await sb.from("profiles").update({ staff_role: null }).eq("id", emp.id);
-      // HR Insights / role HR: od Pro, jinak jen s doplňkem
+      // Smart HR Insights / role HR: od Pro, jinak jen s doplňkem
       const hr = await c.from("profiles").update({ staff_role: "hr" }).eq("id", emp.id).select("id");
       check(`${label} role HR (bez doplňku)`, !!(hr.data ?? []).length, rank(plan) >= 3);
       await sb.from("profiles").update({ staff_role: null }).eq("id", emp.id);
       await sb.from("companies").update({ addons: ["hr_insights"] }).eq("id", cid);
       const hr2 = await c.from("profiles").update({ staff_role: "hr" }).eq("id", emp.id).select("id");
-      check(`${label} role HR (s doplňkem HR Insights)`, !!(hr2.data ?? []).length, true);
+      check(`${label} role HR (s doplňkem Smart HR Insights)`, !!(hr2.data ?? []).length, true);
       await sb.from("profiles").update({ staff_role: null }).eq("id", emp.id);
       await sb.from("companies").update({ addons: [] }).eq("id", cid);
     }

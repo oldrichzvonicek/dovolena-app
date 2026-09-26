@@ -135,7 +135,13 @@ export function RequestLeaveModal({
         setDurationMode("full");
       }
     } else {
-      const today = new Date().toLocaleDateString("sv-SE");
+      // Výchozí termín je nejbližší pracovní den (o víkendu a svátku by formulář hned po otevření hlásil chybu).
+      let today = new Date().toLocaleDateString("sv-SE");
+      for (let i = 0; i < 10 && countWorkingDays(today, today) === 0; i++) {
+        const d = new Date(`${today}T12:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + 1);
+        today = d.toISOString().slice(0, 10);
+      }
       if (prefill?.leave_type_id) setTypeId(prefill.leave_type_id);
       setDurationMode(prefill?.half_day ? "half" : "full");
       setStartDate(prefill?.start_date ?? initialDates?.start ?? today);

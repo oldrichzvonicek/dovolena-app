@@ -198,7 +198,16 @@ describe("rechargeScore", () => {
     const r = rechargeScore(six, dps, reqs, "2026-10-01");
     expect(r.rows[0]).toMatchObject({ dept: "Obchod", size: 6, pct: 17 });
     expect(r.company?.pct).toBe(17);
-    expect(JSON.stringify(r)).not.toMatch(/d-0/);
+    expect(r.rows[0].ids).toEqual(["d-0"]);
+  });
+  it("volba „žádná dovolená“ a nižší limity dní", () => {
+    const reqs = [
+      { profile_id: "d-0", start_date: "2026-08-03", end_date: "2026-08-14", working_days: 10, status: "approved", leave_type: vac },
+      { profile_id: "d-1", start_date: "2026-09-01", end_date: "2026-09-02", working_days: 2, status: "approved", leave_type: vac },
+    ];
+    expect(rechargeScore(six, dps, reqs, "2026-10-01", 182, 0).company?.pct).toBe(67);
+    expect(rechargeScore(six, dps, reqs, "2026-10-01", 182, 2).company?.pct).toBe(33);
+    expect(rechargeScore(six, dps, reqs, "2026-10-01", 182, 3).company?.pct).toBe(17);
   });
   it("skryje malé oddělení", () => {
     expect(rechargeScore(people(3, "x"), [{ id: "x", name: "X" }], [], "2026-10-01").hiddenDepartments).toBe(1);

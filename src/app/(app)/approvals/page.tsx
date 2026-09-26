@@ -6,7 +6,7 @@ import { CancellationRequests } from "@/components/manager/CancellationRequests"
 export default function ApprovalsPage() {
   return (
     <div>
-      <Header title="Ke schválení" subtitle="Žádosti o absenci čekající na tvé rozhodnutí" />
+      <Header title="Ke schválení" subtitle="Žádosti o absenci čekající na vaše rozhodnutí" />
       <div className="p-4 sm:p-8">
         <CancellationRequests />
         <Suspense fallback={null}>

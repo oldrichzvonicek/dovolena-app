@@ -185,14 +185,14 @@ export function EditEmployeeModal({
               <SelectContent>
                 <SelectItem value="none">Žádná</SelectItem>
                 <SelectItem value="hr" disabled={!features.has("hr_insights") && employee.staff_role !== "hr"}>
-                  HR — správa lidí a nároků, vidí všechny absence{features.has("hr_insights") ? "" : " (doplněk HR Insights)"}
+                  HR — správa lidí a nároků, vidí všechny absence{features.has("hr_insights") ? "" : " (doplněk Smart HR Insights)"}
                 </SelectItem>
                 <SelectItem value="accountant" disabled={!features.has("accountant") && employee.staff_role !== "accountant"}>
                   Účetní — jen čtení absencí pro mzdy{features.has("accountant") ? "" : " (doplněk Účetní)"}
                 </SelectItem>
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-muted">Přidává práva k základní roli. Nastavuje jen admin. Role HR patří k HR Insights, role Účetní je od tarifu Starter v ceně.</p>
+            <p className="mt-1 text-xs text-muted">Přidává práva k základní roli. Nastavuje jen admin. Role HR patří k Smart HR Insights, role Účetní je od tarifu Starter v ceně.</p>
           </div>
 
           <div>

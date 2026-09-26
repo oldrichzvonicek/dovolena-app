@@ -64,8 +64,22 @@ export function BurnoutWatch({ employees }: Props) {
         if (!cur || r.end_date > cur) lastEndByProfile.set(r.profile_id, r.end_date);
       }
 
+      // Kdo je v Dodiu kratší dobu než půl roku, nemá z čeho vyvozovat závěr — bez historie by šlo o falešný poplach.
+      const { data: created } = await supabase
+        .from("profiles")
+        .select("id, created_at")
+        .in(
+          "id",
+          employees.map((e) => e.id)
+        );
+      const createdById = new Map(((created as { id: string; created_at: string }[] | null) ?? []).map((p) => [p.id, p.created_at]));
+
       const today = new Date();
       const flagged = employees
+        .filter((e) => {
+          const c = createdById.get(e.id);
+          return !c || differenceInCalendarDays(today, new Date(c)) >= FLAG_AFTER_DAYS || lastEndByProfile.has(e.id);
+        })
         .map((e) => {
           const lastEnd = lastEndByProfile.get(e.id) ?? null;
           const daysSince = lastEnd ? differenceInCalendarDays(today, new Date(lastEnd)) : null;

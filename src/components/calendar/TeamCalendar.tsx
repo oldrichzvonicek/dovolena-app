@@ -30,6 +30,7 @@ import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
 import { fetchMaskedAbsencesStrict } from "@/lib/data";
 import { createClient } from "@/lib/supabase/client";
 import { DbDepartment, DbProfile, LeaveColor } from "@/lib/supabase/types";
+import { fetchAll } from "@/lib/fetch-all";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { leaveIconFor, LeaveTypeIcon } from "@/components/shared/LeaveTypeIcon";
 
@@ -188,12 +189,16 @@ export function TeamCalendar() {
     const from = format(startOfMonth(subMonths(anchor, 2)), "yyyy-MM-dd");
     const to = format(endOfMonth(addMonths(anchor, 2)), "yyyy-MM-dd");
     Promise.all([
-      createClient()
-        .from("leave_requests")
-        .select("id, start_date, end_date, profile_id, covering_profile_id, working_days, note, status, leave_type:leave_types(key, label, color)")
-        .in("status", ["approved", "pending"])
-        .lte("start_date", to)
-        .gte("end_date", from),
+      fetchAll<RequestRow>((a, b) =>
+        createClient()
+          .from("leave_requests")
+          .select("id, start_date, end_date, profile_id, covering_profile_id, working_days, note, status, leave_type:leave_types(key, label, color)")
+          .in("status", ["approved", "pending"])
+          .lte("start_date", to)
+          .gte("end_date", from)
+          .order("id")
+          .range(a, b) as unknown as PromiseLike<{ data: RequestRow[] | null; error: { message: string } | null }>
+      ),
       fetchMaskedAbsencesStrict(from, to).then(
         (m) => ({ masked: m, failed: false }),
         () => ({ masked: [] as Awaited<ReturnType<typeof fetchMaskedAbsencesStrict>>, failed: true })
@@ -217,7 +222,7 @@ export function TeamCalendar() {
     const supabase = createClient();
 
     supabase.from("departments").select("*").eq("company_id", profile.company_id).then(({ data }) => setDepartments(data ?? []));
-    supabase.from("profiles").select("*").eq("company_id", profile.company_id).eq("active", true).then(({ data }) => setEmployees(data ?? []));
+    supabase.from("profiles").select("id, name, department_id").eq("company_id", profile.company_id).eq("active", true).then(({ data }) => setEmployees((data as unknown as DbProfile[]) ?? []));
     supabase
       .from("leave_types")
       .select("key, label, color")

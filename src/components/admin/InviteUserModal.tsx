@@ -10,6 +10,7 @@ import { fetchDepartments } from "@/lib/data";
 import { AdminEmployeeRow, fetchCompany, fetchCompanyEmployees, importEmployees } from "@/lib/admin-data";
 import { DbDepartment, Role } from "@/lib/supabase/types";
 import { errorMessage } from "@/lib/utils";
+import { showToast } from "@/lib/toast";
 
 const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin" };
 
@@ -89,6 +90,11 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
           role,
         }))
       );
+      const res = await fetch("/api/invite/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails }) })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      if (res && res.sent > 0 && res.failed === 0) showToast(res.sent === 1 ? "Pozvánka odeslána e-mailem." : `Pozvánky odeslány e-mailem (${res.sent}).`);
+      else showToast("Pozvánka je založená, ale e-mail se nepodařilo odeslat. Pošlete člověku registrační odkaz ručně.", "error");
       setOpen(false);
       reset();
       onInvited?.();
