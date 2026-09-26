@@ -21,8 +21,8 @@ async function withApprovalButtons(supabase: Admin, m: { notification_id?: strin
     const { data: req } = await supabase.from("leave_requests").select("status, profile:profiles!leave_requests_profile_id_fkey(company_id)").eq("id", n.leave_request_id).single();
     const companyId = (req?.profile as unknown as { company_id: string } | null)?.company_id;
     if (!req || req.status !== "pending" || !companyId) return null;
-    const { data: company } = await supabase.from("companies").select("email_approval_enabled").eq("id", companyId).single();
-    if (company && company.email_approval_enabled === false) return null;
+    const { data: company } = await supabase.from("companies").select("email_approval_enabled, require_mfa_staff").eq("id", companyId).single();
+    if (company && (company.email_approval_enabled === false || company.require_mfa_staff === true)) return null;
 
     const base = `${appUrl()}/approve/${newApprovalToken(n.leave_request_id as string, n.profile_id as string)}`;
     const approve = `${base}?akce=schvalit`;

@@ -24,6 +24,7 @@ import { cn, errorMessage } from "@/lib/utils";
 import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
 import { LogoCard } from "@/components/admin/LogoCard";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 
 const shiftLabel: Record<ShiftPattern, string> = {
   none: "Jednosměnný (standardní pracovní doba)",
@@ -54,16 +55,28 @@ const sections = [
 /** Sticky in-page index: jumps to a section and highlights the one currently in view. */
 function SectionIndex({ sections, active, onActive }: { sections: { id: string; label: string }[]; active: string; onActive: (id: string) => void }) {
   useEffect(() => {
-    const els = sections.map((s) => document.getElementById(s.id)).filter((e): e is HTMLElement => !!e);
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) onActive(visible.target.id);
-      },
-      { rootMargin: "-96px 0px -60% 0px" }
-    );
-    els.forEach((e) => obs.observe(e));
-    return () => obs.disconnect();
+    // Aktivní je poslední sekce, jejíž horní okraj už minul horní lištu; na samém konci stránky poslední sekce.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const update = () => {
+      timer = undefined;
+      const els = sections.map((s) => document.getElementById(s.id)).filter((e): e is HTMLElement => !!e);
+      let current = els[0]?.id ?? "";
+      for (const el of els) if (el.getBoundingClientRect().top <= 240) current = el.id;
+      const doc = document.scrollingElement ?? document.documentElement;
+      const scroller = document.querySelector("main");
+      const atBottom = doc.scrollTop + window.innerHeight >= doc.scrollHeight - 4 || (scroller ? scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4 && scroller.scrollHeight > scroller.clientHeight : false);
+      if (atBottom && els.length > 0) current = els[els.length - 1].id;
+      if (current) onActive(current);
+    };
+    const onScroll = () => {
+      if (!timer) timer = setTimeout(update, 40);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    update();
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      if (timer) clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -87,6 +100,85 @@ function SectionIndex({ sections, active, onActive }: { sections: { id: string; 
         </a>
       ))}
     </nav>
+  );
+}
+
+/** Číselný vstup s pevnou jednotkou vpravo (dní, hodin, %), ať je zřejmé, co číslo znamená. */
+function UnitInput({ unit, className, ...props }: { unit: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <span className={cn("inline-flex items-stretch overflow-hidden rounded border border-line bg-white focus-within:ring-2 focus-within:ring-teal/40", props.disabled && "opacity-60", className)}>
+      <input type="number" {...props} className="w-16 bg-transparent px-2 py-1.5 text-right text-sm outline-none" />
+      <span className="flex items-center border-l border-line bg-paper px-2 text-xs text-muted">{unit}</span>
+    </span>
+  );
+}
+
+/** Volitelná hodnota: přepínač Zapnuto/Vypnuto a vedle něj číslo s jednotkou (žádné „0 = vypnuto“). */
+function OptionalNumber({
+  enabled,
+  onToggle,
+  value,
+  onCommit,
+  unit,
+  offLabel,
+  onLabel,
+  disabled,
+  min = 0,
+  step = 1,
+}: {
+  enabled: boolean;
+  onToggle: (on: boolean) => void;
+  value: number | null;
+  onCommit: (n: number) => void;
+  unit: string;
+  offLabel: string;
+  onLabel: string;
+  disabled?: boolean;
+  min?: number;
+  step?: number;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <Switch checked={enabled} onCheckedChange={onToggle} disabled={disabled} label={onLabel} />
+      {enabled ? (
+        <>
+          <span className="text-sm">{onLabel}</span>
+          <UnitInput unit={unit} min={min} step={step} disabled={disabled} defaultValue={value ?? ""} aria-label={onLabel} onBlur={(e) => e.target.value !== "" && onCommit(Number(e.target.value))} />
+        </>
+      ) : (
+        <span className="text-sm text-muted">{offLabel}</span>
+      )}
+    </div>
+  );
+}
+
+/** Roční pás s vyznačenými blokovanými termíny: rychlá vizuální kontrola, kdy se nedá žádat. */
+function YearStrip({ ranges }: { ranges: { label: string; start: string; end: string }[] }) {
+  const year = new Date().getFullYear();
+  const t0 = Date.UTC(year, 0, 1);
+  const total = Date.UTC(year + 1, 0, 1) - t0;
+  const pct = (iso: string) => Math.min(100, Math.max(0, ((Date.parse(iso + "T00:00:00Z") - t0) / total) * 100));
+  const now = ((Date.now() - t0) / total) * 100;
+  return (
+    <div className="mt-4">
+      <div className="mb-1 text-xs font-medium text-muted">Přehled roku {year}</div>
+      <div className="relative h-6 rounded bg-paper">
+        {Array.from({ length: 12 }, (_, i) => (
+          <span key={i} className="absolute top-0 h-full border-l border-line/70" style={{ left: `${(i / 12) * 100}%` }} />
+        ))}
+        {ranges.map((r) => {
+          const l = pct(r.start);
+          const w = Math.max(0.8, pct(r.end) - l + 0.3);
+          return <span key={r.label + r.start} title={`${r.label}: ${r.start} – ${r.end}`} className="absolute top-1 h-4 rounded-sm bg-danger/70" style={{ left: `${l}%`, width: `${w}%` }} />;
+        })}
+        {now >= 0 && now <= 100 && <span className="absolute top-0 h-full w-0.5 bg-sky-dark" style={{ left: `${now}%` }} title="Dnes" />}
+      </div>
+      <div className="mt-0.5 flex justify-between text-[10px] text-muted">
+        {["led", "úno", "bře", "dub", "kvě", "čvn", "čvc", "srp", "zář", "říj", "lis", "pro"].map((m) => (
+          <span key={m}>{m}</span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -194,7 +286,9 @@ export function CompanySettingsPanel() {
     <div className="space-y-6">
       <SectionIndex sections={sections} active={activeSection} onActive={setActiveSection} />
 
-      <LogoCard />
+      <div id="sec-logo" className="scroll-mt-24">
+        <LogoCard />
+      </div>
 
       <div id="sec-kalendar" className="card scroll-mt-24 p-5">
         <SectionHeader icon={<Settings size={15} />} title="Kalendář a směny" />
@@ -231,16 +325,8 @@ export function CompanySettingsPanel() {
             </Select>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Standardní úvazek (hodin/den)</label>
-            <input
-              type="number"
-              min={1}
-              max={24}
-              step={0.5}
-              defaultValue={company.standard_daily_hours}
-              onBlur={(e) => patch({ standard_daily_hours: Number(e.target.value) })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-            />
+            <label className="mb-1.5 block text-sm font-medium">Standardní úvazek</label>
+            <UnitInput unit="hodin / den" min={1} max={24} step={0.5} defaultValue={company.standard_daily_hours} aria-label="Standardní úvazek v hodinách za den" onBlur={(e) => patch({ standard_daily_hours: Number(e.target.value) })} className="[&_input]:w-16" />
           </div>
         </div>
         <p className="mt-1.5 text-xs text-muted">
@@ -276,23 +362,10 @@ export function CompanySettingsPanel() {
             </p>
             <div className="mt-2 flex items-center gap-2 text-sm">
               Dovolenou delší než
-              <input
-                type="number"
-                min={0}
-                step={0.5}
-                defaultValue={company.min_advance_threshold_days}
-                onBlur={(e) => patch({ min_advance_threshold_days: Number(e.target.value) })}
-                className="w-16 rounded border border-line px-2 py-1 text-center"
-              />
-              dní je nutné zadat min.
-              <input
-                type="number"
-                min={0}
-                defaultValue={company.min_advance_days}
-                onBlur={(e) => patch({ min_advance_days: Number(e.target.value) })}
-                className="w-16 rounded border border-line px-2 py-1 text-center"
-              />
-              dní předem.
+              <UnitInput unit="dní" min={0} step={0.5} defaultValue={company.min_advance_threshold_days} aria-label="Délka dovolené od které platí předstih" onBlur={(e) => patch({ min_advance_threshold_days: Number(e.target.value) })} />
+              je nutné zadat nejméně
+              <UnitInput unit="dní" min={0} defaultValue={company.min_advance_days} aria-label="Minimální předstih ve dnech" onBlur={(e) => patch({ min_advance_days: Number(e.target.value) })} />
+              předem.
             </div>
           </div>
 
@@ -304,15 +377,8 @@ export function CompanySettingsPanel() {
               </p>
               {company.backdating_allowed && (
                 <div className="mt-2 flex items-center gap-2 text-sm">
-                  Max.
-                  <input
-                    type="number"
-                    min={0}
-                    defaultValue={company.backdating_max_days}
-                    onBlur={(e) => patch({ backdating_max_days: Number(e.target.value) })}
-                    className="w-16 rounded border border-line px-2 py-1 text-center"
-                  />
-                  dní zpětně.
+                  Nejvýše
+                  <UnitInput unit="dní zpětně" min={0} defaultValue={company.backdating_max_days} aria-label="Kolik dní zpětně" onBlur={(e) => patch({ backdating_max_days: Number(e.target.value) })} className="[&_input]:w-14" />
                 </div>
               )}
             </div>
@@ -330,16 +396,8 @@ export function CompanySettingsPanel() {
               <p className="mt-0.5 text-sm text-muted">Povolit žádost i bez dostatečného zůstatku, do zadaného limitu.</p>
               {company.allow_negative_balance && (
                 <div className="mt-2 flex items-center gap-2 text-sm">
-                  Max.
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    defaultValue={company.max_negative_balance_days}
-                    onBlur={(e) => patch({ max_negative_balance_days: Number(e.target.value) })}
-                    className="w-16 rounded border border-line px-2 py-1 text-center"
-                  />
-                  dní do mínusu.
+                  Nejvýše
+                  <UnitInput unit="dní do mínusu" min={0} step={0.5} defaultValue={company.max_negative_balance_days} aria-label="Kolik dní do mínusu" onBlur={(e) => patch({ max_negative_balance_days: Number(e.target.value) })} className="[&_input]:w-14" />
                 </div>
               )}
             </div>
@@ -360,18 +418,16 @@ export function CompanySettingsPanel() {
 
             <div className="mt-3 border-t border-line pt-3">
               <div className="text-sm font-medium">Maximální počet dní k převodu</div>
-              <p className="mt-0.5 text-sm text-muted">
-                Kolik nevyčerpaných dní si zaměstnanec smí přenést do dalšího roku nejvýš (prázdné = bez omezení,
-                převede se vše).
-              </p>
-              <input
-                type="number"
-                min={0}
+              <p className="mt-0.5 mb-2 text-sm text-muted">Kolik nevyčerpaných dní si zaměstnanec smí přenést do dalšího roku.</p>
+              <OptionalNumber
+                enabled={company.max_carryover_days !== null}
+                onToggle={(on) => patch({ max_carryover_days: on ? 5 : null })}
+                value={company.max_carryover_days}
+                onCommit={(n) => patch({ max_carryover_days: n })}
+                unit="dní"
                 step={0.5}
-                placeholder="Bez omezení" aria-label="Bez omezení"
-                defaultValue={company.max_carryover_days ?? ""}
-                onBlur={(e) => patch({ max_carryover_days: e.target.value ? Number(e.target.value) : null })}
-                className="mt-2 w-32 rounded border border-line px-3 py-2 text-sm"
+                offLabel="Bez omezení: převede se všechno"
+                onLabel="Přenést nejvýše"
               />
             </div>
           </div>
@@ -383,29 +439,24 @@ export function CompanySettingsPanel() {
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Kapacitní varování (% oddělení)</label>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              defaultValue={company.capacity_warning_percent}
-              onBlur={(e) => patch({ capacity_warning_percent: Number(e.target.value) })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-            />
+            <label className="mb-1.5 block text-sm font-medium">Kapacitní varování</label>
+            <UnitInput unit="% oddělení" min={1} max={100} defaultValue={company.capacity_warning_percent} aria-label="Kapacitní varování v procentech" onBlur={(e) => patch({ capacity_warning_percent: Number(e.target.value) })} className="[&_input]:w-16" />
             <p className="mt-1 text-xs text-muted">Manažer uvidí varování, pokud by schválení přesáhlo tento podíl oddělení.</p>
           </div>
           <div>
             <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
-              Připomínka schvalovateli (hodin) {!features.loading && !features.has("escalation") && <PlanTag feature="escalation" />}
+              Připomínka schvalovateli {!features.loading && !features.has("escalation") && <PlanTag feature="escalation" />}
             </label>
-            <input
-              type="number"
-              min={0}
+            <OptionalNumber
+              enabled={company.approval_reminder_hours !== null}
+              onToggle={(on) => patch({ approval_reminder_hours: on ? 24 : null })}
+              value={company.approval_reminder_hours}
+              onCommit={(n) => patch({ approval_reminder_hours: n })}
+              unit="hodin"
+              min={1}
               disabled={!features.has("escalation")}
-              placeholder="Vypnuto" aria-label="Vypnuto"
-              defaultValue={company.approval_reminder_hours ?? ""}
-              onBlur={(e) => patch({ approval_reminder_hours: e.target.value ? Number(e.target.value) : null })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
+              offLabel="Vypnuto"
+              onLabel="Po"
             />
             <p className="mt-1 text-xs text-muted">
               Když žádost čeká déle než tolik hodin, denní kontrola ji přepošle zástupci vedoucího oddělení, jinak adminům. Stejně se přepošle, když je schvalovatel dnes nepřítomen (i při prázdném poli).
@@ -427,12 +478,17 @@ export function CompanySettingsPanel() {
           <input
             type="checkbox"
             checked={company.require_mfa_staff === true}
-            onChange={(e) => patch({ require_mfa_staff: e.target.checked })}
+            onChange={(e) => patch(e.target.checked ? { require_mfa_staff: true, email_approval_enabled: false } : { require_mfa_staff: false })}
             className="h-5 w-5 shrink-0 rounded border-line accent-teal"
           />
         </label>
 
-        <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
+        {company.require_mfa_staff === true && (
+          <p className="mt-2 rounded border border-warning/40 bg-warning-light px-3 py-2 text-xs text-warning-dark">
+            Při vyžadovaném dvoufázovém ověření je schvalování z e-mailu vypnuté: odkaz z e-mailu nevyžaduje přihlášení, takže by 2FA obcházel. Žádosti se schvalují v aplikaci (po přihlášení a ověření kódem).
+          </p>
+        )}
+        <label className={cn("mt-4 flex items-center justify-between gap-4 rounded border border-line p-4", company.require_mfa_staff === true && "opacity-60")}>
           <div>
             <div className="text-sm font-medium">Schvalování přímo z e-mailu</div>
             <p className="mt-0.5 text-sm text-muted">
@@ -441,7 +497,9 @@ export function CompanySettingsPanel() {
           </div>
           <input
             type="checkbox"
-            checked={company.email_approval_enabled !== false}
+            checked={company.email_approval_enabled !== false && company.require_mfa_staff !== true}
+            disabled={company.require_mfa_staff === true}
+            title={company.require_mfa_staff === true ? "Vypnuto, protože je vyžadováno dvoufázové ověření" : undefined}
             onChange={(e) => patch({ email_approval_enabled: e.target.checked })}
             className="h-5 w-5 shrink-0 rounded border-line accent-teal"
           />
@@ -497,8 +555,11 @@ function BlackoutPeriodsSection({
         Během těchto dat nejde podat běžnou žádost o absenci (např. celofiremní inventura, uzávěrka).
       </p>
 
+      <YearStrip ranges={blackouts.map((b) => ({ label: b.label, start: b.start_date, end: b.end_date }))} />
+
       {blackouts.length > 0 && (
         <div className="mt-4 space-y-2">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted">Naplánované blokace ({blackouts.length})</div>
           {blackouts.map((b) => (
             <div key={b.id} className="flex items-center justify-between rounded border border-line p-3 text-sm">
               <div>
@@ -517,14 +578,16 @@ function BlackoutPeriodsSection({
 
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
-      <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-line pt-4">
+      <div className="mt-4 rounded-lg border border-line bg-paper p-4">
+        <div className="mb-3 text-sm font-medium">Nová blokace</div>
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted">Popis</label>
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Např. Roční inventura" aria-label="Např. Roční inventura"
-            className="w-48 rounded border border-line px-3 py-2 text-sm"
+            className="w-full rounded border border-line bg-white px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -537,7 +600,7 @@ function BlackoutPeriodsSection({
               setStart(v);
               if (end && v > end) setEnd(v);
             }}
-            className="rounded border border-line px-3 py-2 text-sm"
+            className="w-full rounded border border-line bg-white px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -550,12 +613,13 @@ function BlackoutPeriodsSection({
               setEnd(v);
               if (start && v < start) setStart(v);
             }}
-            className="rounded border border-line px-3 py-2 text-sm"
+            className="w-full rounded border border-line bg-white px-3 py-2 text-sm"
           />
         </div>
-        <Button variant="secondary" onClick={handleAdd} disabled={!label.trim() || !start || !end}>
+        <Button variant="primary" onClick={handleAdd} disabled={!label.trim() || !start || !end}>
           Zablokovat termín
         </Button>
+        </div>
       </div>
     </div>
   );
@@ -625,7 +689,9 @@ function CompanyWideLeaveSection({ companyId, leaveTypes }: { companyId: string;
         (dny by se jim odečetly dvakrát).
       </p>
 
-      <div className="mt-4">
+      <div className="mt-4 rounded-lg border border-line bg-paper p-4">
+      <div className="mb-3 text-sm font-medium">Nová celozávodní dovolená</div>
+      <div>
         <label className="mb-1.5 block text-xs font-medium text-muted">Komu</label>
         <div className="flex gap-1 rounded border border-line p-1 text-sm w-fit">
           <button
@@ -657,7 +723,7 @@ function CompanyWideLeaveSection({ companyId, leaveTypes }: { companyId: string;
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end gap-2">
+      <div className="mt-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-[auto_auto_1fr_auto]">
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted">Od</label>
           <input
@@ -668,7 +734,7 @@ function CompanyWideLeaveSection({ companyId, leaveTypes }: { companyId: string;
               setStart(v);
               if (end && v > end) setEnd(v);
             }}
-            className="rounded border border-line px-3 py-2 text-sm"
+            className="w-full rounded border border-line bg-white px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -690,7 +756,7 @@ function CompanyWideLeaveSection({ companyId, leaveTypes }: { companyId: string;
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Vánoční odstávka" aria-label="Vánoční odstávka"
-            className="w-48 rounded border border-line px-3 py-2 text-sm"
+            className="w-full rounded border border-line bg-white px-3 py-2 text-sm"
           />
         </div>
         <Button
@@ -700,6 +766,8 @@ function CompanyWideLeaveSection({ companyId, leaveTypes }: { companyId: string;
         >
           {submitting ? "Plánuji…" : `Naplánovat ${workingDays > 0 ? `(${workingDays} ${dayWord(workingDays)})` : ""}`}
         </Button>
+      </div>
+
       </div>
 
       {result && <p className={`mt-3 text-sm ${result.ok ? "text-teal-dark" : "text-danger"}`}>{result.text}</p>}

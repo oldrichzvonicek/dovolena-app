@@ -32,6 +32,11 @@ export function useSaveStatus() {
 export function SaveStatusBar({ status, error }: { status: Status; error: string | null }) {
   return (
     <div className="pointer-events-none sticky bottom-4 z-30 flex justify-end" aria-live="polite">
+      {status === "idle" && (
+        <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-white/90 px-3 py-1.5 text-xs text-muted shadow-sm backdrop-blur">
+          <Check size={12} className="text-teal-dark" /> Změny se ukládají automaticky
+        </div>
+      )}
       {status === "saving" && (
         <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm text-muted shadow-[0_8px_30px_rgba(22,35,59,0.14)]">
           <Loader2 size={14} className="animate-spin" /> Ukládám…

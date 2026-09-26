@@ -2028,7 +2028,8 @@ begin
 
   select * into a from profiles where id = p_approver;
   select company_id into requester_company from profiles where id = r.profile_id;
-  select coalesce(email_approval_enabled, true) into enabled from companies where id = requester_company;
+  -- Odkaz z e-mailu nevyžaduje přihlášení, takže by obcházel dvoufázové ověření: při vyžadovaném 2FA se e-mailem neschvaluje.
+  select coalesce(email_approval_enabled, true) and not coalesce(require_mfa_staff, false) into enabled from companies where id = requester_company;
   if a.id is null or not a.active or a.company_id is distinct from requester_company or a.id = r.profile_id or not coalesce(enabled, true) then
     return 'forbidden';
   end if;
