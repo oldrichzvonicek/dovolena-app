@@ -3577,10 +3577,21 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Odesílání fronty e-mailů každé 3 minuty (Vercel Hobby dovoluje jen denní cron úlohu — /api/cron/process by tam bez
 -- tohohle čekal na frontu i skoro 24 hodin, což u schvalování žádostí nejde). Volá se přímo z databáze přes pg_cron
--- + pg_net, zdarma, bez potřeby placeného Vercelu. Tajný CRON_SECRET se sem NEUKLÁDÁ (schema.sql je ve gitu) —
--- nastavuje se zvlášť příkazem `alter database postgres set app.settings.cron_secret = '...'`, který spustíte ručně
--- v Supabase SQL editoru (návod v DEPLOY.md). Bez nastaveného tajemství úloha běží, ale server ji 401 odmítne.
+-- + pg_net, zdarma, bez potřeby placeného Vercelu.
+--
+-- Tajný CRON_SECRET se sem NEUKLÁDÁ (schema.sql je ve gitu) — vloží se ručně přes SQL Editor (návod v DEPLOY.md) do
+-- tabulky system_secrets, ke které se přes PostgREST (aplikace, prohlížeč) nedá vůbec přistoupit — žádná policy,
+-- žádný grant. Čte ji jen tahle SQL úloha, běžící přímo v databázi. (Nejde použít `alter database ... set`, protože
+-- to na Supabase vyžaduje vyšší oprávnění, než SQL Editor má.) Bez vloženého tajemství úloha běží, ale server
+-- ji odmítne se 401 — nic se nerozbije, jen se e-maily neposílají hned.
 -- ---------------------------------------------------------------------------
+create table if not exists system_secrets (
+  key text primary key,
+  value text not null
+);
+alter table system_secrets enable row level security;
+revoke all on system_secrets from public, anon, authenticated;
+
 create extension if not exists pg_cron with schema extensions;
 create extension if not exists pg_net with schema extensions;
 
@@ -3598,7 +3609,7 @@ select cron.schedule(
   $$
   select net.http_post(
     url := 'https://dodio-app.vercel.app/api/cron/process',
-    headers := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.settings.cron_secret', true)),
+    headers := jsonb_build_object('Authorization', 'Bearer ' || (select value from system_secrets where key = 'cron_secret')),
     body := '{}'::jsonb
   );
   $$
