@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { addMonths, addYears, endOfMonth, endOfQuarter, endOfYear, format, getISOWeek, getISOWeekYear, getQuarter, parseISO, startOfMonth, startOfQuarter, startOfYear, subMonths, subYears } from "date-fns";
+import { addDays, addMonths, addYears, endOfMonth, endOfQuarter, endOfYear, format, getISOWeek, getISOWeekYear, getQuarter, isWeekend, parseISO, startOfMonth, startOfQuarter, startOfYear, subMonths, subYears } from "date-fns";
 import { cs } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Printer } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DbDepartment } from "@/lib/supabase/types";
 import { LeaveColor } from "@/lib/supabase/types";
 import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationReport";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { canSeeInsights } from "@/lib/access";
 import { reducesPresence } from "@/lib/leave-kinds";
 import { LoadingCard } from "@/components/ui/skeleton";
@@ -106,6 +107,9 @@ export function OverviewPanel() {
   const [deptFilter, setDeptFilter] = useState("all");
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  // Dvě logické části: zpětné reporty (řízené obdobím) a operativní plánování (vždy od dneška dopředu).
+  const [section, setSection] = useState<"retro" | "plan">("retro");
+  const [overlapFor, setOverlapFor] = useState<{ department: string; start: string; end: string } | null>(null);
   // Okno "Nadcházející absence": počet dní dopředu (0 = do konce roku).
   const [upcomingDays, setUpcomingDays] = useState<number>(() => {
     try {
@@ -317,9 +321,30 @@ export function OverviewPanel() {
 
   return (
     <div className="space-y-8">
+      <div className="no-print flex flex-wrap gap-1.5" role="tablist" aria-label="Část přehledu">
+        {(
+          [
+            ["retro", "Retrospektiva a reporty"],
+            ["plan", "Operativní plánování"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={section === key}
+            onClick={() => setSection(key)}
+            className={cn("rounded-full border px-4 py-1.5 text-sm", section === key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="basis-full text-xs text-muted">
+          {section === "retro" ? "Zpětná data podle zvoleného období (měsíc, kvartál, rok)." : "Pohled dopředu: nadcházející absence, souběhy a nevyčerpaná dovolená. Zvolené období se zde nepoužívá."}
+        </span>
+      </div>
       <div>
         <div className="no-print flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5">
+          <div className={cn("flex flex-wrap gap-1.5", section !== "retro" && "hidden")}>
             {presetLabels.map(([key, label]) => (
               <button
                 key={key}
@@ -350,6 +375,7 @@ export function OverviewPanel() {
                 ))}
               </SelectContent>
             </Select>
+            {section === "retro" && (<>
             <button
               onClick={exportCsv}
               disabled={!canExport}
@@ -361,9 +387,11 @@ export function OverviewPanel() {
             <button onClick={() => window.print()} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
               <Printer size={13} /> PDF (tisk)
             </button>
+            </>)}
           </div>
         </div>
 
+        {section === "retro" && (<>
         {preset === "custom" ? (
           <div className="no-print mt-4 flex flex-wrap items-center justify-center gap-2 text-sm">
             <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label="Od" className="rounded border border-line px-2 py-1.5" />
@@ -441,13 +469,14 @@ export function OverviewPanel() {
                       {state.byType.map((t) => (
                         <div
                           key={t.label}
-                          className={cn("h-full", colorBg[t.color])}
+                          className={cn("h-full shrink-0", colorBg[t.color])}
                           style={{ width: `${totalTypeDays > 0 ? (t.days / totalTypeDays) * 100 : 0}%` }}
                           title={`${t.label}: ${formatNumber(t.days)} ${dayWord(t.days)}`}
                         />
                       ))}
                     </div>
-                    <div className="mt-4 space-y-2.5">
+                    <p className="mt-2 text-[11px] text-muted">Šířka pruhu odpovídá podílu na součtu osobodnů všech členů týmu (dny × lidé), ne počtu žádostí.</p>
+                    <div className="mt-3 space-y-2.5">
                       {state.byType.map((t) => (
                         <div key={t.label} className="flex items-center gap-2 text-sm">
                           <span className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", colorBg[t.color])} />
@@ -503,10 +532,11 @@ export function OverviewPanel() {
             </div>
           </div>
         )}
+        </>)}
       </div>
 
       {/* Not scoped to the month/year switcher above — always "starting from today", so it's pulled visually apart with its own heading + divider rather than sitting right under the monthly cards. */}
-      {state && (
+      {state && section === "plan" && (
         <div className="space-y-6">
           {canSeeInsights(profile) && (
             <Link href="/admin/insights" className="card flex items-center justify-between gap-3 p-4 text-sm hover:bg-paper">
@@ -518,7 +548,6 @@ export function OverviewPanel() {
             </Link>
           )}
 
-          <h2 className="mb-3 text-label uppercase tracking-wide text-muted">Nezávisle na vybraném období</h2>
           <div className="card overflow-hidden">
             <div className="border-b border-line p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -544,7 +573,7 @@ export function OverviewPanel() {
                   ))}
                 </div>
               </div>
-              <p className="mt-1 text-xs text-muted">Vždy od dneška, bez ohledu na zvolené období výše.</p>
+              <p className="mt-1 text-xs text-muted">Vždy od dneška.</p>
             </div>
             {state.upcoming.length === 0 ? (
               <div className="p-5 text-sm text-muted">Nikdo nemá naplánovanou absenci ({upcomingLabel}).</div>
@@ -560,12 +589,14 @@ export function OverviewPanel() {
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-medium">{r.name}</span>
                               {overlapCount(r) > 0 && (
-                                <span
-                                  className="rounded-full bg-warning-light px-2 py-0.5 text-[11px] font-medium text-warning-dark"
-                                  title={`Ve stejném termínu chybí dalších ${overlapCount(r)} z oddělení ${r.department}`}
+                                <button
+                                  type="button"
+                                  onClick={() => setOverlapFor({ department: r.department ?? "", start: r.start_date, end: r.end_date })}
+                                  className="rounded-full bg-warning-light px-2 py-0.5 text-[11px] font-medium text-warning-dark hover:bg-warning/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+                                  title={`Ve stejném termínu chybí dalších ${overlapCount(r)} z oddělení ${r.department}. Kliknutím zobrazíte, kdo přesně.`}
                                 >
-                                  ⚠️ Souběh v týmu
-                                </span>
+                                  ⚠️ Souběh v týmu ({overlapCount(r)})
+                                </button>
                               )}
                             </div>
                             {r.department && <div className="text-xs text-muted">{r.department}</div>}
@@ -591,6 +622,62 @@ export function OverviewPanel() {
           <ExpiringVacationReport departmentId={deptFilter} />
         </div>
       )}
+
+      <Dialog open={overlapFor !== null} onOpenChange={(o) => !o && setOverlapFor(null)}>
+        {overlapFor && <OverlapDetail info={overlapFor} upcoming={state?.upcoming ?? []} deptId={departments.find((d) => d.name === overlapFor.department)?.id ?? null} />}
+      </Dialog>
     </div>
+  );
+}
+
+/** Detail souběhu: kdo z oddělení chybí v daném termínu a kolik procent týmu to je den po dni. */
+function OverlapDetail({ info, upcoming, deptId }: { info: { department: string; start: string; end: string }; upcoming: State["upcoming"]; deptId: string | null }) {
+  const [size, setSize] = useState<number | null>(null);
+  useEffect(() => {
+    if (!deptId) return;
+    createClient()
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("department_id", deptId)
+      .eq("active", true)
+      .then(({ count }) => setSize(count ?? null));
+  }, [deptId]);
+  const people = upcoming.filter((o) => o.department === info.department && reducesPresence(o.leave_type.key) && o.start_date <= info.end && o.end_date >= info.start);
+  const days: string[] = [];
+  for (let d = parseISO(info.start); d <= parseISO(info.end) && days.length < 14; d = addDays(d, 1)) if (!isWeekend(d)) days.push(format(d, "yyyy-MM-dd"));
+  return (
+    <DialogContent title={`Souběh: ${info.department}`}>
+      <p className="text-sm text-muted">Kdo z oddělení chybí v termínu {formatRange(info.start, info.end)}.</p>
+      <div className="mt-3 divide-y divide-line rounded border border-line">
+        {people.map((o) => (
+          <div key={o.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+            <span className="font-medium">{o.name}</span>
+            <span className="flex items-center gap-2">
+              <LeaveBadge type={o.leave_type} />
+              <span className="text-xs text-muted">{formatRange(o.start_date, o.end_date)}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      {days.length > 0 && size !== null && size > 0 && (
+        <div className="mt-4">
+          <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted">Obsazenost po dnech ({size} lidí v oddělení)</div>
+          <div className="flex flex-wrap gap-1.5">
+            {days.map((d) => {
+              const out = new Set(people.filter((o) => o.start_date <= d && o.end_date >= d).map((o) => o.name)).size;
+              const pctOut = Math.round((out / size) * 100);
+              return (
+                <span key={d} className={cn("rounded px-2 py-1 text-xs", pctOut >= 40 ? "bg-danger-light text-danger-dark" : pctOut >= 20 ? "bg-warning-light text-warning-dark" : "bg-paper text-muted")} title={`${out} z ${size} chybí`}>
+                  {format(parseISO(d), "EEEEEE d.", { locale: cs })}: {out}/{size}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <Link href="/calendar" className="mt-4 inline-block text-sm font-medium text-teal-dark underline underline-offset-2">
+        Otevřít týmový kalendář
+      </Link>
+    </DialogContent>
   );
 }

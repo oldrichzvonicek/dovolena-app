@@ -91,10 +91,17 @@ export function ExpiringVacationReport({ departmentId = "all" }: { departmentId?
           <h2 className="font-display text-h2">Nevyčerpaná dovolená ke konci roku</h2>
           <p className="mt-0.5 text-xs text-muted">Lidé s velkou částí nároku, kterou letos ještě nevyčerpali.</p>
         </div>
-        <Button variant="secondary" onClick={handleSend} disabled={selected.size === 0 || sending} className={profile?.role === "admin" || profile?.staff_role === "hr" ? "" : "hidden"}>
-          <Send size={15} /> Odeslat výzvu k vyčerpání {selected.size > 0 && `(${selected.size})`}
-        </Button>
       </div>
+      {(profile?.role === "admin" || profile?.staff_role === "hr") && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper px-5 py-2.5">
+          <span className="text-sm text-muted">
+            {selected.size === 0 ? "Zaškrtněte lidi, kterým chcete poslat výzvu (nebo zvolte Vybrat vše)." : `Výzva se odešle ${selected.size} ${selected.size === 1 ? "člověku" : "lidem"}: jen těm, které máte zaškrtnuté.`}
+          </span>
+          <Button variant="primary" onClick={handleSend} disabled={selected.size === 0 || sending}>
+            <Send size={15} /> {sending ? "Odesílám…" : `Odeslat výzvu (${selected.size})`}
+          </Button>
+        </div>
+      )}
       {sentMessage && (
         <div
           className={cn(
@@ -108,7 +115,7 @@ export function ExpiringVacationReport({ departmentId = "all" }: { departmentId?
       <div className={cn("divide-y divide-line", showAll && "max-h-[380px] overflow-y-auto")}>
         <div className="sticky top-0 z-10 flex items-center gap-3 bg-white px-5 py-1.5 text-xs uppercase tracking-wide text-muted">
           <input type="checkbox" checked={selected.size === rows.length} onChange={toggleAll} className="h-3.5 w-3.5" />
-          <span>Vybrat vše</span>
+          <span>Vybrat vše ({rows.length})</span>
         </div>
         {(showAll ? rows : rows.slice(0, TOP)).map((r) => (
           <label key={r.id} className="flex cursor-pointer items-center gap-3 px-5 py-1.5 text-sm hover:bg-paper">
