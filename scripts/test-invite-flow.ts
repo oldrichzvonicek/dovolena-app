@@ -87,4 +87,53 @@ async function main() {
   }
 }
 
-main();
+/**
+ * Scénář, který se přesně stal Oldřichovi: starší nedokončený pokus (auth.users existuje, ale nikdy se nepotvrdil,
+ * takže createUser hlásí "already registered") — /api/invite/accept ho má dokončit, ne to vzdát. Volá se skutečný
+ * HTTP endpoint (ne přímo Supabase), musí tedy běžet `npm run dev` na localhost:3000.
+ */
+async function testAbandonedSignup() {
+  const out2: string[] = [];
+  const c2 = (name: string, ok: boolean) => out2.push(`${ok ? "OK  " : "FAIL"} ${name}`);
+  const { data: company } = await sb.from("companies").insert({ name: "ZZ invite abandoned (smazat)", plan: "free" }).select().single();
+  const cid = company!.id as string;
+  let userId: string | null = null;
+  try {
+    const email = `zz-abandoned-${stamp}@zz.dodio.invalid`;
+    await sb.from("company_invites").insert({ company_id: cid, email, name: "ZZ Nedokončený", role: "employee", vacation_total: 20, sick_total: 5 });
+
+    // Simuluje starý pokus: účet vznikl (starým, klientským supabase.auth.signUp), ale e-mail se nikdy nepotvrdil.
+    const oldPassword = "Zz-" + crypto.randomUUID();
+    const { data: ghost } = await sb.auth.admin.createUser({ email, password: oldPassword, email_confirm: false });
+    userId = ghost!.user!.id;
+    c2("příprava: nepotvrzený účet existuje", !ghost!.user!.email_confirmed_at);
+
+    const newPassword = "Zz-" + crypto.randomUUID();
+    const token = signInviteToken(email);
+    const res = await fetch("http://localhost:3000/api/invite/accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password: newPassword }),
+    })
+      .then(async (r) => ({ status: r.status, data: (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string } }))
+      .catch((e) => ({ status: 0, data: { ok: undefined, error: String(e) } as { ok?: boolean; error?: string } }));
+    c2(`/api/invite/accept: opraví nedokončený účet místo chyby (${res.status} ${res.data.error ?? "ok"})`, res.status === 200 && res.data.ok === true);
+
+    const c: SupabaseClient = createClient(URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+    const { error: signInErr } = await c.auth.signInWithPassword({ email, password: newPassword });
+    c2("přihlášení NOVÝM heslem funguje", !signInErr);
+    const { error: oldSignInErr } = await c.auth.signInWithPassword({ email, password: oldPassword });
+    c2("přihlášení STARÝM heslem už nejde", !!oldSignInErr);
+
+    const { data: claimedCompanyId } = await c.rpc("claim_invite");
+    c2("claim_invite po opravě: zařadí do správné firmy", claimedCompanyId === cid);
+  } finally {
+    if (userId) await sb.auth.admin.deleteUser(userId).catch(() => {});
+    await sb.from("companies").delete().eq("id", cid);
+    console.log("\n" + out2.join("\n"));
+    const fails2 = out2.filter((l) => l.startsWith("FAIL")).length;
+    console.log(`${fails2 === 0 ? "VŠE OK" : `${fails2} CHYB`} (${out2.length} kontrol)`);
+  }
+}
+
+main().then(testAbandonedSignup);

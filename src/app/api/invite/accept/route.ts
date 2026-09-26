@@ -27,9 +27,27 @@ export async function POST(req: Request) {
   if (!invite) return NextResponse.json({ error: "Pozvánka už neplatí. Požádejte administrátora firmy o novou." }, { status: 404 });
 
   const { error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-  if (error) {
-    const msg = /already.*registered|already.*exists/i.test(error.message) ? "Pro tento e-mail už účet existuje. Přihlaste se svým heslem." : error.message;
-    return NextResponse.json({ error: msg }, { status: 400 });
-  }
+  if (!error) return NextResponse.json({ ok: true, email });
+  if (!/already.*registered|already.*exists/i.test(error.message)) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // E-mail už v auth.users existuje. Nejčastěji jde o nedokončený pokus z dřívějška (čekal na potvrzovací e-mail,
+  // který se nikdy neposlal) — takový účet dokončíme, protože platný token je stejný důkaz vlastnictví adresy.
+  // Skutečně dokončený (potvrzený) účet ale nepřepisujeme — supabase-js nemá vyhledání podle e-mailu, projdeme stránky.
+  const abandoned = await findUnconfirmedUser(admin, email);
+  if (!abandoned) return NextResponse.json({ error: "Pro tento e-mail už účet existuje. Přihlaste se svým heslem." }, { status: 400 });
+
+  const { error: repairError } = await admin.auth.admin.updateUserById(abandoned.id, { password, email_confirm: true });
+  if (repairError) return NextResponse.json({ error: repairError.message }, { status: 400 });
   return NextResponse.json({ ok: true, email });
+}
+
+async function findUnconfirmedUser(admin: ReturnType<typeof createAdminClient>, email: string) {
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error || !data?.users?.length) return null;
+    const hit = data.users.find((u) => u.email?.toLowerCase() === email);
+    if (hit) return hit.email_confirmed_at ? null : hit;
+    if (data.users.length < 200) return null;
+  }
+  return null;
 }
