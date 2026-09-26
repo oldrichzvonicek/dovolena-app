@@ -41,10 +41,13 @@ function LoginForm() {
 
   const inviteCode = searchParams.get("pozvanka");
   const legacyLink = searchParams.get("company"); // starý odkaz s číslem firmy — už neplatí
-  // Pozvánka e-mailem: odkaz nese adresu pozvaného (?zvan=), formulář je jen „zvolte si heslo“ a pozvánka se hned uplatní.
+  // Pozvánka e-mailem: odkaz nese e-mail (?zvan=, jen pro zobrazení) a podepsaný token (?t=, ověřuje ho server).
+  // Formulář je jen „zvolte si heslo“ a pozvánka se hned uplatní.
   const invitedEmail = searchParams.get("zvan");
-  const [mode, setMode] = useState<Mode>(inviteCode ? "join" : invitedEmail ? "invitee" : "signin");
+  const inviteToken = searchParams.get("t");
+  const [mode, setMode] = useState<Mode>(inviteCode ? "join" : inviteToken ? "invitee" : "signin");
   const [inviteCompanyName, setInviteCompanyName] = useState<string | null>(null);
+  const [inviteValid, setInviteValid] = useState<boolean | null>(null);
 
   const [email, setEmail] = useState(invitedEmail ?? "");
   const [password, setPassword] = useState("");
@@ -93,6 +96,18 @@ function LoginForm() {
       })
       .catch(() => setInviteCompanyName(null));
   }, [inviteCode]);
+
+  useEffect(() => {
+    if (!inviteToken) return;
+    fetch(`/api/invite/verify?token=${encodeURIComponent(inviteToken)}`)
+      .then(async (r) => ({ ok: r.ok, data: (await r.json().catch(() => ({}))) as { email?: string; error?: string } }))
+      .then(({ ok, data }) => {
+        setInviteValid(ok);
+        if (ok && data.email) setEmail(data.email);
+        if (!ok) setError(data.error ?? "Odkaz je neplatný nebo vypršel.");
+      })
+      .catch(() => setInviteValid(false));
+  }, [inviteToken]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -181,23 +196,24 @@ function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError) {
+    // Odkaz z pozvánky je sám o sobě důkaz, že adresu vlastníte — účet se založí rovnou jako potvrzený,
+    // takže se nemusí ještě jednou potvrzovat e-mailem (viz /api/invite/accept).
+    const accept = await fetch("/api/invite/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: inviteToken, password }) })
+      .then(async (r) => ({ ok: r.ok, data: (await r.json().catch(() => ({}))) as { error?: string } }))
+      .catch(() => ({ ok: false, data: { error: "Nepodařilo se spojit se serverem. Zkontrolujte připojení." } }));
+    if (!accept.ok) {
       setLoading(false);
-      setError(czechAuthError(signUpError.message));
+      setError(accept.data.error ?? "Registraci se nepodařilo dokončit.");
       return;
     }
-    // Když je zapnuté potvrzování e-mailu, relace vznikne až po potvrzení; pozvánka se pak uplatní při prvním přihlášení.
-    if (!signUpData.session) {
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) {
       setLoading(false);
-      setInfo("Účet je vytvořený. Potvrďte e-mail (přišel vám potvrzovací odkaz) a pak se přihlaste. Do firmy vás zařadíme automaticky.");
-      keepMessage.current = true;
-      setMode("signin");
+      setError(czechAuthError(signInError.message));
       return;
     }
     try {
-      const claimed = await claimInvite();
-      if (!claimed) throw new Error("K tomuto e-mailu jsme nenašli pozvánku. Použijte adresu, na kterou přišla.");
+      await claimInvite();
       await refreshProfile();
       router.push("/dashboard");
     } catch (err) {
@@ -352,10 +368,12 @@ function LoginForm() {
             </div>
           )}
 
-          <Button type="submit" variant="primary" className="w-full justify-center" disabled={loading}>
+          <Button type="submit" variant="primary" className="w-full justify-center" disabled={loading || (mode === "invitee" && inviteValid !== true)}>
             {loading
               ? "Chvilku…"
-              : mode === "signin"
+              : mode === "invitee" && inviteValid === null
+                ? "Ověřuji odkaz…"
+                : mode === "signin"
                 ? "Přihlásit se"
                 : mode === "signup"
                   ? "Založit firmu a účet"

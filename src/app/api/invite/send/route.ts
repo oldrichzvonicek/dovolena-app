@@ -3,6 +3,7 @@ import { createRouteClient } from "@/lib/supabase/server";
 import { appUrl, sendEmail } from "@/lib/email";
 import { renderTemplate } from "@/lib/email-templates";
 import { allowRequest, tooManyRequests } from "@/lib/rate-limit";
+import { signInviteToken } from "@/lib/invite-token";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,12 @@ export async function POST(req: Request) {
   for (const inv of invites ?? []) {
     const r = renderTemplate(
       "invite",
-      { jmeno: (inv.name as string).split(" ")[0], pozvatel: me.name as string, firma: (company?.name as string) ?? "vaše firma", odkaz: `${appUrl()}/login?zvan=${encodeURIComponent(inv.email as string)}` },
+      {
+        jmeno: (inv.name as string).split(" ")[0],
+        pozvatel: me.name as string,
+        firma: (company?.name as string) ?? "vaše firma",
+        odkaz: `${appUrl()}/login?zvan=${encodeURIComponent(inv.email as string)}&t=${signInviteToken(inv.email as string)}`,
+      },
       appUrl()
     );
     const res = await sendEmail(inv.email as string, r.subject, r.text, r.html);

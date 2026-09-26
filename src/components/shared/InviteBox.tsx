@@ -121,12 +121,18 @@ export function InviteColleagueButton() {
         },
       ]);
       if (mode === "copy") {
-        const target = `${window.location.origin}/login?zvan=${encodeURIComponent(email.trim().toLowerCase())}`;
-        try {
-          await navigator.clipboard.writeText(target);
-          showToast("Pozvánka je založená a odkaz zkopírovaný. Pošlete ho nováčkovi, ať se zaregistruje stejným e-mailem.");
-        } catch {
-          showToast("Pozvánka je založená. Odkaz zkopírujte ručně ze záložky „Kopírovat odkaz“.", "info");
+        const link = await fetch("/api/invite/link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim() }) })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        if (link?.url) {
+          try {
+            await navigator.clipboard.writeText(link.url);
+            showToast("Pozvánka je založená a odkaz zkopírovaný. Pošlete ho nováčkovi, ať jím dokončí registraci.");
+          } catch {
+            showToast(`Pozvánka je založená. Odkaz: ${link.url}`, "info");
+          }
+        } else {
+          showToast("Pozvánka je založená, ale odkaz se nepodařilo připravit. Zkuste to prosím znovu.", "error");
         }
       } else {
         const res = await fetch("/api/invite/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails: [email.trim().toLowerCase()] }) })
