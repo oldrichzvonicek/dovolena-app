@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Balance, HomeOfficeYear, loadBalances, loadHomeOfficeYear, remainingOf } from "@/lib/balances";
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 /** Slim three-card version of the dashboard balances, for the top of Moje žádosti. */
 export function CompactBalances() {
@@ -52,15 +52,13 @@ export function CompactBalances() {
             <div className="text-sm font-medium">
               {c.remaining !== null ? `${formatNumber(c.remaining)} z ${formatNumber(total)} dní zbývá` : `${formatNumber(c.used + c.planned)} dní letos`}
             </div>
-            {total > 0 ? (
+            {total > 0 && (
               <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-paper" role="img" aria-label={`${c.label}: vyčerpáno ${formatNumber(c.used)}, plánováno ${formatNumber(c.planned)}, zbývá ${formatNumber(c.remaining ?? 0)}`}>
                 <div className={c.color} style={{ width: `${usedPct}%` }} />
                 <div className={c.color + " opacity-40"} style={{ width: `${plannedPct}%` }} />
               </div>
-            ) : (
-              <div className="mt-1.5 h-1.5 w-full rounded-full bg-paper" aria-hidden="true" />
             )}
-            <div className="mt-1.5 flex flex-wrap gap-x-3 text-[11px] text-muted">
+            <div className={cn("flex flex-wrap gap-x-3 text-[11px] text-muted", total > 0 ? "mt-1.5" : "mt-1")}>
               <span>Vyčerpáno: {formatNumber(c.used)}</span>
               <span>Plánováno: {formatNumber(c.planned)}</span>
               {c.note && <span>{c.note}</span>}

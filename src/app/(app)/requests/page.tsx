@@ -35,7 +35,7 @@ interface Row {
   approver: { name: string } | null;
 }
 
-const PAGE_SIZES = [10, 25, 50];
+const PAGE_SIZES = [10, 20, 50];
 type StatusTab = "all" | RequestStatus;
 
 const btn =
@@ -53,7 +53,9 @@ export default function RequestsPage() {
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
   // Výchozí je přehledná tabulka; karty zůstávají jako druhý pohled.
   const [view, setView] = useState<"cards" | "table">("table");
-  const [pageSize, setPageSize] = useState(10);
+  // Na desktopu se vejde víc řádků; na telefonu zůstává kratší stránka.
+  const [pageSize, setPageSize] = useState(() => (typeof window !== "undefined" && window.innerWidth < 768 ? 10 : 20));
+  const [coverNames, setCoverNames] = useState<Record<string, string>>({});
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [sortDesc, setSortDesc] = useState(true);
@@ -81,6 +83,16 @@ export default function RequestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
   useOnDataChanged(load);
+
+  useEffect(() => {
+    const ids = Array.from(new Set(rows.map((r) => r.covering_profile_id).filter((x): x is string => !!x)));
+    if (ids.length === 0) return;
+    createClient()
+      .from("profiles")
+      .select("id, name")
+      .in("id", ids)
+      .then(({ data }) => setCoverNames(Object.fromEntries((data ?? []).map((p) => [p.id as string, p.name as string]))));
+  }, [rows]);
 
   const years = useMemo(() => Array.from(new Set(rows.map((r) => r.start_date.slice(0, 4)))).sort().reverse(), [rows]);
   const types = useMemo(() => {
@@ -163,8 +175,13 @@ export default function RequestsPage() {
       items.push({
         key: "ics",
         node: (
-          <button onClick={() => downloadIcs(r.leave_type.label, r.start_date, r.end_date, r.id)} className={btn} title="Stáhnout do Google / Outlook / Apple kalendáře (.ics)">
-            <CalendarPlus size={12} /> Do kalendáře
+            <button
+            onClick={() => downloadIcs(r.leave_type.label, r.start_date, r.end_date, r.id)}
+            className={compact ? "rounded border border-line p-1.5 text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark" : btn}
+            title="Do kalendáře: stáhnout .ics pro Google, Outlook nebo Apple kalendář"
+            aria-label="Do kalendáře"
+          >
+            <CalendarPlus size={compact ? 14 : 12} /> {!compact && "Do kalendáře"}
           </button>
         ),
         menu: { label: "Do kalendáře", icon: <CalendarPlus size={13} />, onClick: () => downloadIcs(r.leave_type.label, r.start_date, r.end_date, r.id) },
@@ -226,9 +243,9 @@ export default function RequestsPage() {
                   setSearch(e.target.value);
                   setPage(0);
                 }}
-                placeholder="Hledat v poznámce nebo názvu…"
+                placeholder="Hledat v poznámce…"
                 aria-label="Hledat v žádostech"
-                className="w-60 rounded border border-line bg-white py-2 pl-8 pr-3 text-sm"
+                className="w-full min-w-[12rem] rounded border border-line bg-white py-2 pl-8 pr-3 text-sm sm:w-64"
               />
             </div>
             <Select
@@ -367,14 +384,15 @@ export default function RequestsPage() {
         )}
 
         {filteredRows.length > 0 && view === "table" && (
-          <div className="card overflow-x-auto">
+          <div className="card max-h-[75vh] overflow-auto">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-paper">
                 <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-muted">
                   <th className="px-4 py-2.5 font-medium">Typ</th>
                   <th className="px-3 py-2.5 font-medium">Termín</th>
                   <th className="px-3 py-2.5 font-medium">Dní</th>
                   <th className="px-3 py-2.5 font-medium">Stav</th>
+                  <th className="px-3 py-2.5 font-medium">Zástup</th>
                   <th className="px-3 py-2.5 font-medium">Poznámka</th>
                   <th className="px-3 py-2.5 font-medium">Akce</th>
                 </tr>
@@ -393,6 +411,9 @@ export default function RequestsPage() {
                     <td className="px-3 py-2">
                       <StatusBadge status={r.status} title={r.status === "rejected" ? (r.rejection_reason ?? undefined) : undefined} />
                       {r.status === "rejected" && r.rejection_reason && <div className="mt-1 max-w-[200px] text-xs text-danger">{r.rejection_reason}</div>}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs">
+                      {r.covering_profile_id ? <span className="text-ink">{coverNames[r.covering_profile_id] ?? "…"}</span> : <span className="text-muted">—</span>}
                     </td>
                     <td className="max-w-[220px] px-3 py-2 text-xs text-muted">
                       <span className="line-clamp-2" title={r.note ?? undefined}>
