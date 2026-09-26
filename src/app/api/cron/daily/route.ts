@@ -25,7 +25,27 @@ export async function GET(req: Request) {
   let escalated = 0;
   let digests = 0;
 
-  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, plan, addons");
+  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, plan, addons, pending_plan, pending_plan_from, pending_plan_notified");
+
+  // Naplánované změny tarifu: provést ty, kterým nastal den účinnosti (databázová funkce; chyba se ignoruje, dokud není nasazená).
+  const applied = await supabase.rpc("apply_scheduled_plan_changes");
+
+  // Upozornit adminy 3 dny předem, že se tarif změní (jednou; e-mail je provozní, nejde vypnout).
+  const inThreeDays = iso(addDays(now, 3));
+  for (const co of (companies ?? []).filter((x) => x.pending_plan && x.pending_plan_from && !x.pending_plan_notified && x.pending_plan_from <= inThreeDays)) {
+    const { data: admins } = await supabase.from("profiles").select("email, name").eq("company_id", co.id).eq("role", "admin").eq("active", true);
+    const rows = (admins ?? [])
+      .filter((a) => a.email)
+      .map((a) => ({
+        company_id: co.id,
+        category: "billing",
+        to_email: a.email as string,
+        subject: "Změna tarifu Dodio od " + co.pending_plan_from,
+        body: `Dobrý den ${String(a.name).split(" ")[0]},\n\nk ${co.pending_plan_from} se vaše firma přesune na jiný tarif (${co.pending_plan}), jak jste naplánovali v Nastavení firmy → Fakturace & tarify. Funkce, které nový tarif nemá, se tehdy zamknou, data zůstanou. Pokud jste s novým tarifem počet uživatelů nad limitem, další lidi už nepřidáte, dokud jejich počet nesnížíte. Změnu můžete do tohoto data zrušit.`,
+      }));
+    if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
+    await supabase.from("companies").update({ pending_plan_notified: true }).eq("id", co.id);
+  }
 
   for (const company of companies ?? []) {
     const [{ data: profiles }, { data: depts }, { data: pending }, { data: away }] = await Promise.all([
@@ -198,5 +218,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ escalated, digestsQueued: digests });
+  return NextResponse.json({ escalated, digestsQueued: digests, planChangesApplied: (applied.data as number | null) ?? 0 });
 }

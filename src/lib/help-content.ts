@@ -434,6 +434,12 @@ const ALL_FAQS: HelpFaq[] = [
     roles: ["admin"],
   },
   {
+    q: "Co se stane, když v průběhu roku změním tarif?",
+    section: "Nastavení firmy (admin)",
+    a: "Přechod na VYŠŠÍ tarif platí hned po zaplacení: nevyužitá část už zaplaceného tarifu se započítá jako kredit (poměrně podle dnů) a doplatíte jen rozdíl; datum obnovy se nemění. V Nastavení firmy → Fakturace & tarify uvidíte orientační doplatek a tlačítko „Požádat o přechod“. Přechod na NIŽŠÍ tarif platí až po skončení zaplaceného období, peníze se nevrací. Naplánujete ho tlačítkem „Naplánovat přechod“, do dne účinnosti ho můžete zrušit a tři dny předem vám pošleme e-mail. Po přechodu se zamknou funkce, které nižší tarif nemá (data zůstanou), a když je ve firmě víc aktivních uživatelů, než nižší tarif dovoluje, nepůjde přidat další, dokud počet nesnížíte. Platnost tarifu vidíte u „Váš tarif“ („platí do …“).",
+    roles: ["admin"],
+  },
+  {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
     a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",

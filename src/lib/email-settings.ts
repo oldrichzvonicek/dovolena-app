@@ -83,6 +83,7 @@ export function categoryOfTemplate(templateKey: string): EmailCategory | undefin
 
 /** Popisek druhu e-mailu v přehledu odeslaných (kategorie z databáze nebo typ upozornění). */
 export function categoryLabel(category: string | null | undefined): string {
+  if (category === "billing") return "Tarify a platby (provozní)";
   return categoryByKey(category)?.label ?? (category ? category.replace(/_/g, " ") : "—");
 }
 

@@ -135,7 +135,11 @@ export function BillingPanel() {
 
   return (
     <div className="space-y-6">
-      <PlanCard planKey={company.plan} />
+      <PlanCard
+        planKey={company.plan}
+        billing={{ billing_period: company.billing_period ?? "monthly", plan_paid_until: company.plan_paid_until ?? null, pending_plan: company.pending_plan ?? null, pending_plan_from: company.pending_plan_from ?? null }}
+        onChanged={() => profile && fetchCompany(profile.company_id).then(setCompany)}
+      />
 
       <div className="card p-5">
         <div className="flex items-center gap-2.5">

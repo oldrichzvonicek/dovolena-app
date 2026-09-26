@@ -6,15 +6,29 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { ADDONS, FEATURE_MATRIX, PLANS, YEARLY_NOTE, formatKc, planByKey, planPrice, pricePerUser, recommendedFor, type Addon, type Plan } from "@/lib/plans";
 import { useFeatures } from "@/lib/use-features";
+import { changeKind, downgradeEffectiveDate, overLimitBy, quoteUpgrade, remainingDays } from "@/lib/plan-change";
+import { confirmDialog } from "@/components/shared/ConfirmHost";
+import { showToast } from "@/lib/toast";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** Current tariff with usage, plus the full tariff comparison inline (prices calculated for the company's own user count). */
-export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
+export interface PlanBilling {
+  billing_period: "monthly" | "yearly";
+  plan_paid_until: string | null;
+  pending_plan: string | null;
+  pending_plan_from: string | null;
+}
+
+const czDate = (iso: string) => `${+iso.slice(8, 10)}. ${+iso.slice(5, 7)}. ${iso.slice(0, 4)}`;
+
+export function PlanCard({ planKey, billing, onChanged }: { planKey: string | null | undefined; billing?: PlanBilling; onChanged?: () => void }) {
   const { profile } = useAuth();
+  const [changing, setChanging] = useState(false);
+  const today = new Date().toLocaleDateString("sv-SE");
   const [employees, setEmployees] = useState<number | null>(null);
-  const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
+  const [period, setPeriod] = useState<"monthly" | "yearly">(billing?.billing_period ?? "monthly");
   const [showMatrix, setShowMatrix] = useState(false);
   const plan = planByKey(planKey);
   const features = useFeatures();
@@ -47,12 +61,47 @@ export function PlanCard({ planKey }: { planKey: string | null | undefined }) {
   const suggested = employees !== null ? recommendedFor(employees) : null;
   const salesEmail = process.env.NEXT_PUBLIC_SALES_EMAIL;
 
-  function choose(target: Plan) {
+  const paidUntil = billing?.plan_paid_until ?? null;
+  const pendingPlan = billing?.pending_plan ? planByKey(billing.pending_plan) : null;
+
+  async function choose(target: Plan) {
+    const kind = changeKind(plan.key, target.key);
+    if (kind === "downgrade" && paidUntil) {
+      const eff = downgradeEffectiveDate(paidUntil, today)!;
+      const over = employees !== null ? overLimitBy(target.key, employees) : 0;
+      const text =
+        `Přejít na tarif ${target.name}? Změna se projeví až ${czDate(eff)}, po skončení zaplaceného období. Do té doby používáte ${plan.name} a peníze se nevrací.` +
+        (over > 0 ? ` Pozor: máte ${employees} aktivních uživatelů, tarif ${target.name} jich umožňuje ${target.employeeLimit}. Nikoho nepřidáte, dokud jejich počet nesnížíte.` : "");
+      if (!(await confirmDialog(text, { confirmLabel: "Naplánovat přechod" }))) return;
+      setChanging(true);
+      const { error } = await createClient().rpc("schedule_plan_downgrade", { p_plan: target.key });
+      setChanging(false);
+      if (error) {
+        showToast(error.message, "error");
+        return;
+      }
+      showToast(`Přechod na ${target.name} je naplánován od ${czDate(eff)}.`);
+      onChanged?.();
+      return;
+    }
+    const quote = kind === "upgrade" && billing ? quoteUpgrade({ from: plan, to: target, users, period, paidUntil, today }) : null;
     const subject = encodeURIComponent(`Změna tarifu Dodio: ${plan.name} → ${target.name}`);
     const body = encodeURIComponent(
-      `Dobrý den,\n\nchceme přejít z tarifu ${plan.name} na ${target.name} (${period === "yearly" ? "roční" : "měsíční"} platba).\nAktuální počet uživatelů: ${employees ?? "?"}.\n\nDěkujeme.`
+      `Dobrý den,\n\nchceme přejít z tarifu ${plan.name} na ${target.name} (${period === "yearly" ? "roční" : "měsíční"} platba).\nAktuální počet uživatelů: ${employees ?? "?"}.` +
+        (paidUntil ? `\nAktuální tarif máme zaplacený do ${czDate(paidUntil)}.` : "") +
+        (quote ? `\nOrientační doplatek podle podmínek (kredit za nevyužité období ${formatKc(quote.credit)}): ${formatKc(quote.toPay)}.` : "") +
+        "\n\nDěkujeme."
     );
     window.location.href = `mailto:${salesEmail}?subject=${subject}&body=${body}`;
+  }
+
+  async function cancelChange() {
+    setChanging(true);
+    const { error } = await createClient().rpc("cancel_plan_change");
+    setChanging(false);
+    if (error) return showToast(error.message, "error");
+    showToast("Naplánovaná změna tarifu je zrušená.", "info");
+    onChanged?.();
   }
 
   function orderAddon(a: Addon) {
@@ -82,10 +131,29 @@ Děkujeme.`);
               <h2 className="font-display text-h2">
                 Váš tarif: <span className="text-teal-dark">{plan.name}</span>
               </h2>
-              <p className="text-xs text-muted">{planPrice(plan, users, "monthly") === 0 ? "0 Kč" : `${formatKc(planPrice(plan, users, "monthly"))} / měs.`}</p>
+              <p className="text-xs text-muted">
+                {planPrice(plan, users, "monthly") === 0 ? "0 Kč" : `${formatKc(planPrice(plan, users, "monthly"))} / měs.`}
+                {paidUntil && plan.monthly > 0 && (
+                  <>
+                    {" "}
+                    · {billing?.billing_period === "yearly" ? "roční platba" : "měsíční platba"}, {remainingDays(paidUntil, today) > 0 ? `platí do ${czDate(paidUntil)}` : `platnost skončila ${czDate(paidUntil)} — napište nám`}
+                  </>
+                )}
+              </p>
             </div>
           </div>
         </div>
+
+        {pendingPlan && billing?.pending_plan_from && (
+          <div role="status" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded border border-warning/40 bg-warning-light px-4 py-3 text-sm">
+            <span>
+              <strong>Od {czDate(billing.pending_plan_from)} přejdete na tarif {pendingPlan.name}.</strong> Do té doby platí {plan.name}. Funkce, které {pendingPlan.name} nemá, se tehdy zamknou (data zůstanou).
+            </span>
+            <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={cancelChange} disabled={changing}>
+              Zrušit změnu
+            </Button>
+          </div>
+        )}
 
         <div className="mt-4">
           <div className="flex items-baseline justify-between text-sm">
@@ -129,6 +197,9 @@ Děkujeme.`);
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {PLANS.map((p) => {
             const current = p.key === plan.key;
+            const kind = changeKind(plan.key, p.key);
+            const isPending = billing?.pending_plan === p.key;
+            const quote = kind === "upgrade" && billing ? quoteUpgrade({ from: plan, to: p, users, period, paidUntil, today }) : null;
             const fits = employees === null || p.employeeLimit === null || employees <= p.employeeLimit;
             return (
               <div
@@ -174,12 +245,28 @@ Děkujeme.`);
                 <Button
                   className="mt-4 w-full justify-center"
                   variant={p.recommended && !current ? "primary" : "secondary"}
-                  disabled={current || !fits || !salesEmail}
+                  disabled={current || changing || isPending || (kind !== "downgrade" && !fits) || (!(kind === "downgrade" && paidUntil) && !salesEmail)}
                   title={!fits ? `Tarif je určen pro maximálně ${p.employeeLimit} uživatelů` : undefined}
                   onClick={() => choose(p)}
                 >
-                  {current ? "Aktuální tarif" : !fits ? "Pro váš tým nestačí" : "Zvolit tarif"}
+                  {current
+                    ? "Aktuální tarif"
+                    : isPending
+                      ? `Naplánováno od ${billing?.pending_plan_from ? czDate(billing.pending_plan_from) : ""}`
+                      : kind === "downgrade" && paidUntil
+                        ? "Naplánovat přechod"
+                        : !fits
+                          ? "Pro váš tým nestačí"
+                          : kind === "upgrade"
+                            ? "Požádat o přechod"
+                            : "Zvolit tarif"}
                 </Button>
+                {kind === "upgrade" && quote && (
+                  <p className="mt-2 text-[11px] text-muted">
+                    Orientační doplatek při přechodu dnes: <strong>{formatKc(quote.toPay)}</strong> (kredit za nevyužité období {formatKc(quote.credit)}).
+                  </p>
+                )}
+                {kind === "downgrade" && paidUntil && !current && <p className="mt-2 text-[11px] text-muted">Platí až od {czDate(downgradeEffectiveDate(paidUntil, today)!)}, bez vrácení peněz.</p>}
               </div>
             );
           })}

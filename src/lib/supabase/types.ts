@@ -44,6 +44,11 @@ export interface DbCompany {
   seniority_rules: { years: number; extra_days: number }[];
   plan: string;
   addons: string[];
+  /** Způsob platby a platnost tarifu (poslední zaplacený den) a naplánovaná změna. */
+  billing_period?: "monthly" | "yearly";
+  plan_paid_until?: string | null;
+  pending_plan?: string | null;
+  pending_plan_from?: string | null;
   logo_url: string | null;
   created_at: string;
 }

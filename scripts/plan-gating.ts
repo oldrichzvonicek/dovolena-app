@@ -134,6 +134,55 @@ async function main() {
       check("[Pro] aktivace šestého člověka (bez limitu)", !!(act2.data ?? []).length, true);
       void extras;
     }
+
+    // Změna tarifu v průběhu zaplaceného období
+    {
+      const iso = (offset: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() + offset);
+        return d.toLocaleDateString("sv-SE");
+      };
+      const empC: SupabaseClient = createClient(URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+      await empC.auth.signInWithPassword({ email: emp.email, password: PASSWORD });
+      const state = async () => (await sb.from("companies").select("plan, pending_plan, pending_plan_from, plan_paid_until").eq("id", cid).single()).data!;
+
+      await sb.from("companies").update({ plan: "pro", billing_period: "yearly", plan_paid_until: iso(100), pending_plan: null, pending_plan_from: null }).eq("id", cid);
+      const sch = await c.rpc("schedule_plan_downgrade", { p_plan: "starter" });
+      const st1 = await state();
+      check("[Změna] snížení se naplánuje na den po posledním zaplaceném dni", !sch.error && st1.pending_plan === "starter" && st1.pending_plan_from === iso(101) && st1.plan === "pro", true);
+      const upd = await c.from("companies").update({ pending_plan: "free" }).eq("id", cid).select("id");
+      check("[Změna] admin nemůže změnu tarifu nastavit přímo", !!(upd.data ?? []).length, false);
+      const pay = await c.from("companies").update({ plan_paid_until: iso(999) }).eq("id", cid).select("id");
+      check("[Změna] admin nemůže prodloužit platnost", !!(pay.data ?? []).length, false);
+      const same = await c.rpc("schedule_plan_downgrade", { p_plan: "pro" });
+      check("[Změna] stejný tarif se neplánuje", !same.error, false);
+      const empTry = await empC.rpc("schedule_plan_downgrade", { p_plan: "free" });
+      check("[Změna] zaměstnanec nemůže naplánovat změnu", !empTry.error, false);
+      const empCancel = await empC.rpc("cancel_plan_change");
+      check("[Změna] zaměstnanec nemůže změnu zrušit", !empCancel.error, false);
+      const can = await c.rpc("cancel_plan_change");
+      const st2 = await state();
+      check("[Změna] admin změnu zruší", !can.error && st2.pending_plan === null && st2.pending_plan_from === null, true);
+
+      await sb.from("companies").update({ plan: "basic" }).eq("id", cid);
+      const up = await c.rpc("schedule_plan_downgrade", { p_plan: "pro" });
+      check("[Změna] zvýšení tarifu se nedá naplánovat (zařizuje provozovatel)", !up.error, false);
+      await sb.from("companies").update({ plan: "pro", plan_paid_until: null }).eq("id", cid);
+      const noPaid = await c.rpc("schedule_plan_downgrade", { p_plan: "starter" });
+      check("[Změna] bez evidované platnosti se snížení neplánuje", !noPaid.error, false);
+
+      // provedení naplánované změny (jen server)
+      await sb.from("companies").update({ plan: "pro", pending_plan: "basic", pending_plan_from: iso(-1), plan_paid_until: iso(-2) }).eq("id", cid);
+      const denied = await c.rpc("apply_scheduled_plan_changes");
+      check("[Změna] přihlášený uživatel nesmí spustit provedení změn", !denied.error, false);
+      const applied = await sb.rpc("apply_scheduled_plan_changes");
+      const st3 = await state();
+      check("[Změna] server provede změnu s účinností v minulosti", !applied.error && st3.plan === "basic" && st3.pending_plan === null && st3.plan_paid_until === null, true);
+      await sb.from("companies").update({ plan: "pro", pending_plan: "basic", pending_plan_from: iso(5) }).eq("id", cid);
+      await sb.rpc("apply_scheduled_plan_changes");
+      const st4 = await state();
+      check("[Změna] změna s budoucí účinností se neprovede předčasně", st4.plan === "pro" && st4.pending_plan === "basic", true);
+    }
   } finally {
     for (const id of created) await sb.auth.admin.deleteUser(id).catch(() => {});
     await sb.from("webhook_integrations").delete().eq("company_id", cid);

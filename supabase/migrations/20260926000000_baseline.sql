@@ -112,6 +112,21 @@ update companies set plan = 'free' where plan = 'start';
 -- Doplňky tarifu (hr_insights, accountant) — cena za firmu, viz src/lib/plans.ts. Mění je jen provozovatel (service role / SQL editor).
 alter table companies add column if not exists addons text[] not null default '{}';
 
+-- Platnost tarifu a naplánovaná změna. plan_paid_until = poslední zaplacený den; snížení tarifu platí až následující den.
+-- Změny provádí provozovatel (service role) nebo funkce schedule_plan_downgrade / cancel_plan_change níže.
+alter table companies add column if not exists billing_period text not null default 'monthly';
+alter table companies add column if not exists plan_paid_until date;
+alter table companies add column if not exists pending_plan text;
+alter table companies add column if not exists pending_plan_from date;
+alter table companies add column if not exists pending_plan_notified boolean not null default false;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'companies_billing_period_check') then
+    alter table companies add constraint companies_billing_period_check check (billing_period in ('monthly', 'yearly'));
+  end if;
+end
+$$;
+
 -- Poměrné krácení podle měsíce nástupu (včetně měsíce nástupu), zaokrouhleno na půl dne.
 create or replace function prorate_from(p_days numeric, p_company_id uuid, p_start date)
 returns numeric
@@ -171,6 +186,70 @@ as $$
   end
   from companies c
   where c.id = p_company;
+$$;
+
+-- Snížení tarifu: platí až od konce zaplaceného období, nic se nevrací. Zvýšení tarifu zařizuje provozovatel po zaplacení.
+-- Vrací datum, od kterého nový tarif platí.
+create or replace function schedule_plan_downgrade(p_plan text)
+returns date
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c companies%rowtype;
+  eff date;
+begin
+  if current_user_role() is distinct from 'admin' then
+    raise exception 'Změnu tarifu může naplánovat jen admin firmy.';
+  end if;
+  select * into c from companies where id = current_company_id();
+  if p_plan not in ('free', 'basic', 'starter') then
+    raise exception 'Neznámý tarif.';
+  end if;
+  if plan_rank(p_plan) >= plan_rank(c.plan) then
+    raise exception 'Přechod na stejný nebo vyšší tarif zařizuje provozovatel po zaplacení — napište nám.';
+  end if;
+  if c.plan_paid_until is null then
+    raise exception 'U vašeho tarifu není evidována platnost. Napište nám a změnu nastavíme.';
+  end if;
+  eff := greatest(c.plan_paid_until, current_date) + 1;
+  update companies set pending_plan = p_plan, pending_plan_from = eff, pending_plan_notified = false where id = c.id;
+  return eff;
+end;
+$$;
+
+create or replace function cancel_plan_change()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if current_user_role() is distinct from 'admin' then
+    raise exception 'Změnu tarifu může zrušit jen admin firmy.';
+  end if;
+  update companies set pending_plan = null, pending_plan_from = null, pending_plan_notified = false where id = current_company_id();
+end;
+$$;
+
+-- Provede naplánované změny tarifu, kterým nastal den účinnosti (volá denní úloha na serveru). Nový tarif se musí zaplatit
+-- při obnově, proto se platnost vynuluje (provozovatel / platební brána ji doplní).
+create or replace function apply_scheduled_plan_changes()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  update companies
+     set plan = pending_plan, pending_plan = null, pending_plan_from = null, pending_plan_notified = false, plan_paid_until = null
+   where pending_plan is not null and pending_plan_from <= current_date;
+  get diagnostics n = row_count;
+  return n;
+end;
 $$;
 
 -- Nejvyšší počet aktivních uživatelů v tarifu (null = bez limitu). Neznámý tarif = jako Free.
@@ -613,8 +692,11 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if auth.uid() is not null and (new.plan is distinct from old.plan or new.addons is distinct from old.addons) then
-    raise exception 'Tarif a doplňky mění provozovatel služby.';
+  if auth.uid() is not null and (new.plan is distinct from old.plan or new.addons is distinct from old.addons
+      or new.billing_period is distinct from old.billing_period or new.plan_paid_until is distinct from old.plan_paid_until
+      or new.pending_plan is distinct from old.pending_plan or new.pending_plan_from is distinct from old.pending_plan_from
+      or new.pending_plan_notified is distinct from old.pending_plan_notified) then
+    raise exception 'Tarif, doplňky a jeho platnost mění provozovatel služby.';
   end if;
   if auth.uid() is not null and new.seniority_enabled and not coalesce(old.seniority_enabled, false)
      and not coalesce(company_feature(new.id, 'seniority'), false) then
@@ -3472,7 +3554,7 @@ begin
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prosecdef
   loop
-    if f.name in ('rate_limit_hit', 'security_audit', 'email_decide_request', 'claim_email_outbox') then
+    if f.name in ('rate_limit_hit', 'security_audit', 'email_decide_request', 'claim_email_outbox', 'apply_scheduled_plan_changes') then
       -- Jen server (service role): tyto funkce nikdy nesmí volat prohlížeč.
       execute format('revoke execute on function %s from public, anon, authenticated', f.sig);
       execute format('grant execute on function %s to service_role', f.sig);
