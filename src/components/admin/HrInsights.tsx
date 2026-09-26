@@ -12,6 +12,7 @@ import { ADDONS, formatKc } from "@/lib/plans";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Card, Empty, Row } from "@/components/admin/insight-ui";
 import { ExtraCards, ExtraSummary, useExtraInsights } from "@/components/admin/SmartInsightsExtra";
+import { LeadershipReport } from "@/components/admin/LeadershipReport";
 import { createClient } from "@/lib/supabase/client";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS, dayWord } from "@/lib/working-days";
@@ -88,11 +89,12 @@ const warnRecharge = (pct: number, limit: number, min: number): "warning" | unde
 /** Výchozí odhad průměrných denních nákladů na osobu, dokud admin nezadá vlastní (jen pro orientační částku závazku). */
 const DEFAULT_DAILY_COST = 2500;
 
-type InsightTab = "plan" | "people" | "flow";
+type InsightTab = "plan" | "people" | "flow" | "report";
 const TABS: { key: InsightTab; label: string }[] = [
   { key: "plan", label: "Kapacita a plánování" },
   { key: "people", label: "Lidé a zůstatky" },
   { key: "flow", label: "Schvalování a zdraví" },
+  { key: "report", label: "Report pro vedení" },
 ];
 
 type TrendSeries = "absencePct" | "vacationPct" | "homeOfficePct" | "sickPct";
@@ -294,7 +296,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   return (
     <div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {extra && <ExtraSummary extra={extra} tab={tab} />}
+        {extra && tab !== "report" && <ExtraSummary extra={extra} tab={tab} />}
         <div className="flex flex-wrap gap-1.5 lg:col-span-2" role="tablist" aria-label="Oblast přehledu">
           {TABS.map((t) => (
             <button
@@ -487,7 +489,8 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           <FairRota data={data} periodKey={periodKey} />
         </Card>
         )}
-        {extra && <ExtraCards extra={extra} group={tab} />}
+        {extra && tab !== "report" && <ExtraCards extra={extra} group={tab} />}
+        {tab === "report" && <LeadershipReport departmentId={departmentId} extra={extra} />}
       </div>
     </div>
   );

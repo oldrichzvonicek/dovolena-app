@@ -9,6 +9,7 @@ import { PlanCard } from "@/components/admin/PlanCard";
 import { planByKey } from "@/lib/plans";
 import { DbCompany, DbCompanyInvoice } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
+import { showToast } from "@/lib/toast";
 import { LoadingCard, LoadingLines } from "@/components/ui/skeleton";
 
 interface Draft {
@@ -48,13 +49,17 @@ export function BillingPanel() {
     Promise.all([fetchCompany(profile.company_id), fetchBilling(profile.company_id)]).then(([c, b]) => {
       setCompany(c);
       setBilling(b);
-      setDraft(toDraft(b));
+      // E-mail pro faktury: když není vyplněný, předvyplní se e-mail přihlášeného admina (jde upravit; uloží se až tlačítkem).
+      const d0 = toDraft(b);
+      if (!d0.billing_email && profile.email) d0.billing_email = profile.email;
+      setDraft(d0);
       setIcoLookup(b.billing_ico ?? "");
       setLoading(false);
     });
   }, [profile]);
 
   const dirty = !!billing && !!draft && JSON.stringify(draft) !== JSON.stringify(toDraft(billing));
+  const invoiceEmailMissing = (billing?.payment_method ?? "invoice") === "invoice" && !!draft && !draft.billing_email.trim();
 
   // Explicit-save form: warn before the browser tab is closed with unsaved changes.
   useEffect(() => {
@@ -74,6 +79,10 @@ export function BillingPanel() {
 
   async function handleSaveBilling() {
     if (!profile || !billing || !draft) return;
+    if (invoiceEmailMissing) {
+      setSaveMsg({ text: "E-mail pro faktury je povinný při platbě fakturou (jinak nemáme kam doklady poslat).", error: true });
+      return;
+    }
     setSaving(true);
     setSaveMsg(null);
     const fields = Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, v.trim() || null])) as Partial<CompanyBilling>;
@@ -107,6 +116,7 @@ export function BillingPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Vyhledání v ARES se nezdařilo.");
       setSaveMsg(null);
+      showToast("Fakturační údaje z ARES úspěšně načteny. Zkontrolujte je a uložte.");
       // Fills the form only — nothing is stored until "Uložit fakturační údaje".
       setDraft((d) => ({
         ...(d as Draft),
@@ -149,21 +159,30 @@ export function BillingPanel() {
           <h2 className="font-display text-h2">Fakturační údaje</h2>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-end gap-2 rounded border border-line bg-paper p-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted">Načíst podle IČO z ARES</label>
+        <div className="mt-4 rounded border border-line bg-paper p-4">
+          <label htmlFor="ares-ico" className="mb-1.5 block text-xs font-medium text-muted">
+            Načíst údaje podle IČO z ARES
+          </label>
+          <div className="flex max-w-sm overflow-hidden rounded border border-line bg-white focus-within:ring-2 focus-within:ring-teal/40">
             <input
+              id="ares-ico"
               value={icoLookup}
               onChange={(e) => setIcoLookup(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAresLookup()}
-              placeholder="25596641" aria-label="IČO pro načtení z ARES"
-              className="w-40 rounded border border-line px-3 py-2 text-sm"
+              placeholder="IČO, např. 25596641"
+              inputMode="numeric"
+              className="min-w-0 flex-1 px-3 py-2 text-sm outline-none"
             />
+            <button
+              type="button"
+              onClick={handleAresLookup}
+              disabled={aresLoading}
+              className="flex shrink-0 items-center gap-1.5 border-l border-line bg-paper px-3 text-sm font-medium hover:bg-line/40 disabled:opacity-60"
+            >
+              <Search size={15} strokeWidth={2.25} aria-hidden="true" /> {aresLoading ? "Hledám…" : "Načíst"}
+            </button>
           </div>
-          <Button variant="secondary" onClick={handleAresLookup} disabled={aresLoading}>
-            <Search size={15} /> {aresLoading ? "Hledám…" : "Načíst z ARES"}
-          </Button>
-          {aresError && <p className="text-sm text-danger">{aresError}</p>}
+          {aresError && <p className="mt-1.5 text-sm text-danger">{aresError}</p>}
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -173,7 +192,21 @@ export function BillingPanel() {
           {field("Ulice a číslo", "billing_street", true)}
           {field("Město", "billing_city")}
           {field("PSČ", "billing_zip")}
-          {field("E-mail pro faktury", "billing_email", true, "email")}
+          <div className="sm:col-span-2">
+            <label htmlFor="billing-email" className="mb-1.5 block text-sm font-medium">
+              E-mail pro faktury {(billing.payment_method ?? "invoice") === "invoice" && <span className="text-danger" aria-label="povinné">*</span>}
+            </label>
+            <input
+              id="billing-email"
+              type="email"
+              value={draft.billing_email}
+              onChange={(e) => setField("billing_email", e.target.value)}
+              required={(billing.payment_method ?? "invoice") === "invoice"}
+              aria-invalid={invoiceEmailMissing}
+              className={cn("w-full rounded border px-3 py-2 text-sm", invoiceEmailMissing ? "border-danger" : "border-line")}
+            />
+            {invoiceEmailMissing && <p className="mt-1 text-xs text-danger-dark">Povinné při platbě fakturou.</p>}
+          </div>
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
@@ -208,13 +241,16 @@ export function BillingPanel() {
                 <span className="block text-xs text-muted">Fakturu posíláme na e-mail pro faktury, splatnost podle smlouvy.</span>
               </span>
             </button>
-            <div className="flex items-start gap-3 rounded border border-dashed border-line p-4 opacity-70" aria-disabled="true">
-              <CreditCard size={18} className="mt-0.5 shrink-0 text-muted" />
+            <a
+              href={`mailto:${process.env.NEXT_PUBLIC_SALES_EMAIL ?? ""}?subject=${encodeURIComponent("Zájem o platbu kartou v Dodiu")}`}
+              className="flex items-start gap-3 rounded border border-line p-4 text-left hover:bg-paper"
+            >
+              <CreditCard size={18} className="mt-0.5 shrink-0 text-teal-dark" />
               <span>
-                <span className="block text-sm font-medium">Platební karta</span>
-                <span className="block text-xs text-muted">Uložení a správa karty (Stripe) připravujeme — zatím není dostupné.</span>
+                <span className="block text-sm font-medium">Chcete platit kartou?</span>
+                <span className="block text-xs text-muted">Dejte nám vědět. Až budeme mít platby kartou hotové, ozveme se.</span>
               </span>
-            </div>
+            </a>
           </div>
         </div>
       )}

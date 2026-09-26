@@ -127,7 +127,22 @@ export function WhoIsOutToday() {
   }, []);
 
   const todayISO = new Date().toLocaleDateString("sv-SE");
-  const rows = useMemo(() => allRows.filter((r) => r.start_date <= todayISO && r.end_date >= todayISO), [allRows, todayISO]);
+  // Jeden člověk = jeden řádek za druh absence: překrývající se nebo zdvojené záznamy stejného druhu se sloučí do jednoho rozsahu.
+  const rows = useMemo(() => {
+    const today = allRows.filter((r) => r.start_date <= todayISO && r.end_date >= todayISO);
+    const merged = new Map<string, Row>();
+    for (const r of today) {
+      const key = `${r.profile?.id}|${r.leave_type?.key}`;
+      const cur = merged.get(key);
+      if (!cur) merged.set(key, { ...r });
+      else {
+        if (r.start_date < cur.start_date) cur.start_date = r.start_date;
+        if (r.end_date > cur.end_date) cur.end_date = r.end_date;
+        cur.covering_profile_id = cur.covering_profile_id ?? r.covering_profile_id;
+      }
+    }
+    return Array.from(merged.values());
+  }, [allRows, todayISO]);
 
   // Mon–Fri of the current week (next week on weekends) as a compact timeline.
   const week = useMemo(() => {
@@ -159,7 +174,7 @@ export function WhoIsOutToday() {
       days.push({
         date: cursor,
         label: days.length === 0 && addDays(new Date(), 1).toDateString() === cursor.toDateString() ? "Zítra" : format(cursor, "EEEEEE d. M.", { locale: cs }),
-        people: allRows.filter((r) => r.start_date <= iso && r.end_date >= iso),
+        people: allRows.filter((r, i, arr) => r.start_date <= iso && r.end_date >= iso && arr.findIndex((o) => o.profile?.id === r.profile?.id && o.leave_type?.key === r.leave_type?.key && o.start_date <= iso && o.end_date >= iso) === i),
       });
     }
     return days;

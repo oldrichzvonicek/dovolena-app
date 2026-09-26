@@ -11,6 +11,8 @@ import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { showToast } from "@/lib/toast";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /** Current tariff with usage, plus the full tariff comparison inline (prices calculated for the company's own user count). */
@@ -26,6 +28,7 @@ const czDate = (iso: string) => `${+iso.slice(8, 10)}. ${+iso.slice(5, 7)}. ${is
 export function PlanCard({ planKey, billing, onChanged }: { planKey: string | null | undefined; billing?: PlanBilling; onChanged?: () => void }) {
   const { profile } = useAuth();
   const [changing, setChanging] = useState(false);
+  const [blockedPlan, setBlockedPlan] = useState<Plan | null>(null);
   const today = new Date().toLocaleDateString("sv-SE");
   const [employees, setEmployees] = useState<number | null>(null);
   const [period, setPeriod] = useState<"monthly" | "yearly">(billing?.billing_period ?? "monthly");
@@ -245,9 +248,9 @@ Děkujeme.`);
                 <Button
                   className="mt-4 w-full justify-center"
                   variant={p.recommended && !current ? "primary" : "secondary"}
-                  disabled={current || changing || isPending || (kind !== "downgrade" && !fits) || (!(kind === "downgrade" && paidUntil) && !salesEmail)}
-                  title={!fits ? `Tarif je určen pro maximálně ${p.employeeLimit} uživatelů` : undefined}
-                  onClick={() => choose(p)}
+                  disabled={current || changing || isPending || (fits && !(kind === "downgrade" && paidUntil) && !salesEmail)}
+                  title={!fits ? `Tarif je určen pro maximálně ${p.employeeLimit} uživatelů. Kliknutím uvidíte, co je potřeba udělat.` : undefined}
+                  onClick={() => (!fits ? setBlockedPlan(p) : choose(p))}
                 >
                   {current
                     ? "Aktuální tarif"
@@ -256,7 +259,7 @@ Děkujeme.`);
                       : kind === "downgrade" && paidUntil
                         ? "Naplánovat přechod"
                         : !fits
-                          ? "Pro váš tým nestačí"
+                          ? "Změnit tarif"
                           : kind === "upgrade"
                             ? "Požádat o přechod"
                             : "Zvolit tarif"}
@@ -271,6 +274,22 @@ Děkujeme.`);
             );
           })}
         </div>
+        <Dialog open={blockedPlan !== null} onOpenChange={(o) => !o && setBlockedPlan(null)}>
+          {blockedPlan && (
+            <DialogContent title={`Přechod na tarif ${blockedPlan.name}`}>
+              <p className="text-sm">
+                Tarif {blockedPlan.name} je určen pro nejvýše <strong>{blockedPlan.employeeLimit}</strong> aktivních uživatelů. Ve firmě jich máte <strong>{employees}</strong>, takže je nejdřív potřeba jejich počet snížit o <strong>{employees !== null && blockedPlan.employeeLimit !== null ? employees - blockedPlan.employeeLimit : "?"}</strong>.
+              </p>
+              <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted">
+                <li>V Nastavení firmy → Uživatelé deaktivujte lidi, kteří ve firmě už nepracují.</li>
+                <li>Vraťte se sem a zvolte tarif znovu.</li>
+              </ol>
+              <Link href="/admin/settings?sekce=users" className="mt-4 inline-block rounded bg-teal px-4 py-2 text-sm font-medium text-white hover:bg-teal-dark" onClick={() => setBlockedPlan(null)}>
+                Otevřít Uživatele
+              </Link>
+            </DialogContent>
+          )}
+        </Dialog>
         <div className="mt-4">
           <button
             type="button"
