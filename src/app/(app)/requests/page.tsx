@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { LeaveBadge, StatusBadge } from "@/components/ui/badge";
-import { NewRequestSplit } from "@/components/layout/NewRequestSplit";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dayWord, formatRange } from "@/lib/working-days";
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
@@ -225,14 +224,10 @@ export default function RequestsPage() {
 
   return (
     <div>
-      <Header title="Moje žádosti" subtitle="Historie vašich absencí a stav schválení" hideNewRequest />
+      <Header title="Moje žádosti" subtitle="Historie vašich absencí a stav schválení" />
       <div className="max-w-4xl p-4 sm:p-8">
         <CompactBalances />
 
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-h2">Historie žádostí</h2>
-          <NewRequestSplit primary />
-        </div>
 
         {rows.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center gap-2">

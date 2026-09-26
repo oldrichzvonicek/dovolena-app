@@ -17,7 +17,8 @@ const QUICK_KEYS = ["dovolena", "home_office", "sick"];
  * Jediné místo pro založení žádosti: velké tlačítko „Nová žádost“ otevře formulář, šipka vedle něj nabídne
  * nejčastější druhy absence (Dovolená, Home Office, Sick Day) a formulář se otevře rovnou s nimi.
  */
-export function NewRequestSplit({ primary = false }: { primary?: boolean } = {}) {
+export function NewRequestSplit() {
+  const primary = true; // jediný vzhled na celém webu: výrazné teal tlačítko vpravo v záhlaví každé stránky
   const { profile } = useAuth();
   const [types, setTypes] = useState<DbLeaveType[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
