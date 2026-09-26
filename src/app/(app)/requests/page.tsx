@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, CalendarPlus, ChevronLeft, ChevronRight, Copy, LayoutGrid, Pencil, RefreshCw, Search, Table2, Undo2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, LayoutGrid, Pencil, RefreshCw, Search, Table2, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { Header } from "@/components/layout/Header";
@@ -9,7 +9,6 @@ import { LeaveBadge, StatusBadge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dayWord, formatRange } from "@/lib/working-days";
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
-import { downloadIcs } from "@/lib/ics";
 import { KebabMenu, KebabItem } from "@/components/shared/KebabMenu";
 import { CompactBalances } from "@/components/dashboard/CompactBalances";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
@@ -171,20 +170,6 @@ export default function RequestsPage() {
       });
     }
     if (r.status === "approved") {
-      items.push({
-        key: "ics",
-        node: (
-            <button
-            onClick={() => downloadIcs(r.leave_type.label, r.start_date, r.end_date, r.id)}
-            className={compact ? "rounded border border-line p-1.5 text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark" : btn}
-            title="Do kalendáře: stáhnout .ics pro Google, Outlook nebo Apple kalendář"
-            aria-label="Do kalendáře"
-          >
-            <CalendarPlus size={compact ? 14 : 12} /> {!compact && "Do kalendáře"}
-          </button>
-        ),
-        menu: { label: "Přidat do kalendáře (.ics)", icon: <CalendarPlus size={13} />, onClick: () => downloadIcs(r.leave_type.label, r.start_date, r.end_date, r.id) },
-      });
       items.push({
         key: "dup",
         node: (
