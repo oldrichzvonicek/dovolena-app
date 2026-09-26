@@ -183,7 +183,7 @@ export default function RequestsPage() {
             <CalendarPlus size={compact ? 14 : 12} /> {!compact && "Do kalendáře"}
           </button>
         ),
-        menu: { label: "Do kalendáře", icon: <CalendarPlus size={13} />, onClick: () => downloadIcs(r.leave_type.label, r.start_date, r.end_date, r.id) },
+        menu: { label: "Přidat do kalendáře (.ics)", icon: <CalendarPlus size={13} />, onClick: () => downloadIcs(r.leave_type.label, r.start_date, r.end_date, r.id) },
       });
       items.push({
         key: "dup",
@@ -213,6 +213,14 @@ export default function RequestsPage() {
 
     // Compact (table): one visible primary action, the rest behind •••
     const pending = r.status === "approved" && r.cancellation_requested_at;
+    // Schválené žádosti mají jen nabídku ••• (žádné opakované tlačítko v každém řádku); ostatní stavy mají jednu hlavní akci.
+    if (r.status === "approved" && !pending) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <KebabMenu items={items.map((i) => i.menu)} />
+        </div>
+      );
+    }
     const [primary, ...rest] = items;
     return (
       <div className="flex items-center gap-1.5">
