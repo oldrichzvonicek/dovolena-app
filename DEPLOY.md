@@ -20,7 +20,7 @@
 
 ## 3. Vercel
 1. Importujte repozitář, framework Next.js, `npm run build`.
-2. `vercel.json` už obsahuje cron úlohy: `/api/cron/process` (odesílání fronty, každých 10 min) a `/api/cron/daily` (eskalace + pondělní přehled, 6:00 UTC). Na plánu Hobby jsou povoleny jen denní cron úlohy — buď upgrade, nebo volejte `/api/cron/process` z Supabase `pg_cron` + `pg_net`.
+2. `vercel.json` obsahuje cron úlohy `/api/cron/process` (odesílání fronty) a `/api/cron/daily` (eskalace, pondělní přehled, změny tarifů). Nastavení je pro plán **Hobby** (každá jednou denně, 5:00 a 6:00 UTC). Pro ostrý provoz změňte `process` na `*/10 * * * *` (vyžaduje plán Pro) nebo ho volejte z Supabase `pg_cron` + `pg_net`; jinak by e-maily s žádostmi odcházely jen jednou denně.
 
 ## 4. Kontrola před spuštěním
 - `npm test` (jednotkové testy zůstatků, pracovních dnů, formátování) a `npm run build` musí projít.
