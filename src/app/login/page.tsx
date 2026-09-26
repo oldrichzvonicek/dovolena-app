@@ -54,6 +54,13 @@ function LoginForm() {
 
   // A message set together with a mode switch (e.g. "check your e-mail") must survive that switch.
   const keepMessage = useRef(false);
+  // Když Supabase pošle odkaz pro obnovení hesla na přihlašovací stránku (Site URL), pošleme ho rovnou na formulář pro nové heslo.
+  useEffect(() => {
+    if (/type=recovery/.test(window.location.hash)) {
+      window.location.replace(`/reset-password${window.location.search}${window.location.hash}`);
+    }
+  }, []);
+
   useEffect(() => {
     if (keepMessage.current) {
       keepMessage.current = false;
