@@ -132,6 +132,9 @@ export async function loadBalances(companyId: string, opts: { profileId?: string
 export interface HomeOfficeYear {
   /** Approved home-office days starting this year (already taken + planned). */
   used: number;
+  /** Z toho už uplynulé dny a dny teprve plánované (dohromady = used). */
+  taken: number;
+  planned: number;
   thisMonth: number;
   /** Yearly allowance from company defaults; null = no limit configured. */
   limit: number | null;
@@ -147,7 +150,7 @@ export async function loadHomeOfficeYear(companyId: string, profileId: string): 
   const [{ data: reqs }, { data: company }] = await Promise.all([
     supabase
       .from("leave_requests")
-      .select("working_days, start_date, leave_type:leave_types(key)")
+      .select("working_days, start_date, end_date, leave_type:leave_types(key)")
       .eq("profile_id", profileId)
       .eq("status", "approved")
       .gte("start_date", `${year}-01-01`)
@@ -162,13 +165,16 @@ export async function loadHomeOfficeYear(companyId: string, profileId: string): 
     .eq("leave_type.key", "home_office")
     .maybeSingle();
 
-  const rows = ((reqs as unknown as { working_days: number; start_date: string; leave_type: { key: string } | null }[]) ?? []).filter(
+  const today = now.toLocaleDateString("sv-SE");
+  const rows = ((reqs as unknown as { working_days: number; start_date: string; end_date: string; leave_type: { key: string } | null }[]) ?? []).filter(
     (r) => r.leave_type?.key === "home_office"
   );
   // A per-employee entitlement row overrides the company-wide default.
   const limit = own ? Number((own as unknown as { total_days: number }).total_days) : Number(company?.default_home_office_days ?? 0);
   return {
     used: sum(rows.map((r) => r.working_days)),
+    taken: sum(rows.filter((r) => r.end_date < today).map((r) => r.working_days)),
+    planned: sum(rows.filter((r) => r.end_date >= today).map((r) => r.working_days)),
     thisMonth: sum(rows.filter((r) => r.start_date.startsWith(month)).map((r) => r.working_days)),
     limit: limit > 0 ? limit : null,
   };

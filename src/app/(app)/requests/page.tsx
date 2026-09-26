@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarPlus, Copy, Plus, LayoutGrid, Pencil, RefreshCw, Table2, Undo2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarPlus, ChevronLeft, ChevronRight, Copy, LayoutGrid, Pencil, RefreshCw, Search, Table2, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { LeaveBadge, StatusBadge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { NewRequestSplit } from "@/components/layout/NewRequestSplit";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dayWord, formatRange } from "@/lib/working-days";
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
@@ -35,7 +35,7 @@ interface Row {
   approver: { name: string } | null;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZES = [10, 25, 50];
 type StatusTab = "all" | RequestStatus;
 
 const btn =
@@ -51,8 +51,12 @@ export default function RequestsPage() {
   const [yearFilter, setYearFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
-  const [view, setView] = useState<"cards" | "table">("cards");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // Výchozí je přehledná tabulka; karty zůstávají jako druhý pohled.
+  const [view, setView] = useState<"cards" | "table">("table");
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState("");
+  const [sortDesc, setSortDesc] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const todayISO = new Date().toLocaleDateString("sv-SE");
 
@@ -84,12 +88,18 @@ export default function RequestsPage() {
     return Array.from(map.entries());
   }, [rows]);
 
+  const q = search.trim().toLocaleLowerCase("cs");
   const baseFiltered = rows.filter(
-    (r) => (yearFilter === "all" || r.start_date.startsWith(yearFilter)) && (typeFilter === "all" || r.leave_type.id === typeFilter)
+    (r) =>
+      (yearFilter === "all" || r.start_date.startsWith(yearFilter)) &&
+      (typeFilter === "all" || r.leave_type.id === typeFilter) &&
+      (!q || (r.note ?? "").toLocaleLowerCase("cs").includes(q) || r.leave_type.label.toLocaleLowerCase("cs").includes(q))
   );
   const count = (st: StatusTab) => (st === "all" ? baseFiltered.length : baseFiltered.filter((r) => r.status === st).length);
-  const filteredRows = statusTab === "all" ? baseFiltered : baseFiltered.filter((r) => r.status === statusTab);
-  const shownRows = filteredRows.slice(0, visibleCount);
+  const filteredRows = (statusTab === "all" ? baseFiltered : baseFiltered.filter((r) => r.status === statusTab)).slice().sort((a, b) => (sortDesc ? -1 : 1) * a.start_date.localeCompare(b.start_date));
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const shownRows = filteredRows.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
 
   async function handleCancel(id: string) {
     if (!(await confirmDialog("Zrušit tuto žádost? Nejde vzít zpět — pro jiný termín podáte novou.", { confirmLabel: "Zrušit žádost", danger: true }))) return;
@@ -198,28 +208,34 @@ export default function RequestsPage() {
 
   return (
     <div>
-      <Header title="Moje žádosti" subtitle="Historie vašich absencí a stav schválení" />
+      <Header title="Moje žádosti" subtitle="Historie vašich absencí a stav schválení" hideNewRequest />
       <div className="max-w-4xl p-4 sm:p-8">
         <CompactBalances />
 
         <div className="mb-3 flex justify-end">
-          <RequestLeaveModal
-            trigger={
-              <Button variant="secondary" className="text-sm">
-                <Plus size={15} /> Nová žádost
-              </Button>
-            }
-            onSaved={emitDataChanged}
-          />
+          <NewRequestSplit />
         </div>
 
         {rows.length > 0 && (
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Hledat v poznámce nebo názvu…"
+                aria-label="Hledat v žádostech"
+                className="w-60 rounded border border-line bg-white py-2 pl-8 pr-3 text-sm"
+              />
+            </div>
             <Select
               value={yearFilter}
               onValueChange={(v) => {
                 setYearFilter(v);
-                setVisibleCount(PAGE_SIZE);
+                setPage(0);
               }}
             >
               <SelectTrigger className="w-32" aria-label="Filtr podle roku">
@@ -238,7 +254,7 @@ export default function RequestsPage() {
               value={typeFilter}
               onValueChange={(v) => {
                 setTypeFilter(v);
-                setVisibleCount(PAGE_SIZE);
+                setPage(0);
               }}
             >
               <SelectTrigger className="w-48" aria-label="Filtr podle typu absence">
@@ -253,6 +269,14 @@ export default function RequestsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <button
+              type="button"
+              onClick={() => setSortDesc((v) => !v)}
+              className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-2 text-sm text-muted hover:bg-paper"
+              title="Řazení podle data konání"
+            >
+              {sortDesc ? <ArrowDown size={14} /> : <ArrowUp size={14} />} {sortDesc ? "Nejnovější nahoře" : "Nejstarší nahoře"}
+            </button>
             <div className="ml-auto flex overflow-hidden rounded border border-line">
               <button
                 onClick={() => setView("cards")}
@@ -288,7 +312,7 @@ export default function RequestsPage() {
                 key={key}
                 onClick={() => {
                   setStatusTab(key);
-                  setVisibleCount(PAGE_SIZE);
+                  setPage(0);
                 }}
                 className={cn(
                   "rounded-full border px-3 py-1 text-xs font-medium",
@@ -336,7 +360,7 @@ export default function RequestsPage() {
                   </p>
                 )}
 
-                <div className="mt-3">{renderActions(r)}</div>
+                <div className="mt-3">{renderActions(r, true)}</div>
               </div>
             ))}
           </div>
@@ -351,6 +375,7 @@ export default function RequestsPage() {
                   <th className="px-3 py-2.5 font-medium">Termín</th>
                   <th className="px-3 py-2.5 font-medium">Dní</th>
                   <th className="px-3 py-2.5 font-medium">Stav</th>
+                  <th className="px-3 py-2.5 font-medium">Poznámka</th>
                   <th className="px-3 py-2.5 font-medium">Akce</th>
                 </tr>
               </thead>
@@ -369,6 +394,11 @@ export default function RequestsPage() {
                       <StatusBadge status={r.status} title={r.status === "rejected" ? (r.rejection_reason ?? undefined) : undefined} />
                       {r.status === "rejected" && r.rejection_reason && <div className="mt-1 max-w-[200px] text-xs text-danger">{r.rejection_reason}</div>}
                     </td>
+                    <td className="max-w-[220px] px-3 py-2 text-xs text-muted">
+                      <span className="line-clamp-2" title={r.note ?? undefined}>
+                        {r.note || "—"}
+                      </span>
+                    </td>
                     <td className="px-3 py-2">{renderActions(r, true)}</td>
                   </tr>
                 ))}
@@ -377,13 +407,40 @@ export default function RequestsPage() {
           </div>
         )}
 
-        {filteredRows.length > visibleCount && (
-          <button
-            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-            className="mt-4 w-full rounded border border-line bg-white py-2.5 text-sm text-muted hover:bg-paper"
-          >
-            Načíst starší žádosti ({filteredRows.length - visibleCount})
-          </button>
+        {filteredRows.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
+            <label className="flex items-center gap-2">
+              Řádků na stránku
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(0);
+                }}
+                className="rounded border border-line bg-white px-2 py-1"
+              >
+                {PAGE_SIZES.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span>
+              {currentPage * pageSize + 1}–{Math.min(filteredRows.length, (currentPage + 1) * pageSize)} z {filteredRows.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(Math.max(0, currentPage - 1))} disabled={currentPage === 0} aria-label="Předchozí stránka" className="rounded border border-line bg-white p-1.5 hover:bg-paper disabled:opacity-40">
+                <ChevronLeft size={16} />
+              </button>
+              <span className="px-2">
+                {currentPage + 1} / {pageCount}
+              </span>
+              <button onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))} disabled={currentPage >= pageCount - 1} aria-label="Další stránka" className="rounded border border-line bg-white p-1.5 hover:bg-paper disabled:opacity-40">
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

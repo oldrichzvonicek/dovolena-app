@@ -29,6 +29,7 @@ interface PendingRow {
   end_date: string;
   working_days: number;
   note: string | null;
+  covering_profile_id?: string | null;
   leave_type: { key: string; label: string; color: LeaveColor; counts_against: "vacation" | "sick" | "none" };
   profile: {
     id: string;
@@ -47,6 +48,7 @@ export function PendingApprovals() {
   // Hint for requests in a main period (Christmas, summer): did the person have the same period last year?
   const [fairness, setFairness] = useState<Record<string, string>>({});
   const [remaining, setRemaining] = useState<Record<string, number>>({});
+  const [coverNames, setCoverNames] = useState<Record<string, string>>({});
   const [capacityWarnings, setCapacityWarnings] = useState<Record<string, { percent: number; count: number; size: number }>>({});
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -72,7 +74,7 @@ export function PendingApprovals() {
     const { data } = await supabase
       .from("leave_requests")
       .select(
-        `id, start_date, end_date, working_days, note,
+        `id, start_date, end_date, working_days, note, covering_profile_id,
          leave_type:leave_types(key, label, color, counts_against),
          profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials, manager_id, department_id, department:departments!profiles_department_id_fkey(name))`
       )
@@ -95,6 +97,11 @@ export function PendingApprovals() {
       return aMine - bMine;
     });
     setPending(rows);
+    const coverIds = Array.from(new Set(rows.map((r) => r.covering_profile_id).filter((x): x is string => !!x)));
+    if (coverIds.length > 0) {
+      const { data: cn } = await supabase.from("profiles").select("id, name").in("id", coverIds);
+      setCoverNames(Object.fromEntries((cn ?? []).map((c) => [c.id as string, c.name as string])));
+    }
 
     // Conflict = colleagues from the SAME department who already have approved leave overlapping the request
     // (home office doesn't count). Same rule as the capacity warning and the calendar preview below.
@@ -331,11 +338,30 @@ export function PendingApprovals() {
                       </span>
                     </div>
                     {fairness[r.id] && <div className="mt-1 text-xs text-muted">🎄 {fairness[r.id]}</div>}
-                    {r.leave_type.counts_against !== "none" && remaining[r.id] !== undefined && remaining[r.id] >= 0 && (
-                      <div className="mt-1 text-xs text-muted">
-                        Po schválení zbude: <span className="font-medium text-ink">{formatNumber(Number(remaining[r.id]))} dní</span>
+                    {r.leave_type.counts_against !== "none" && remaining[r.id] !== undefined && (() => {
+                      const after = Number(remaining[r.id]);
+                      const before = after + Number(r.working_days);
+                      const tone = after < 0 ? "bg-danger-light text-danger-dark" : after < 3 ? "bg-warning-light text-warning-dark" : "bg-paper text-ink";
+                      return (
+                        <div className="mt-1.5">
+                          <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", tone)} title="Zůstatek dovolené před a po schválení této žádosti">
+                            {after < 3 && <AlertTriangle size={12} />}
+                            Zůstatek: {formatNumber(before)} → po schválení {formatNumber(after)} {dayWord(after)}
+                            {after < 0 ? " (minus)" : after < 3 ? " (málo)" : ""}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    <div className="mt-1.5 space-y-0.5 text-xs">
+                      <div className="text-muted">
+                        🔄 Zástup: {r.covering_profile_id ? <span className="font-medium text-ink">{coverNames[r.covering_profile_id] ?? "…"}</span> : "neurčen"}
                       </div>
-                    )}
+                      {r.note && (
+                        <div className="text-ink">
+                          <span className="text-muted">💬 Poznámka:</span> {r.note}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 

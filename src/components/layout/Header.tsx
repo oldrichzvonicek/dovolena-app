@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TOGGLE_HELP_EVENT } from "@/components/layout/HelpDrawer";
 import { NewRequestSplit } from "@/components/layout/NewRequestSplit";
 
-export function Header({ title, subtitle }: { title: string; subtitle?: string }) {
+export function Header({ title, subtitle, hideNewRequest }: { title: string; subtitle?: string; hideNewRequest?: boolean }) {
   useEffect(() => {
     document.title = `${title} – Dodio`;
   }, [title]);
@@ -27,7 +27,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
         {subtitle && <p className="mt-1 hidden text-sm text-muted sm:block">{subtitle}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <NewRequestSplit />
+        {!hideNewRequest && <NewRequestSplit />}
         <button
           onClick={() => window.dispatchEvent(new Event(TOGGLE_HELP_EVENT))}
           className="hidden rounded p-2 text-muted hover:bg-white hover:text-ink sm:block"

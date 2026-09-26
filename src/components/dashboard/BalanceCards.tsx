@@ -117,7 +117,7 @@ export function BalanceCards() {
   const { profile } = useAuth();
   const [vacation, setVacation] = useState({ used: 0, upcoming: 0, total: 0, carryover: 0 });
   const [sick, setSick] = useState({ used: 0, upcoming: 0, total: 0 });
-  const [homeOffice, setHomeOffice] = useState<HomeOfficeYear>({ used: 0, thisMonth: 0, limit: null });
+  const [homeOffice, setHomeOffice] = useState<HomeOfficeYear>({ used: 0, taken: 0, planned: 0, thisMonth: 0, limit: null });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

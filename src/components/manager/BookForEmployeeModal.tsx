@@ -21,9 +21,12 @@ export function BookForEmployeeModal({
   open: controlledOpen,
   onOpenChange,
   hideTrigger,
+  initialDates,
 }: {
   onSaved?: () => void;
   presetEmployeeId?: string;
+  /** Předvyplněný termín (např. z tažení myší v kalendáři). */
+  initialDates?: { start: string; end: string };
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   hideTrigger?: boolean;
@@ -50,6 +53,12 @@ export function BookForEmployeeModal({
   const [hoursValue, setHoursValue] = useState(4);
   const [startDate, setStartDate] = useState(new Date().toLocaleDateString("sv-SE"));
   const [endDate, setEndDate] = useState(new Date().toLocaleDateString("sv-SE"));
+  useEffect(() => {
+    if (open && initialDates) {
+      setStartDate(initialDates.start);
+      setEndDate(initialDates.end);
+    }
+  }, [open, initialDates?.start, initialDates?.end]); // eslint-disable-line react-hooks/exhaustive-deps
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

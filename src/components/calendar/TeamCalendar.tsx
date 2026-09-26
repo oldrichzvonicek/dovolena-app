@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   addDays,
   addMonths,
@@ -18,7 +18,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { cs } from "date-fns/locale";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
 import { CalendarFilter, CalendarViewMode } from "./CalendarFilter";
 import { ICalExportBox } from "./ICalExportBox";
 import { czechHolidayName, dayWord, formatRange, isCzechHoliday } from "@/lib/working-days";
@@ -32,6 +32,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DbDepartment, DbProfile, LeaveColor } from "@/lib/supabase/types";
 import { fetchAll } from "@/lib/fetch-all";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
+import { BookForEmployeeModal } from "@/components/manager/BookForEmployeeModal";
 import { leaveIconFor, LeaveTypeIcon } from "@/components/shared/LeaveTypeIcon";
 
 const colorDot: Record<LeaveColor, string> = {
@@ -84,7 +85,9 @@ export function TeamCalendar() {
   const [leaveTypesLegend, setLeaveTypesLegend] = useState<LegendType[]>([]);
   const [weekendOperations, setWeekendOperations] = useState(true);
   const [onlyAbsentToday, setOnlyAbsentToday] = useState(searchParams.get("filter") === "today");
-  const [groupByDept, setGroupByDept] = useState(false);
+  // Seskupení podle oddělení je výchozí: hned je vidět, jestli v týmu nechybí všichni najednou.
+  const [groupByDept, setGroupByDept] = useState(true);
+  const [marksOpen, setMarksOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [hover, setHover] = useState<{ x: number; y: number; req: RequestRow; name: string; all?: RequestRow[] } | null>(null);
@@ -158,7 +161,8 @@ export function TeamCalendar() {
   const [dragging, setDragging] = useState(false);
   const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
   const [dragEndIdx, setDragEndIdx] = useState<number | null>(null);
-  const [requestDates, setRequestDates] = useState<{ start: string; end: string } | null>(null);
+  const dragEmpRef = useRef<string | null>(null);
+  const [requestDates, setRequestDates] = useState<{ start: string; end: string; empId: string | null } | null>(null);
 
   useEffect(() => {
     if (!dragging) return;
@@ -169,7 +173,7 @@ export function TeamCalendar() {
           if (startIdx !== null && endIdx !== null) {
             const lo = Math.min(startIdx, endIdx);
             const hi = Math.max(startIdx, endIdx);
-            setRequestDates({ start: format(days[lo], "yyyy-MM-dd"), end: format(days[hi], "yyyy-MM-dd") });
+            setRequestDates({ start: format(days[lo], "yyyy-MM-dd"), end: format(days[hi], "yyyy-MM-dd"), empId: dragEmpRef.current });
           }
           return null;
         });
@@ -277,6 +281,8 @@ export function TeamCalendar() {
     const dept = departments.find((d) => d.id === emp.department_id);
     const empRequests = requests.filter((r) => r.profile_id === emp.id && (leaveTypeFilter === "all" || r.leave_type.key === leaveTypeFilter));
     const isOwnRow = emp.id === profile?.id;
+    // Tažením myší přes dny se dá založit žádost: vlastní řádek = moje žádost, cizí řádek (manažer, admin) = absence za zaměstnance.
+    const canDrag = isOwnRow || profile?.role === "admin" || profile?.role === "manager";
     // Úseky, které žádost zabírá v zobrazeném období. Bez provozu o víkendu se pruh nekreslí přes sobotu a neděli,
     // takže se rozdělí na souvislé běhy pracovních dní.
     const segmentsOf = (r: RequestRow): [number, number][] => {
@@ -314,30 +320,32 @@ export function TeamCalendar() {
           )}
         </div>
         <div
-          className={cn("relative grid h-7 select-none", isOwnRow && "cursor-crosshair")}
+          className={cn("relative grid h-7 select-none", canDrag && "cursor-crosshair")}
           style={{ gridTemplateColumns: `repeat(${days.length}, minmax(28px, 1fr))` }}
-          title={isOwnRow ? "Přetažením vyberte termín žádosti o absenci" : undefined}
+          title={canDrag ? (isOwnRow ? "Přetažením vyberte termín žádosti o absenci" : `Přetažením zadáte absenci za: ${emp.name}`) : undefined}
           onMouseLeave={() => setHover(null)}
         >
           {days.map((d, di) => {
             const inDrag =
-              isOwnRow &&
+              canDrag &&
               dragging &&
+              dragEmpRef.current === emp.id &&
               dragStartIdx !== null &&
               dragEndIdx !== null &&
               di >= Math.min(dragStartIdx, dragEndIdx) &&
               di <= Math.max(dragStartIdx, dragEndIdx);
             const isToday = isSameDay(d, today);
             const holidayName = czechHolidayName(d);
-            const cellTitle = isOwnRow ? undefined : holidayName ?? (isWeekend(d) ? "Víkend" : isToday ? "Dnes" : undefined);
+            const cellTitle = canDrag ? undefined : holidayName ?? (isWeekend(d) ? "Víkend" : isToday ? "Dnes" : undefined);
             return (
               <div
                 key={d.toISOString()}
                 title={cellTitle}
                 onMouseDown={
-                  isOwnRow
+                  canDrag
                     ? () => {
                         setHover(null);
+                        dragEmpRef.current = emp.id;
                         setDragging(true);
                         setDragStartIdx(di);
                         setDragEndIdx(di);
@@ -345,10 +353,10 @@ export function TeamCalendar() {
                     : undefined
                 }
                 onMouseEnter={
-                  isOwnRow
+                  canDrag
                     ? (e) => {
                         if (dragging) {
-                          setDragEndIdx(di);
+                          if (dragEmpRef.current === emp.id) setDragEndIdx(di);
                           return;
                         }
                         const all = reqsCovering(emp.id, format(d, "yyyy-MM-dd"));
@@ -358,8 +366,8 @@ export function TeamCalendar() {
                 }
                 className={cn(
                   "h-full border-x border-transparent",
-                  isCzechHoliday(d) ? "border-warning/40 bg-warning/25" : isWeekend(d) && "bg-paper",
-                  isToday && "bg-teal/10",
+                  isCzechHoliday(d) ? "border-warning/40 bg-warning/25" : isWeekend(d) && "bg-ink/[0.07]",
+                  isToday && "border-sky/60 bg-sky/10",
                   inDrag && "bg-teal/30"
                 )}
               />
@@ -389,13 +397,13 @@ export function TeamCalendar() {
                   const b = e.currentTarget.getBoundingClientRect();
                   setHover({ x: b.left, y: b.bottom - 14, req: r, name: emp.name });
                 }}
-                onMouseMove={isOwnRow ? undefined : (e) => setHover({ x: e.clientX, y: e.clientY, req: r, name: emp.name })}
-                onMouseLeave={isOwnRow ? undefined : () => setHover(null)}
+                onMouseMove={canDrag ? undefined : (e) => setHover({ x: e.clientX, y: e.clientY, req: r, name: emp.name })}
+                onMouseLeave={canDrag ? undefined : () => setHover(null)}
                 className={cn(
                   "absolute top-0.5 h-6 rounded-sm focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ink",
                   // On the viewer's own row this must never swallow the mousedown
                   // that starts a drag-select — hover there is handled by the cells.
-                  isOwnRow && "pointer-events-none",
+                  canDrag && "pointer-events-none",
                   colorDot[r.leave_type.color],
                   r.status === "pending" ? cn("opacity-70 ring-1 ring-inset ring-white/70", hatch) : "opacity-90 hover:opacity-100"
                 )}
@@ -470,9 +478,8 @@ export function TeamCalendar() {
         </button>
       )}
       {leaveTypesLegend.length > 0 && (
-        <div className={cn("mt-2 flex-wrap items-center gap-x-5 gap-y-2 rounded border border-line bg-paper px-4 py-2.5 text-xs text-muted sm:mt-4 sm:flex", legendOpen ? "flex" : "hidden")}>
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            <span className="font-medium text-ink">Typy absencí</span>
+        <div className={cn("relative mt-2 flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted sm:mt-3 sm:flex", legendOpen ? "flex" : "hidden")}>
+          <span className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
             {leaveTypesLegend.map((t) => {
               const icon = leaveIconFor(t.key);
               return (
@@ -487,18 +494,17 @@ export function TeamCalendar() {
               <span className="h-2.5 w-2.5 rounded-sm bg-slate" /> Nepřítomen
             </span>
           </span>
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-line sm:border-l sm:pl-5">
-            <span className="font-medium text-ink">Značky</span>
-            <span className="flex items-center gap-1.5" title="Šrafovaný pruh = žádost ještě čeká na schválení (barva zůstává podle typu)">
-              <span className={cn("h-2.5 w-6 rounded-sm bg-ink/50", hatch)} /> Šrafování = čeká na schválení
-            </span>
-            <span className="flex items-center gap-1.5" title="Státní svátek">
-              <span className="h-2.5 w-2.5 rounded-sm bg-warning" /> Státní svátek
-            </span>
-            <span className="flex items-center gap-1.5" title="Dnešní den">
-              <span className="h-2.5 w-2.5 rounded-sm border-2 border-teal" /> Dnešní den
-            </span>
-          </span>
+          <button type="button" onClick={() => setMarksOpen((v) => !v)} aria-expanded={marksOpen} aria-label="Vysvětlivky značek" title="Vysvětlivky značek" className="rounded p-0.5 hover:bg-paper hover:text-ink">
+            <HelpCircle size={14} />
+          </button>
+          {marksOpen && (
+            <div className="absolute right-0 top-full z-30 mt-1 w-64 space-y-1.5 rounded-lg border border-line bg-white p-3 shadow-[0_8px_30px_rgba(22,35,59,0.12)]" role="dialog" aria-label="Značky v kalendáři">
+              <div className="flex items-center gap-2"><span className={cn("h-2.5 w-6 shrink-0 rounded-sm bg-ink/50", hatch)} /> Šrafování = čeká na schválení</div>
+              <div className="flex items-center gap-2"><span className="h-2.5 w-6 shrink-0 rounded-sm bg-warning/60" /> Státní svátek</div>
+              <div className="flex items-center gap-2"><span className="h-2.5 w-6 shrink-0 rounded-sm border-x-2 border-sky bg-sky/20" /> Dnešní den (modrý sloupec)</div>
+              <div className="flex items-center gap-2"><span className="h-2.5 w-6 shrink-0 rounded-sm bg-ink/10" /> Víkend</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -516,13 +522,13 @@ export function TeamCalendar() {
                     key={d.toISOString()}
                     title={dayTitle}
                     className={cn(
-                      "rounded-t-sm border-b-2 pb-1.5 text-center text-[11px]",
-                      isToday ? "border-teal-dark" : "border-line",
-                      holidayName ? "bg-warning-light text-warning-dark" : isToday ? "bg-teal-light" : isWeekend(d) ? "bg-paper text-muted" : "bg-white"
+                      "rounded-t-sm border-b-2 pb-1.5 text-center text-xs",
+                      isToday ? "border-sky-dark" : "border-line",
+                      holidayName ? "bg-warning-light text-warning-dark" : isToday ? "bg-sky-light" : isWeekend(d) ? "bg-ink/[0.09] text-ink/70" : "bg-white"
                     )}
                   >
-                    <div className={cn(isToday ? "font-semibold text-teal-dark" : "text-muted")}>{format(d, "EEEEEE", { locale: cs })}</div>
-                    <div className={cn(isToday && "font-semibold text-teal-dark")}>{format(d, "d")}</div>
+                    <div className={cn("pt-0.5 leading-tight", isToday ? "text-[10px] font-bold uppercase text-sky-dark" : "text-muted")}>{isToday ? "Dnes" : format(d, "EEEEEE", { locale: cs })}</div>
+                    <div className={cn("text-sm font-medium leading-tight", isToday && "font-bold text-sky-dark")}>{format(d, "d")}</div>
                   </div>
                 );
               })}
@@ -536,14 +542,37 @@ export function TeamCalendar() {
                 const isCollapsed = collapsed.has(g.id);
                 return (
                   <Fragment key={g.id}>
-                    <button
-                      onClick={() => toggleGroup(g.id)}
-                      className="sticky left-0 z-10 flex w-full items-center gap-2 border-b border-line bg-paper px-2 py-1.5 text-left text-sm font-medium hover:bg-line/40"
-                    >
-                      {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                      <span className={cn("h-2 w-2 rounded-full", colorDot[g.color])} />
-                      {g.name} ({g.members.length})
-                    </button>
+                    <div className="grid grid-cols-[104px_1fr] border-b border-line bg-paper sm:grid-cols-[200px_1fr]">
+                      <button
+                        onClick={() => toggleGroup(g.id)}
+                        aria-expanded={!isCollapsed}
+                        className="sticky left-0 z-10 flex items-center gap-2 bg-paper px-2 py-1.5 text-left text-sm font-medium hover:bg-line/40"
+                      >
+                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                        <span className={cn("h-2 w-2 shrink-0 rounded-full", colorDot[g.color])} />
+                        <span className="truncate">
+                          {g.name} ({g.members.length})
+                        </span>
+                      </button>
+                      <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(28px, 1fr))` }} aria-label={`Dostupnost oddělení ${g.name} po dnech`}>
+                        {days.map((d) => {
+                          const iso = format(d, "yyyy-MM-dd");
+                          const size = g.members.length;
+                          const away = new Set(requests.filter((r) => r.status === "approved" && reducesPresence(r.leave_type.key) && r.start_date <= iso && r.end_date >= iso && g.members.some((m) => m.id === r.profile_id)).map((r) => r.profile_id)).size;
+                          const nonWork = isWeekend(d) || isCzechHoliday(d);
+                          const ratio = size > 0 ? away / size : 0;
+                          return (
+                            <div
+                              key={iso}
+                              title={nonWork ? undefined : `${g.name}: chybí ${away} z ${size}`}
+                              className={cn("flex h-6 items-center justify-center text-[10px] font-medium", nonWork ? "text-transparent" : away === 0 ? "text-muted/50" : ratio >= 0.5 ? "bg-danger-light text-danger-dark" : ratio >= 0.25 ? "bg-warning-light text-warning-dark" : "bg-paper text-ink")}
+                            >
+                              {nonWork ? "" : away > 0 ? away : "·"}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                     {!isCollapsed && g.members.map((e, i) => renderRow(e, i))}
                   </Fragment>
                 );
@@ -578,12 +607,25 @@ export function TeamCalendar() {
         </div>
       )}
 
-      {requestDates && (
+      {requestDates && requestDates.empId && requestDates.empId !== profile?.id && (
+        <BookForEmployeeModal
+          hideTrigger
+          open
+          onOpenChange={(o) => !o && setRequestDates(null)}
+          presetEmployeeId={requestDates.empId}
+          initialDates={{ start: requestDates.start, end: requestDates.end }}
+          onSaved={() => {
+            setRequestDates(null);
+            loadRequests();
+          }}
+        />
+      )}
+      {requestDates && (!requestDates.empId || requestDates.empId === profile?.id) && (
         <RequestLeaveModal
           trigger={null}
           open={!!requestDates}
           onOpenChange={(o) => !o && setRequestDates(null)}
-          initialDates={requestDates}
+          initialDates={{ start: requestDates.start, end: requestDates.end }}
           onSaved={() => {
             setRequestDates(null);
             loadRequests();
