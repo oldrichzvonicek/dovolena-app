@@ -19,6 +19,7 @@ import {
   toCsv,
 } from "@/lib/payroll";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { InfoTip } from "@/components/ui/info-tip";
 import { LoadingLines } from "@/components/ui/skeleton";
 import { cn, errorMessage } from "@/lib/utils";
@@ -45,6 +46,7 @@ export function PayrollDetailPanel() {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [tick, setTick] = useState(0);
   const [includeWorking, setIncludeWorking] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -99,6 +101,8 @@ export function PayrollDetailPanel() {
   const missingCode = Array.from(new Set(rows.filter((r) => !r.code).map((r) => r.typeLabel)));
   const missingNumber = Array.from(new Set(rows.filter((r) => !r.personalNumber).map((r) => `${r.firstName} ${r.lastName}`.trim())));
   const monthEnded = monthEndOf(month) < now;
+  // Uzávěrku nejde spustit s neúplnými údaji pro mzdový systém (chybějící kódy nebo osobní čísla).
+  const incomplete = rows.length > 0 && (missingCode.length > 0 || missingNumber.length > 0);
 
   function download(kind: "csv" | "xlsx") {
     if (kind === "csv") {
@@ -163,7 +167,19 @@ export function PayrollDetailPanel() {
         </label>
 
         {(missingCode.length > 0 || missingNumber.length > 0) && (
-          <div className="mt-3 space-y-1 rounded border border-warning/40 bg-warning-light p-3 text-xs text-warning-dark">
+          <div className="mt-3 space-y-2 rounded border border-warning/40 bg-warning-light p-3 text-xs text-warning-dark">
+            <div className="flex flex-wrap gap-2">
+              {missingCode.length > 0 && (
+                <Link href="/admin/settings?sekce=leave-types" className="rounded border border-warning/60 bg-white px-3 py-1.5 text-xs font-medium text-warning-dark hover:bg-warning/10">
+                  Nastavit mzdové kódy ({missingCode.length})
+                </Link>
+              )}
+              {missingNumber.length > 0 && (
+                <Link href="/admin/settings?sekce=users" className="rounded border border-warning/60 bg-white px-3 py-1.5 text-xs font-medium text-warning-dark hover:bg-warning/10">
+                  Doplnit osobní čísla ({missingNumber.length})
+                </Link>
+              )}
+            </div>
             {missingCode.length > 0 && (
               <p className="flex items-start gap-1.5">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
@@ -201,12 +217,51 @@ export function PayrollDetailPanel() {
                   : "Uzavřít lze jen měsíc, který už skončil."}
             </p>
           </div>
-          <Button variant={closure ? "secondary" : "primary"} onClick={toggleClosure} disabled={busy || loading || (!closure && !monthEnded)}>
+          <Button
+            variant={closure || incomplete ? "secondary" : "primary"}
+            onClick={() => (!closure && incomplete ? setBlockedOpen(true) : toggleClosure())}
+            disabled={busy || loading || (!closure && !monthEnded)}
+            className={cn(!closure && incomplete && "border-warning/60 text-warning-dark")}
+            aria-describedby={!closure && incomplete ? "closure-blocked" : undefined}
+          >
+            {!closure && incomplete && <AlertTriangle size={14} />}
             {busy ? "Ukládám…" : closure ? "Znovu otevřít měsíc" : "Uzavřít měsíc"}
           </Button>
         </div>
+        {!closure && incomplete && (
+          <p id="closure-blocked" className="mt-2 text-xs text-warning-dark">
+            Uzávěrku nejde spustit, dokud nejsou vyplněné kódy pro mzdy a osobní čísla ({missingCode.length + missingNumber.length} chybějících údajů). Kliknutím uvidíte přehled.
+          </p>
+        )}
         {message && <p className={cn("mt-3 text-sm", message.ok ? "text-teal-dark" : "text-danger")}>{message.text}</p>}
       </div>
+
+      <Dialog open={blockedOpen} onOpenChange={setBlockedOpen}>
+        <DialogContent title="Uzávěrku nejde spustit">
+          <p className="text-sm text-muted">Pro mzdový systém chybí údaje. Doplňte je a uzávěrku spusťte znovu.</p>
+          {missingCode.length > 0 && (
+            <div className="mt-4">
+              <div className="text-sm font-medium">Chybí kód pro mzdy u typů absence ({missingCode.length})</div>
+              <p className="mt-1 text-sm text-muted">{missingCode.join(", ")}</p>
+              <Link href="/admin/settings?sekce=leave-types" className="mt-2 inline-block rounded bg-teal px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-dark">
+                Nastavit mzdové kódy
+              </Link>
+            </div>
+          )}
+          {missingNumber.length > 0 && (
+            <div className="mt-4">
+              <div className="text-sm font-medium">Chybí osobní číslo ({missingNumber.length})</div>
+              <p className="mt-1 text-sm text-muted">
+                {missingNumber.slice(0, 12).join(", ")}
+                {missingNumber.length > 12 ? ` a dalších ${missingNumber.length - 12}` : ""}
+              </p>
+              <Link href="/admin/settings?sekce=users" className="mt-2 inline-block rounded bg-teal px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-dark">
+                Doplnit osobní čísla
+              </Link>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="card overflow-hidden">
         <div className="border-b border-line p-5">

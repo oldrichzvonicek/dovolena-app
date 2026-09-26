@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
-import { Download, FileSpreadsheet, FileText, FileType } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, FileSpreadsheet, FileText, FileType, Search } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
@@ -19,6 +19,8 @@ const formats = [
   { key: "xlsx", label: "Excel (XLSX)", icon: FileSpreadsheet, bookType: "xlsx" as const },
   { key: "ods", label: "OpenDocument (ODS)", icon: FileType, bookType: "ods" as const },
 ] as const;
+
+type SortKey = "name" | "departmentName" | "vacationUsed" | "sickUsed" | "homeOffice";
 
 interface Row {
   id: string;
@@ -38,6 +40,9 @@ export function ExportsPanel() {
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hideZero, setHideZero] = useState(true);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "name", dir: 1 });
 
   useEffect(() => {
     if (!profile) return;
@@ -82,7 +87,19 @@ export function ExportsPanel() {
     })();
   }, [profile, month]);
 
-  const filteredRows = department === "all" ? rows : rows.filter((r) => r.departmentId === department);
+  const q = search.trim().toLocaleLowerCase("cs");
+  const filteredRows = rows
+    .filter((r) => department === "all" || r.departmentId === department)
+    .filter((r) => !hideZero || r.vacationUsed + r.sickUsed + r.homeOffice > 0)
+    .filter((r) => !q || r.name.toLocaleLowerCase("cs").includes(q) || r.departmentName.toLocaleLowerCase("cs").includes(q))
+    .sort((a, b) => {
+      const va = a[sort.key];
+      const vb = b[sort.key];
+      const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "cs");
+      return c * sort.dir || a.name.localeCompare(b.name, "cs");
+    });
+  const zeroCount = rows.filter((r) => (department === "all" || r.departmentId === department) && r.vacationUsed + r.sickUsed + r.homeOffice === 0).length;
+  const toggleSort = (key: SortKey) => setSort((cur) => (cur.key === key ? { key, dir: cur.dir === 1 ? -1 : 1 } : { key, dir: key === "name" || key === "departmentName" ? 1 : -1 }));
 
   function handleExport() {
     const sheetRows = filteredRows.map((r) => ({
@@ -157,20 +174,42 @@ export function ExportsPanel() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="border-b border-line p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-5">
           <h2 className="font-display text-h2">Měsíční souhrn — náhled ({filteredRows.length})</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Hledat jméno nebo oddělení" aria-label="Hledat v souhrnu" className="w-56 rounded border border-line py-1.5 pl-8 pr-3 text-sm" />
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input type="checkbox" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} className="h-4 w-4" />
+              Skrýt nulové řádky{hideZero && zeroCount > 0 ? ` (${zeroCount})` : ""}
+            </label>
+          </div>
         </div>
+        {!loading && hideZero && zeroCount > 0 && <p className="border-b border-line bg-paper px-5 py-2 text-xs text-muted">Skryto {zeroCount} lidí bez absence v tomto měsíci. Stažený soubor obsahuje jen zobrazené řádky.</p>}
         {loading ? (
           <div className="p-5"><LoadingLines rows={5} /></div>
         ) : (
           <table className="table-cards w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-muted">
-                <th className="px-5 py-3 font-medium">Jméno</th>
-                <th className="px-5 py-3 font-medium">Oddělení</th>
-                <th className="px-5 py-3 font-medium">Vyčerpaná dovolená</th>
-                <th className="px-5 py-3 font-medium">Sick Days</th>
-                <th className="px-5 py-3 font-medium">Home Office</th>
+                {(
+                  [
+                    ["name", "Jméno"],
+                    ["departmentName", "Oddělení"],
+                    ["vacationUsed", "Vyčerpaná dovolená"],
+                    ["sickUsed", "Sick Days"],
+                    ["homeOffice", "Home Office"],
+                  ] as [SortKey, string][]
+                ).map(([key, label]) => (
+                  <th key={key} className="px-5 py-3 font-medium" aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+                    <button type="button" onClick={() => toggleSort(key)} className="flex items-center gap-1 uppercase tracking-wide hover:text-ink">
+                      {label}
+                      {sort.key === key && (sort.dir === 1 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { AlertTriangle, FileSpreadsheet, FileText } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { AdminEmployeeRow, fetchCompanyEmployees } from "@/lib/admin-data";
@@ -121,6 +122,22 @@ export function SettlementPanel() {
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([HEADERS, ...table]), "Vyrovnání");
     XLSX.writeFile(book, `vyrovnani-dovolene-${year}.xlsx`);
+  }
+
+  // Žádné odchody: čistý prázdný stav, bez tlačítek pro stažení a bez upozornění na výpočet.
+  if (lines !== null && lines.length === 0) {
+    return (
+      <div className="card flex flex-col items-center px-6 py-12 text-center">
+        <h2 className="font-display text-h2">Vyrovnání dovolené při ukončení</h2>
+        <p className="mt-2 max-w-md text-sm text-muted">
+          V roce {year} nikdo neodchází. Až u někoho nastavíte datum ukončení pracovního poměru, Dodio tu spočítá vyrovnání dovolené a nabídne podklad ke stažení.
+        </p>
+        <Link href="/admin/settings?sekce=users" className="mt-5 rounded bg-teal px-4 py-2 text-sm font-medium text-white hover:bg-teal-dark">
+          + Nastavit ukončení pracovního poměru
+        </Link>
+        <p className="mt-2 text-xs text-muted">V Uživatelé → Upravit → „Datum ukončení pracovního poměru“.</p>
+      </div>
+    );
   }
 
   return (

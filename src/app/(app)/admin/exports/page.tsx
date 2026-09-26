@@ -6,7 +6,7 @@ import { PayrollDetailPanel } from "@/components/admin/PayrollDetailPanel";
 import { SettlementPanel } from "@/components/admin/SettlementPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FeatureGate } from "@/components/shared/FeatureGate";
-import { ICalExportBox } from "@/components/calendar/ICalExportBox";
+import { ICalExportPanel } from "@/components/calendar/ICalExportPanel";
 
 export default function ExportsPage() {
   return (
@@ -33,10 +33,8 @@ export default function ExportsPage() {
           <TabsContent value="calendar">
             <div className="card max-w-2xl space-y-3 p-5">
               <h2 className="font-display text-h2">Kalendář do Google, Outlooku a dalších</h2>
-              <p className="text-sm text-muted">
-                Odkaz na odběr kalendáře (iCal) s vašimi absencemi nebo s absencemi celého týmu. Vložíte ho do kalendáře a absence se tam objeví samy. Odkaz je osobní, nikomu ho neposílejte.
-              </p>
-              <ICalExportBox />
+              <p className="text-sm text-muted">Vyberte rozsah, zkopírujte odkaz do Google Kalendáře nebo Outlooku (absence se tam pak promítají samy), případně si stáhněte jednorázový soubor .ics.</p>
+              <ICalExportPanel />
             </div>
           </TabsContent>
         </Tabs>

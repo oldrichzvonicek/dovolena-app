@@ -40,7 +40,9 @@ function foldLine(line: string): string {
 // includes the whole company instead of just this person.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   if (!(await allowRequest(`ical:${clientIp(req.headers)}`, 120, 60))) return tooManyRequests();
-  const scope = req.nextUrl.searchParams.get("scope") === "team" ? "team" : "mine";
+  // mine = jen moje absence, myteam = můj tým (podřízení a oddělení, která vedu nebo zastupuji), team = celá firma (starší odkazy).
+  const scopeParam = req.nextUrl.searchParams.get("scope");
+  const scope: "mine" | "myteam" | "team" = scopeParam === "team" ? "team" : scopeParam === "myteam" ? "myteam" : "mine";
   const supabase = createAdminClient();
 
   // The token lives in profile_secrets (readable only by its owner); resolve it with the service role.
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
       .gte("end_date", since)
       .order("id")
       .range(from, from + 999);
-    query = scope === "team" ? query.eq("profile.company_id", viewer.company_id) : query.eq("profile_id", viewer.id);
+    query = scope !== "mine" ? query.eq("profile.company_id", viewer.company_id) : query.eq("profile_id", viewer.id);
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: "Kalendář se nepodařilo načíst." }, { status: 500 });
     requests.push(...(data ?? []));
@@ -96,19 +98,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     const d = (depts ?? []).find((x) => x.id === p.department_id);
     return !!d && (d.head_profile_id === viewer.id || d.deputy_head_profile_id === viewer.id);
   };
-  const rows = (requests as Req[]).filter((r) => r.profile);
+  const inMyTeam = (p: NonNullable<Req["profile"]>) => {
+    if (p.id === viewer.id || p.manager_id === viewer.id) return true;
+    const d = (depts ?? []).find((x) => x.id === p.department_id);
+    return !!d && (d.head_profile_id === viewer.id || d.deputy_head_profile_id === viewer.id);
+  };
+  const rows = (requests as Req[]).filter((r) => r.profile && (scope !== "myteam" || inMyTeam(r.profile)));
 
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Dovolena App//CS",
     "CALSCALE:GREGORIAN",
-    `X-WR-CALNAME:${escapeText(scope === "team" ? "Dovolená – tým" : "Dovolená – moje absence")}`,
+    `X-WR-CALNAME:${escapeText(scope === "team" ? "Dovolená – celá firma" : scope === "myteam" ? "Dovolená – můj tým" : "Dovolená – moje absence")}`,
   ];
 
   for (const r of rows) {
     const typeLabel = r.leave_type?.hide_from_colleagues && !canSeeType(r.profile!) ? "Nepřítomen" : r.leave_type?.label ?? "Absence";
-    const base = scope === "team" ? `${typeLabel} – ${r.profile!.name}` : typeLabel;
+    const base = scope !== "mine" ? `${typeLabel} – ${r.profile!.name}` : typeLabel;
     const summary = r.half_day ? `${base} (půl dne)` : base;
     lines.push(
       "BEGIN:VEVENT",
