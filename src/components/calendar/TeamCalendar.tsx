@@ -277,6 +277,26 @@ export function TeamCalendar() {
     const dept = departments.find((d) => d.id === emp.department_id);
     const empRequests = requests.filter((r) => r.profile_id === emp.id && (leaveTypeFilter === "all" || r.leave_type.key === leaveTypeFilter));
     const isOwnRow = emp.id === profile?.id;
+    // Úseky, které žádost zabírá v zobrazeném období. Bez provozu o víkendu se pruh nekreslí přes sobotu a neděli,
+    // takže se rozdělí na souvislé běhy pracovních dní.
+    const segmentsOf = (r: RequestRow): [number, number][] => {
+      const startIdx = days.findIndex((d) => format(d, "yyyy-MM-dd") === r.start_date);
+      const endIdx = days.findIndex((d) => format(d, "yyyy-MM-dd") === r.end_date);
+      if (startIdx === -1 || endIdx === -1) return [];
+      if (weekendOperations) return [[startIdx, endIdx]];
+      const runs: [number, number][] = [];
+      let segStart: number | null = null;
+      for (let i2 = startIdx; i2 <= endIdx; i2++) {
+        if (!isWeekend(days[i2])) {
+          if (segStart === null) segStart = i2;
+        } else if (segStart !== null) {
+          runs.push([segStart, i2 - 1]);
+          segStart = null;
+        }
+      }
+      if (segStart !== null) runs.push([segStart, endIdx]);
+      return runs;
+    };
     const rowBg = pinned ? "bg-teal-light" : i % 2 === 1 ? "bg-paper" : "bg-white";
 
     return (
@@ -346,31 +366,14 @@ export function TeamCalendar() {
             );
           })}
           {empRequests.map((r) => {
-            const startIdx = days.findIndex((d) => format(d, "yyyy-MM-dd") === r.start_date);
-            const endIdx = days.findIndex((d) => format(d, "yyyy-MM-dd") === r.end_date);
-            if (startIdx === -1 || endIdx === -1) return null;
-
-            // Without weekend operations, a multi-day bar shouldn't
-            // paint over Sat/Sun in the middle of its range — split
-            // it into one segment per contiguous run of workdays.
-            const segments = weekendOperations
-              ? [[startIdx, endIdx]]
-              : (() => {
-                  const runs: [number, number][] = [];
-                  let segStart: number | null = null;
-                  for (let i2 = startIdx; i2 <= endIdx; i2++) {
-                    if (!isWeekend(days[i2])) {
-                      if (segStart === null) segStart = i2;
-                    } else if (segStart !== null) {
-                      runs.push([segStart, i2 - 1]);
-                      segStart = null;
-                    }
-                  }
-                  if (segStart !== null) runs.push([segStart, endIdx]);
-                  return runs;
-                })();
-
-            return segments.map(([segStart, segEnd]) => (
+            const segments = segmentsOf(r);
+            // Dvě žádosti stejného druhu a stavu ve dnech těsně po sobě se kreslí jako jeden pruh (každá zůstává samostatnou
+            // žádostí a ukáže vlastní detail). Mezera mezi nimi by vypadala jako přerušení absence.
+            const sameKind = (o: RequestRow) => o.id !== r.id && o.leave_type.key === r.leave_type.key && o.status === r.status;
+            return segments.map(([segStart, segEnd]) => {
+              const joinLeft = empRequests.some((o) => sameKind(o) && segmentsOf(o).some(([, e2]) => e2 === segStart - 1));
+              const joinRight = empRequests.some((o) => sameKind(o) && segmentsOf(o).some(([s2]) => s2 === segEnd + 1));
+              return (
               <div
                 key={`${r.id}-${segStart}`}
                 tabIndex={0}
@@ -397,8 +400,10 @@ export function TeamCalendar() {
                   r.status === "pending" ? cn("opacity-70 ring-1 ring-inset ring-white/70", hatch) : "opacity-90 hover:opacity-100"
                 )}
                 style={{
-                  left: `calc(${(segStart / days.length) * 100}% + 2px)`,
-                  width: `calc(${((segEnd - segStart + 1) / days.length) * 100}% - 4px)`,
+                  left: `calc(${(segStart / days.length) * 100}% + ${joinLeft ? 0 : 2}px)`,
+                  width: `calc(${((segEnd - segStart + 1) / days.length) * 100}% - ${(joinLeft ? 0 : 2) + (joinRight ? 0 : 2)}px)`,
+                  ...(joinLeft ? { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 } : {}),
+                  ...(joinRight ? { borderTopRightRadius: 0, borderBottomRightRadius: 0 } : {}),
                 }}
               >
                 {(viewMode === "day" || viewMode === "week") && (
@@ -408,7 +413,8 @@ export function TeamCalendar() {
                   </span>
                 )}
               </div>
-            ));
+              );
+            });
           })}
         </div>
       </div>

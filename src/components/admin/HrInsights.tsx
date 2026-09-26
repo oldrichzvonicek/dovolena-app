@@ -10,6 +10,8 @@ import { fetchAll } from "@/lib/fetch-all";
 import { useFeatures } from "@/lib/use-features";
 import { ADDONS, formatKc } from "@/lib/plans";
 import { InfoTip } from "@/components/ui/info-tip";
+import { Card, Empty, Row } from "@/components/admin/insight-ui";
+import { ExtraCards, ExtraSummary, useExtraInsights } from "@/components/admin/SmartInsightsExtra";
 import { createClient } from "@/lib/supabase/client";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS, dayWord } from "@/lib/working-days";
@@ -91,27 +93,6 @@ const SERIES: { key: TrendSeries; label: string }[] = [
   { key: "sickPct", label: "Nemoc (souhrnně)" },
 ];
 
-function Card({ icon, title, hint, children, className }: { icon: React.ReactNode; title: string; hint: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn("card p-5", className)}>
-      <div className="flex items-center gap-2 font-display text-h2">
-        {icon} {title}
-      </div>
-      <p className="mt-0.5 text-xs text-muted">{hint}</p>
-      <div className="mt-3 space-y-2 text-sm">{children}</div>
-    </div>
-  );
-}
-
-const Row = ({ left, right, tone }: { left: string; right: string; tone?: "danger" | "warning" }) => (
-  <div className="flex items-center justify-between gap-3 border-b border-line pb-1.5 last:border-0">
-    <span className="min-w-0 truncate">{left}</span>
-    <span className={tone === "danger" ? "shrink-0 font-medium text-danger-dark" : tone === "warning" ? "shrink-0 font-medium text-warning-dark" : "shrink-0 text-muted"}>{right}</span>
-  </div>
-);
-
-const Empty = ({ text }: { text: string }) => <p className="text-muted">✓ {text}</p>;
-
 const hours = (h: number) => (h < 1 ? "do hodiny" : h < 48 ? `${formatNumber(h)} h` : `${formatNumber(Math.round((h / 24) * 10) / 10)} dní`);
 
 /**
@@ -132,6 +113,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   const [periodKey, setPeriodKey] = useState(MAIN_PERIODS[0].key);
   const [rechargeMin, setRechargeMin] = useState(5);
   const [rechargeOpen, setRechargeOpen] = useState<string | null>(null);
+  const extra = useExtraInsights(profile?.company_id, !!profile && allowed && unlocked && !features.loading, departmentId);
 
   useEffect(() => {
     if (!profile || !allowed || features.loading || !unlocked) return;
@@ -302,6 +284,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
     <div>
       <h2 className="mb-3 text-label uppercase tracking-wide text-muted">Smart HR Insights</h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {extra && <ExtraSummary extra={extra} />}
         <Card
           className="lg:col-span-2"
           icon={<CalendarClock size={17} className="text-teal-dark" />}
@@ -460,6 +443,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           </div>
           <FairRota data={data} periodKey={periodKey} />
         </Card>
+        {extra && <ExtraCards extra={extra} />}
       </div>
     </div>
   );
