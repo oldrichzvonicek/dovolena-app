@@ -20,19 +20,27 @@ interface Tip extends BridgeSuggestion {
 }
 
 const fmt = (iso: string) => format(parseISO(iso), "EEE d. M.", { locale: cs });
+const VISIBLE_DEFAULT = 5;
 
-/** "Chytré návrhy dovolené": kdy stačí 1–2 dny k souvislému volnu 4+ dní (svátky), s ohledem na vytížení týmu. */
+/**
+ * "Chytré návrhy dovolené": kdy stačí pár dní dovolené k souvislému volnu 4+ dní (svátky), s ohledem na vytížení
+ * týmu. Počítá se na celý rok dopředu, aby bylo z čeho vybírat; zobrazuje se jen výřez (`visible`), ale zbytek
+ * zůstává v paměti — po podání žádosti nebo kliknutí na "Zobrazit další" se tak hned doplní další návrh, seznam
+ * neubývá k nule po pár kliknutích.
+ */
 export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
   const { profile } = useAuth();
   const [tips, setTips] = useState<Tip[] | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [pick, setPick] = useState<Tip | null>(null);
+  const [visible, setVisible] = useState(VISIBLE_DEFAULT);
 
   useEffect(() => {
     if (!profile) return;
     const supabase = createClient();
     const today = format(new Date(), "yyyy-MM-dd");
-    const horizon = 200;
+    // Celý rok dopředu, ať je z čeho vybírat i po odeslání pár žádostí — ne jen nejbližší svátky.
+    const horizon = 365;
 
     (async () => {
       const [{ data: company }, balances, { data: mates }, { data: ownReqs }] = await Promise.all([
@@ -49,7 +57,8 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
       setRemaining(rem);
 
       const mine = (ownReqs as { start_date: string; end_date: string }[] | null) ?? [];
-      const suggestions = bridgeSuggestions(today, horizon, workDays, 2)
+      // Delší souvislé úseky (1–3 dny dovolené) — víc příležitostí než jen 1–2 dny kolem svátků.
+      const suggestions = bridgeSuggestions(today, horizon, workDays, 3)
         .filter((s) => s.take.length <= Math.max(0, Math.floor(rem)))
         .filter((s) => !mine.some((r) => s.take.some((d) => d >= r.start_date && d <= r.end_date)));
       const team = (mates ?? []).map((m) => m.id as string);
@@ -74,7 +83,9 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
       });
       // Pohodlnější (menší vytížení týmu) a výhodnější (víc volna za den) nahoře
       withLoad.sort((a, b) => a.teamAway / Math.max(1, a.teamSize) - b.teamAway / Math.max(1, b.teamSize) || b.offDays / b.take.length - a.offDays / a.take.length);
-      setTips(withLoad.slice(0, 4));
+      // Celý seznam se uloží (ne jen zobrazený výřez) — po podání žádosti nebo kliknutí na "Zobrazit další"
+      // se tak hned ukáže další návrh z fronty, místo aby seznam jen ubýval.
+      setTips(withLoad);
     })().catch((e) => {
       console.error("BridgeDays failed:", e);
       setTips([]);
@@ -82,6 +93,7 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
   }, [profile]);
 
   if (!profile || !tips || tips.length === 0) return null;
+  const shown = tips.slice(0, visible);
 
   return (
     <div className="card p-5">
@@ -92,7 +104,7 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
         S málem dní dovolené si prodloužíte volno kolem svátků. Zbývá vám {remaining !== null ? `${formatNumber(remaining)} ${dayWord(remaining)}` : "—"}.
       </p>
       <ul className="mt-3 divide-y divide-line">
-        {tips.map((t) => (
+        {shown.map((t) => (
           <li key={t.take.join()} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">
@@ -111,6 +123,11 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
           </li>
         ))}
       </ul>
+      {tips.length > shown.length && (
+        <button onClick={() => setVisible((v) => v + VISIBLE_DEFAULT)} className="mt-2 text-xs font-medium text-teal-dark underline underline-offset-2">
+          Zobrazit další ({tips.length - shown.length})
+        </button>
+      )}
       {pick && (
         <RequestLeaveModal
           trigger={null}
