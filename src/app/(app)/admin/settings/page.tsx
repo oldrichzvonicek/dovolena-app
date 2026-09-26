@@ -13,6 +13,7 @@ import { BillingPanel } from "@/components/admin/BillingPanel";
 import { AuditLogPanel } from "@/components/admin/AuditLogPanel";
 import { IntegrationsPanel } from "@/components/admin/IntegrationsPanel";
 import { EmailsPanel } from "@/components/admin/EmailsPanel";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 
 const titles: Record<string, string> = {
   users: "Uživatelé",
@@ -49,7 +50,11 @@ function SettingsContent() {
         {active === "billing" && <BillingPanel />}
         {active === "integrations" && <IntegrationsPanel />}
         {active === "emails" && <EmailsPanel />}
-        {active === "audit" && <AuditLogPanel />}
+        {active === "audit" && (
+          <FeatureGate feature="audit_log" description="Kdo, kdy a co změnil: žádosti, lidé, nastavení. Záznamy se ukládají i v nižším tarifu, po přechodu na Pro je uvidíte.">
+            <AuditLogPanel />
+          </FeatureGate>
+        )}
       </div>
     </div>
   );

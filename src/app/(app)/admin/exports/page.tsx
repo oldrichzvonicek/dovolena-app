@@ -5,12 +5,14 @@ import { ExportsPanel } from "@/components/admin/ExportsPanel";
 import { PayrollDetailPanel } from "@/components/admin/PayrollDetailPanel";
 import { SettlementPanel } from "@/components/admin/SettlementPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 
 export default function ExportsPage() {
   return (
     <div>
       <Header title="Exporty" subtitle="Podklady pro mzdy, uzávěrka měsíce a vyrovnání dovolené" />
       <div className="p-4 sm:p-8">
+        <FeatureGate feature="exports" description="Stažení dat do Excelu a CSV, detailní podklad pro mzdy s uzávěrkou měsíce a vyrovnání dovolené při odchodu zaměstnance.">
         <Tabs defaultValue="summary">
           <TabsList className="mb-6 flex-wrap">
             <TabsTrigger value="summary">Měsíční souhrn</TabsTrigger>
@@ -27,6 +29,7 @@ export default function ExportsPage() {
             <SettlementPanel />
           </TabsContent>
         </Tabs>
+        </FeatureGate>
       </div>
     </div>
   );

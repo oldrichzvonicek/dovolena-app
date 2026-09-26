@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useFeatures } from "@/lib/use-features";
+import { PlanTag } from "@/components/shared/FeatureGate";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -154,8 +155,10 @@ export function EditEmployeeModal({
               </Select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium">Zástup</label>
-              <Select value={substituteId} onValueChange={setSubstituteId}>
+              <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+                Zástup {!features.loading && !features.has("escalation") && <PlanTag feature="escalation" />}
+              </label>
+              <Select value={substituteId} onValueChange={setSubstituteId} disabled={!features.has("escalation")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

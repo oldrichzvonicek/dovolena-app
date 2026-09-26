@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { cn, errorMessage } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { LockedFeature } from "@/components/shared/FeatureGate";
+import { useFeatures } from "@/lib/use-features";
 
 interface Row {
   id: string;
@@ -162,7 +164,7 @@ const GUIDES: Record<WebhookProvider, Guide> = {
 const ALL_EVENTS = Object.keys(EVENT_LABELS);
 
 /** Admin: connect chat channels through incoming webhooks and choose which events are posted there. */
-export function IntegrationsPanel() {
+function IntegrationsPanelInner({ canWebhooks }: { canWebhooks: boolean }) {
   const { profile } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -304,8 +306,9 @@ export function IntegrationsPanel() {
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(PROVIDER_LABELS) as WebhookProvider[]).map((p) => (
-                  <SelectItem key={p} value={p}>
+                  <SelectItem key={p} value={p} disabled={p === "webhook" && !canWebhooks}>
                     {PROVIDER_LABELS[p]}
+                    {p === "webhook" && !canWebhooks ? " (od tarifu Pro)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -379,4 +382,14 @@ export function IntegrationsPanel() {
       </div>
     </div>
   );
+}
+
+/** Integrace do chatů jsou od tarifu Team, obecné webhooky od tarifu Pro. */
+export function IntegrationsPanel() {
+  const f = useFeatures();
+  if (f.loading) return <LoadingCard />;
+  if (!f.has("chat_integrations")) {
+    return <LockedFeature feature="chat_integrations" description="Nové žádosti, schválení a denní přehled, kdo dnes chybí, se posílají přímo do firemního chatu (Teams, Slack, Discord, Mattermost, Google Chat)." />;
+  }
+  return <IntegrationsPanelInner canWebhooks={f.has("webhooks")} />;
 }

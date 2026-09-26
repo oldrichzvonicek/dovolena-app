@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { hasFeature, planByKey, type AddonKey, type Plan } from "@/lib/plans";
+import { hasFeature, planByKey, type FeatureKey, type Plan } from "@/lib/plans";
 
 interface Entitlements {
   loading: boolean;
   plan: Plan;
   addons: string[];
-  has: (feature: AddonKey) => boolean;
+  has: (feature: FeatureKey) => boolean;
 }
 
 /** Tarif a doplňky firmy přihlášeného uživatele; `has("hr_insights")` říká, jestli je funkce odemčená. */

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy, Download, RefreshCw } from "lucide-react";
+import { PlanTag } from "@/components/shared/FeatureGate";
+import { useFeatures } from "@/lib/use-features";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
@@ -12,9 +14,10 @@ export function ICalExportBox() {
   const [copied, setCopied] = useState<"mine" | "team" | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const features = useFeatures();
 
   useEffect(() => {
-    if (!open || !profile || token) return;
+    if (!open || !profile || token || !features.has("ical")) return;
     createClient()
       .rpc("get_my_calendar_token")
       .then(({ data, error: err }) => {
@@ -23,7 +26,17 @@ export function ICalExportBox() {
       });
   }, [open, profile, token]);
 
-  if (!profile) return null;
+  if (!profile || features.loading) return null;
+  if (!features.has("ical")) {
+    return (
+      <span className="inline-flex items-center gap-2">
+        <button disabled className="flex cursor-not-allowed items-center gap-1.5 rounded border border-line px-3 py-2 text-sm text-muted opacity-60">
+          <Download size={14} /> Exportovat do kalendáře
+        </button>
+        <PlanTag feature="ical" />
+      </span>
+    );
+  }
 
   const base = token ? `${window.location.origin}/api/ical/${token}` : "";
   const mineUrl = base;

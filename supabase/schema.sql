@@ -140,6 +140,70 @@ $$;
 alter table companies add column if not exists seniority_enabled boolean not null default false;
 alter table companies add column if not exists seniority_rules jsonb not null default '[]'::jsonb;
 
+-- Tarify: pořadí (free < basic = Starter < starter = Team < pro) a funkce podle tarifu. MUSÍ odpovídat src/lib/plans.ts (hasFeature).
+-- Starý tarif 'enterprise' se bere jako pro, neznámý jako free.
+create or replace function plan_rank(p text)
+returns int
+language sql
+immutable
+as $$
+  select case p when 'free' then 0 when 'basic' then 1 when 'starter' then 2 when 'pro' then 3 when 'enterprise' then 3 else 0 end;
+$$;
+
+create or replace function company_feature(p_company uuid, feature text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select case feature
+    when 'hr_insights' then plan_rank(c.plan) >= 3 or 'hr_insights' = any (c.addons)
+    when 'accountant' then plan_rank(c.plan) >= 1 or 'accountant' = any (c.addons)
+    when 'exports' then plan_rank(c.plan) >= 1
+    when 'ical' then plan_rank(c.plan) >= 1
+    when 'chat_integrations' then plan_rank(c.plan) >= 2
+    when 'webhooks' then plan_rank(c.plan) >= 3
+    when 'escalation' then plan_rank(c.plan) >= 3
+    when 'seniority' then plan_rank(c.plan) >= 3
+    when 'audit_log' then plan_rank(c.plan) >= 3
+    else false
+  end
+  from companies c
+  where c.id = p_company;
+$$;
+
+-- Nejvyšší počet aktivních uživatelů v tarifu (null = bez limitu). Neznámý tarif = jako Free.
+create or replace function plan_user_limit(p text)
+returns int
+language sql
+immutable
+as $$
+  select case p when 'free' then 5 when 'basic' then 10 when 'starter' then 15 when 'pro' then null when 'enterprise' then null else 5 end;
+$$;
+
+-- Zkontroluje, že firma po přidání p_extra dalších uživatelů nepřekročí limit svého tarifu (ukázkové účty se nepočítají).
+create or replace function assert_user_capacity(p_company uuid, p_extra int default 1)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  lim int;
+  used int;
+begin
+  select plan_user_limit(c.plan) into lim from companies c where c.id = p_company;
+  if lim is null then
+    return;
+  end if;
+  select count(*) into used from profiles where company_id = p_company and active and not is_demo;
+  if used + greatest(coalesce(p_extra, 0), 0) > lim then
+    raise exception 'Firma dosáhla limitu uživatelů svého tarifu (nejvýše % uživatelů, nyní %). Správce firmy musí přejít na vyšší tarif (Nastavení firmy → Fakturace & tarify).', lim, used;
+  end if;
+end;
+$$;
+
 create or replace function seniority_bonus_days(p_hire date, p_company_id uuid, p_year int)
 returns numeric
 language sql
@@ -151,6 +215,7 @@ as $$
     from companies c, jsonb_array_elements(c.seniority_rules) as r(rule)
     where c.id = p_company_id
       and c.seniority_enabled
+      and company_feature(c.id, 'seniority')
       and p_hire is not null
       and (r.rule ->> 'years')::numeric <= date_part('year', age(make_date(p_year, 12, 31), p_hire))
     order by (r.rule ->> 'years')::numeric desc
@@ -525,13 +590,7 @@ security definer
 stable
 set search_path = public
 as $$
-  select case feature
-    when 'hr_insights' then c.plan in ('pro', 'enterprise') or 'hr_insights' = any (c.addons)
-    when 'accountant'  then c.plan in ('basic', 'starter', 'pro', 'enterprise') or 'accountant' = any (c.addons)
-    else false
-  end
-  from companies c
-  where c.id = current_company_id();
+  select company_feature(current_company_id(), feature);
 $$;
 
 -- Tarif a doplňky si nesmí měnit sám admin firmy (RLS umožňuje admin update celého řádku firmy).
@@ -542,6 +601,15 @@ as $$
 begin
   if auth.uid() is not null and (new.plan is distinct from old.plan or new.addons is distinct from old.addons) then
     raise exception 'Tarif a doplňky mění provozovatel služby.';
+  end if;
+  if auth.uid() is not null and new.seniority_enabled and not coalesce(old.seniority_enabled, false)
+     and not coalesce(company_feature(new.id, 'seniority'), false) then
+    raise exception 'Nárok podle odpracovaných let je od tarifu Pro.';
+  end if;
+  if auth.uid() is not null and new.approval_reminder_hours is not null
+     and new.approval_reminder_hours is distinct from old.approval_reminder_hours
+     and not coalesce(company_feature(new.id, 'escalation'), false) then
+    raise exception 'Eskalace schvalování je od tarifu Pro.';
   end if;
   return new;
 end;
@@ -827,6 +895,7 @@ begin
   if inv.id is null then
     return null;
   end if;
+  perform assert_user_capacity(inv.company_id, 1);
   -- Pozvánka se váže na e-mail: bez potvrzení e-mailu by ji mohl převzít kdokoli, kdo adresu jen zná.
   if (select email_confirmed_at from auth.users where id = auth.uid()) is null then
     raise exception 'Nejdřív potvrďte svůj e-mail (odkaz jsme vám poslali).';
@@ -1461,7 +1530,7 @@ alter table audit_log enable row level security;
 
 drop policy if exists "admins read own company audit log" on audit_log;
 create policy "admins read own company audit log" on audit_log
-  for select using (company_id = current_company_id() and (current_user_role() = 'admin' or current_user_staff() = 'hr'));
+  for select using (company_id = current_company_id() and (current_user_role() = 'admin' or current_user_staff() = 'hr') and company_feature(company_id, 'audit_log'));
 
 create or replace function audit_leave_requests()
 returns trigger
@@ -1605,7 +1674,10 @@ alter table webhook_integrations enable row level security;
 drop policy if exists "admins manage webhook integrations" on webhook_integrations;
 create policy "admins manage webhook integrations" on webhook_integrations
   for all using (company_id = current_company_id() and current_user_role() = 'admin')
-  with check (company_id = current_company_id() and current_user_role() = 'admin');
+  with check (
+    company_id = current_company_id() and current_user_role() = 'admin'
+    and company_feature(company_id, case when provider::text = 'webhook' then 'webhooks' else 'chat_integrations' end)
+  );
 
 create table if not exists integration_outbox (
   id uuid primary key default gen_random_uuid(),
@@ -1660,7 +1732,9 @@ begin
   end if;
 
   if cid is not null and exists (
-    select 1 from webhook_integrations w where w.company_id = cid and w.active and ev = any(w.events)
+    select 1 from webhook_integrations w
+    where w.company_id = cid and w.active and ev = any(w.events)
+      and company_feature(cid, case when w.provider::text = 'webhook' then 'webhooks' else 'chat_integrations' end)
   ) then
     insert into integration_outbox (company_id, event, text) values (cid, ev, msg);
   end if;
@@ -1698,6 +1772,14 @@ begin
      or (current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr') then
     raise exception 'Jen admin nebo HR firmy může importovat zaměstnance.';
   end if;
+
+  -- Limit tarifu: aktivní lidé + čekající pozvánky + nové adresy z tohoto importu.
+  perform assert_user_capacity(
+    target_company_id,
+    (select count(*) from company_invites where company_id = target_company_id)::int
+    + (select count(distinct lower(trim(x ->> 'email'))) from jsonb_array_elements(rows) x
+        where lower(trim(x ->> 'email')) not in (select email from company_invites where company_id = target_company_id))::int
+  );
 
   for r in select * from jsonb_array_elements(rows) loop
     dept_id := null;
@@ -2092,6 +2174,14 @@ begin
   if new.company_id is distinct from old.company_id then
     raise exception 'Firmu u profilu nelze změnit.';
   end if;
+  if new.substitute_id is not null and new.substitute_id is distinct from old.substitute_id and auth.uid() is not null
+     and not coalesce(company_feature(new.company_id, 'escalation'), false) then
+    raise exception 'Stálý zástup je od tarifu Pro.';
+  end if;
+  -- Aktivace (nový nebo znovu aktivovaný uživatel) nesmí překročit limit tarifu.
+  if new.active and not old.active and auth.uid() is not null and not new.is_demo then
+    perform assert_user_capacity(new.company_id, 1);
+  end if;
   if new.is_demo is distinct from old.is_demo and auth.uid() is not null then
     raise exception 'Ukázkové účty spravuje jen systém.';
   end if;
@@ -2126,6 +2216,25 @@ begin
   return new;
 end;
 $$;
+
+create or replace function guard_department_deputy()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.uid() is not null and new.deputy_head_profile_id is not null
+     and new.deputy_head_profile_id is distinct from old.deputy_head_profile_id
+     and not coalesce(company_feature(new.company_id, 'escalation'), false) then
+    raise exception 'Zástupce vedoucího oddělení je od tarifu Pro.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists departments_guard_deputy on departments;
+create trigger departments_guard_deputy
+  before update on departments
+  for each row execute function guard_department_deputy();
 
 drop trigger if exists profiles_guard_update on profiles;
 create trigger profiles_guard_update
@@ -2484,6 +2593,9 @@ begin
   if current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr' then
     raise exception 'Jen admin nebo HR.';
   end if;
+  if not coalesce(company_has_feature('seniority'), false) then
+    raise exception 'Nárok podle odpracovaných let je od tarifu Pro.';
+  end if;
   return query
     select p.id, p.name, h.hire_date,
            date_part('year', age(make_date(p_year, 12, 31), h.hire_date))::int,
@@ -2520,6 +2632,9 @@ declare
 begin
   if current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr' then
     raise exception 'Jen admin nebo HR.';
+  end if;
+  if not coalesce(company_has_feature('seniority'), false) then
+    raise exception 'Nárok podle odpracovaných let je od tarifu Pro.';
   end if;
   select id into vac_type from leave_types where company_id = current_company_id() and key = 'dovolena';
   if vac_type is null then
@@ -2760,6 +2875,11 @@ begin
   end if;
 
   select name into cname from companies where id = j.company_id;
+
+  -- Bez schvalování se nový člověk aktivuje hned, proto se limit ověřuje už teď (při schvalování se ověří při aktivaci).
+  if not j.require_approval then
+    perform assert_user_capacity(j.company_id, 1);
+  end if;
 
   insert into profiles (id, company_id, name, role, avatar_initials, email, active, join_pending)
   values (

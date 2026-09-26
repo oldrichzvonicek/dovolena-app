@@ -4,6 +4,8 @@ import { confirmDialog } from "@/components/shared/ConfirmHost";
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, Ban, CalendarOff, CheckCircle2, Settings, Trash2, ShieldCheck } from "lucide-react";
+import { FeatureGate, LockedFeature, PlanTag } from "@/components/shared/FeatureGate";
+import { useFeatures } from "@/lib/use-features";
 import { useAuth } from "@/lib/auth-context";
 import {
   createBlackoutPeriod,
@@ -147,6 +149,7 @@ function SectionHeader({ icon, title, className }: { icon: React.ReactNode; titl
 
 export function CompanySettingsPanel() {
   const { profile } = useAuth();
+  const features = useFeatures();
   const [company, setCompany] = useState<DbCompany | null>(null);
   const [leaveTypes, setLeaveTypes] = useState<DbLeaveType[]>([]);
   const [blackouts, setBlackouts] = useState<DbBlackoutPeriod[]>([]);
@@ -392,10 +395,13 @@ export function CompanySettingsPanel() {
             <p className="mt-1 text-xs text-muted">Manažer uvidí varování, pokud by schválení přesáhlo tento podíl oddělení.</p>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Připomínka schvalovateli (hodin)</label>
+            <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+              Připomínka schvalovateli (hodin) {!features.loading && !features.has("escalation") && <PlanTag feature="escalation" />}
+            </label>
             <input
               type="number"
               min={0}
+              disabled={!features.has("escalation")}
               placeholder="Vypnuto" aria-label="Vypnuto"
               defaultValue={company.approval_reminder_hours ?? ""}
               onBlur={(e) => patch({ approval_reminder_hours: e.target.value ? Number(e.target.value) : null })}

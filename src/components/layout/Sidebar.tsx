@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useFeatures } from "@/lib/use-features";
+import type { FeatureKey } from "@/lib/plans";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail } from "lucide-react";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -27,7 +29,7 @@ const managerNav = [
 
 const adminNav = [
   { href: "/admin/overview", label: "Analytika", icon: BarChart3 },
-  { href: "/admin/exports", label: "Exporty", icon: Download },
+  { href: "/admin/exports", label: "Exporty", icon: Download, feature: "exports" as FeatureKey },
 ];
 
 // Nastavení firmy — sekce přímo v hlavním menu (stránka /admin/settings?sekce=…).
@@ -50,9 +52,9 @@ const settingsGroups = [
     title: "Správa účtu",
     items: [
       { key: "billing", label: "Fakturace & tarify", icon: CreditCard },
-      { key: "integrations", label: "Integrace", icon: Plug },
+      { key: "integrations", label: "Integrace", icon: Plug, feature: "chat_integrations" as FeatureKey },
       { key: "emails", label: "E-maily", icon: Mail },
-      { key: "audit", label: "Historie změn", icon: History },
+      { key: "audit", label: "Historie změn", icon: History, feature: "audit_log" as FeatureKey },
     ],
   },
 ];
@@ -65,6 +67,7 @@ function NavLink({
   active,
   tourId,
   indent,
+  locked,
 }: {
   href: string;
   label: string;
@@ -73,6 +76,8 @@ function NavLink({
   active: boolean;
   tourId?: string;
   indent?: boolean;
+  /** Funkce není v tarifu — položka zůstane, ale ukáže zámek a stránka vysvětlí, co odemkne. */
+  locked?: boolean;
 }) {
   return (
     <Link
@@ -88,6 +93,7 @@ function NavLink({
         <Icon size={17} strokeWidth={2} />
         {label}
       </span>
+      {locked && <Lock size={12} className="text-muted" aria-label="Není v tarifu" />}
       {!!badge && (
         <span className="rounded-full bg-warning px-1.5 py-0.5 text-[11px] font-semibold text-white leading-none">
           {badge}
@@ -102,6 +108,8 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const settingsSection = pathname === "/admin/settings" ? searchParams.get("sekce") ?? "users" : null;
   const { profile, signOut } = useAuth();
+  const features = useFeatures();
+  const isLocked = (f?: FeatureKey) => !!f && !features.loading && !features.has(f);
   const [pendingCount, setPendingCount] = useState(0);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -214,7 +222,7 @@ export function Sidebar() {
             </div>
             <div className="space-y-1">
               {adminNav.map((item) => (
-                <NavLink key={item.href} {...item} active={pathname === item.href} />
+                <NavLink key={item.href} {...item} active={pathname === item.href} locked={isLocked((item as { feature?: FeatureKey }).feature)} />
               ))}
             </div>
             {canSeeSettings(profile) && (
@@ -245,6 +253,7 @@ export function Sidebar() {
                       indent
                       active={settingsSection === i.key}
                       tourId={i.key === "users" ? "nav-admin-settings" : undefined}
+                      locked={isLocked((i as { feature?: FeatureKey }).feature)}
                     />
                   ))}
               </div>

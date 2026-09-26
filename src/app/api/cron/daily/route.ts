@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCron } from "@/lib/email";
 import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
 import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
+import { hasFeature } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
   let escalated = 0;
   let digests = 0;
 
-  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings");
+  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, plan, addons");
 
   for (const company of companies ?? []) {
     const [{ data: profiles }, { data: depts }, { data: pending }, { data: away }] = await Promise.all([
@@ -66,6 +67,8 @@ export async function GET(req: Request) {
       const dept = depts?.find((d) => d.id === p.department_id);
       const approverId = p.manager_id ?? dept?.head_profile_id ?? null;
       const ageHours = (now.getTime() - new Date(r.created_at).getTime()) / 3600000;
+      // Eskalace schvalování je od tarifu Pro.
+      if (!hasFeature(company.plan, (company.addons as string[] | null) ?? [], "escalation")) continue;
       const stale = company.approval_reminder_hours != null && ageHours >= Number(company.approval_reminder_hours);
       const approverAway = !!approverId && absentToday.has(approverId);
       if (!stale && !approverAway) continue;
@@ -91,8 +94,10 @@ export async function GET(req: Request) {
     // 1b) chat digest "who is out today" (Mon–Fri, once per company per day, only if a webhook subscribes)
     const weekday = new Date(`${today}T12:00:00Z`).getUTCDay(); // day of week of the Czech date
     if (weekday >= 1 && weekday <= 5 && company.integration_digest_last !== today) {
-      const { data: hooks } = await supabase.from("webhook_integrations").select("events").eq("company_id", company.id).eq("active", true);
-      if ((hooks ?? []).some((h) => (h.events as string[]).includes("daily_digest"))) {
+      const { data: hooksAll } = await supabase.from("webhook_integrations").select("events, provider").eq("company_id", company.id).eq("active", true);
+      const addons = (company.addons as string[] | null) ?? [];
+      const hooks = (hooksAll ?? []).filter((h) => hasFeature(company.plan, addons, h.provider === "webhook" ? "webhooks" : "chat_integrations"));
+      if (hooks.some((h) => (h.events as string[]).includes("daily_digest"))) {
         const { data: outToday } = await supabase
           .from("leave_requests")
           .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(name, company_id), leave_type:leave_types(label, key, hide_from_colleagues, counts_as_present)")

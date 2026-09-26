@@ -427,6 +427,12 @@ export const faqs: HelpFaq[] = [
     roles: ["employee", "manager", "admin"],
   },
   {
+    q: "Proč je některá funkce zamčená (zámek v menu)?",
+    section: "Nastavení firmy (admin)",
+    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, integrace do Teams, Slacku a Discordu od tarifu Team, a od tarifu Pro webhooky, eskalace schvalování a zástupy, nárok podle odpracovaných let a Historie změn. HR Insights jsou v tarifu Pro v ceně, jinak se dají přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): po jeho naplnění nejde přidat, pozvat ani znovu aktivovat další člověk. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Fakturace & tarify.",
+    roles: ["admin"],
+  },
+  {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
     a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",

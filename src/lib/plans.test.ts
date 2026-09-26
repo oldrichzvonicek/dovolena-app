@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADDONS, FEATURE_MATRIX, PLANS, hasFeature, planByKey, planPrice, pricePerUser, recommendedFor } from "./plans";
+import { ADDONS, FEATURE_MATRIX, PLANS, hasFeature, minPlanFor, planByKey, planPrice, pricePerUser, recommendedFor, userLimitOf } from "./plans";
 
 const plan = (k: string) => PLANS.find((p) => p.key === k)!;
 
@@ -78,5 +78,43 @@ describe("add-ons", () => {
   it("an unknown plan behaves like Free", () => {
     expect(hasFeature("start", [], "accountant")).toBe(false);
     expect(hasFeature(undefined, undefined, "hr_insights")).toBe(false);
+  });
+});
+
+describe("feature gating by plan", () => {
+  const keys = ["free", "basic", "starter", "pro"];
+
+  it("the comparison table agrees with hasFeature() for every row that names a feature", () => {
+    for (const row of FEATURE_MATRIX.flatMap((g) => g.rows).filter((r) => r.feature)) {
+      keys.forEach((k, i) => {
+        const cell = row.values[i];
+        // "addon" = bez doplňku není, s doplňkem je
+        expect(hasFeature(k, [], row.feature!), `${row.label} @ ${k}`).toBe(cell === true);
+        if (cell === "addon") expect(hasFeature(k, [row.feature!], row.feature!), `${row.label} + doplněk @ ${k}`).toBe(true);
+      });
+    }
+  });
+
+  it("plan-only features cannot be bought as add-ons and follow the minimum plan", () => {
+    expect(hasFeature("free", ["exports"], "exports")).toBe(false);
+    expect(hasFeature("basic", [], "exports")).toBe(true);
+    expect(hasFeature("basic", [], "chat_integrations")).toBe(false);
+    expect(hasFeature("starter", [], "chat_integrations")).toBe(true);
+    expect(hasFeature("starter", [], "webhooks")).toBe(false);
+    expect(hasFeature("pro", [], "audit_log")).toBe(true);
+    expect(hasFeature("enterprise", [], "escalation")).toBe(true);
+    expect(hasFeature(undefined, [], "seniority")).toBe(false);
+  });
+
+  it("names the cheapest plan that unlocks a feature", () => {
+    expect(minPlanFor("exports").name).toBe("Starter");
+    expect(minPlanFor("chat_integrations").name).toBe("Team");
+    expect(minPlanFor("audit_log").name).toBe("Pro");
+    expect(minPlanFor("hr_insights").name).toBe("Pro");
+    expect(minPlanFor("accountant").name).toBe("Starter");
+  });
+
+  it("knows each plan's user limit", () => {
+    expect([userLimitOf("free"), userLimitOf("basic"), userLimitOf("starter"), userLimitOf("pro"), userLimitOf("enterprise")]).toEqual([5, 10, 15, null, null]);
   });
 });

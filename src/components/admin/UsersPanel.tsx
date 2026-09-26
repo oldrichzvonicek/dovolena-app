@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useFeatures } from "@/lib/use-features";
 import { Link2, Pencil, Search, Trash2, Upload, UserCheck, UserX, Users, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { InviteBox } from "@/components/shared/InviteBox";
@@ -75,6 +77,8 @@ export function UsersPanel() {
   const [onlyNoApprover, setOnlyNoApprover] = useState(false);
   // HR správuje lidi, ale roli, deaktivaci, mazání a registrační odkaz nastavuje jen admin.
   const isAdmin = profile?.role === "admin";
+  const features = useFeatures();
+  const plan = features.plan;
 
   async function load() {
     if (!profile) return;
@@ -302,8 +306,28 @@ export function UsersPanel() {
 
   if (loading) return <LoadingCard rows={8} />;
 
+  // Limit uživatelů v tarifu: aktivní lidé bez ukázkových účtů a bez čekajících na schválení (server hlídá totéž).
+  const activeCount = employees.filter((e) => e.active !== false && !e.join_pending && !e.is_demo).length;
+  const userLimit = plan.employeeLimit;
+  const atLimit = !features.loading && userLimit !== null && activeCount >= userLimit;
+
   return (
     <div className="space-y-6">
+      {atLimit && (
+        <div role="status" className="rounded border border-warning/40 bg-warning-light px-4 py-3 text-sm">
+          <strong>
+            Tarif {plan.name} umožňuje nejvýše {userLimit} uživatelů, ve firmě jich je {activeCount}.
+          </strong>{" "}
+          Nové lidi už nepůjde pozvat, importovat ani aktivovat.{" "}
+          {isAdmin ? (
+            <Link href="/admin/settings?sekce=billing" className="font-medium text-teal-dark underline underline-offset-2">
+              Přejít na vyšší tarif
+            </Link>
+          ) : (
+            "Požádejte správce firmy o vyšší tarif."
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <InviteUserModal onInvited={load} onCopyLink={copyGenericLink} />
         <Button variant="secondary" onClick={copyGenericLink}>

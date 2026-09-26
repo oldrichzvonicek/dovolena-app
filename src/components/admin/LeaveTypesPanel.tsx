@@ -13,6 +13,7 @@ import { cn, errorMessage } from "@/lib/utils";
 import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { SeniorityCard } from "@/components/admin/SeniorityCard";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { setPresenceKeys } from "@/lib/leave-kinds";
 
 // These two keys are load-bearing (hardcoded into onboarding, invite-claim
@@ -232,7 +233,9 @@ export function LeaveTypesPanel() {
         </label>
       </div>
 
-      <SeniorityCard companyId={company.id} enabled={company.seniority_enabled ?? false} rules={company.seniority_rules ?? []} defaultVacation={company.default_vacation_days} />
+      <FeatureGate feature="seniority" description="Automatický příplatek k ročnímu nároku podle počtu let ve firmě a poměrná dovolená pro nováčky.">
+        <SeniorityCard companyId={company.id} enabled={company.seniority_enabled ?? false} rules={company.seniority_rules ?? []} defaultVacation={company.default_vacation_days} />
+      </FeatureGate>
 
       <div className="card p-5">
         <h2 className="font-display text-h2">Typy absencí</h2>

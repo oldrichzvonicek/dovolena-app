@@ -39,7 +39,7 @@ export const PLANS: Plan[] = [
     monthly: 290,
     yearly: 2900,
     tagline: "Malý tým, který potřebuje podklady pro mzdy a kalendář v mobilu.",
-    features: ["Až 10 uživatelů", "Vše z tarifu Free", "iCal a CSV export", "Role Účetní a mzdový export"],
+    features: ["Až 10 uživatelů", "Vše z tarifu Free", "Exporty (CSV, Excel), mzdový podklad a iCal", "Role Účetní"],
   },
   {
     key: "starter",
@@ -136,10 +136,55 @@ export const ADDONS: Addon[] = [
 
 export const addonByKey = (key: AddonKey): Addon => ADDONS.find((a) => a.key === key)!;
 
+/**
+ * Funkce vázané na tarif (bez doplňku): od jakého tarifu je firma má. Zamyká se s tím jak obrazovka, tak server
+ * (databázová funkce company_has_feature, API cesty a denní úloha) — pravidla musí odpovídat SQL.
+ */
+export type PlanFeatureKey = "exports" | "ical" | "chat_integrations" | "webhooks" | "escalation" | "seniority" | "audit_log";
+export type FeatureKey = AddonKey | PlanFeatureKey;
+
+export const PLAN_ORDER: PlanKey[] = ["free", "basic", "starter", "pro"];
+export const planRank = (key: string | null | undefined): number => PLAN_ORDER.indexOf(planByKey(key).key);
+
+export const FEATURE_MIN_PLAN: Record<PlanFeatureKey, PlanKey> = {
+  exports: "basic",
+  ical: "basic",
+  chat_integrations: "starter",
+  webhooks: "pro",
+  escalation: "pro",
+  seniority: "pro",
+  audit_log: "pro",
+};
+
+/** Název funkce pro zamčené karty a hlášky. */
+export const FEATURE_LABELS: Record<FeatureKey, string> = {
+  hr_insights: "HR Insights",
+  accountant: "Role Účetní",
+  exports: "Exporty (CSV, Excel), mzdový podklad a vyrovnání",
+  ical: "iCal export kalendáře",
+  chat_integrations: "Integrace do Teams, Slacku a Discordu",
+  webhooks: "Webhooky",
+  escalation: "Eskalace schvalování a zástupy",
+  seniority: "Nárok podle odpracovaných let",
+  audit_log: "Historie změn",
+};
+
+const isAddonKey = (f: FeatureKey): f is AddonKey => f === "hr_insights" || f === "accountant";
+
 /** Má firma s daným tarifem a doplňky funkci? Stejné pravidlo je v SQL (company_has_feature). */
-export function hasFeature(planKey: string | null | undefined, addons: readonly string[] | null | undefined, feature: AddonKey): boolean {
-  return addonByKey(feature).includedIn.includes(planByKey(planKey).key) || (addons ?? []).includes(feature);
+export function hasFeature(planKey: string | null | undefined, addons: readonly string[] | null | undefined, feature: FeatureKey): boolean {
+  if (isAddonKey(feature)) return addonByKey(feature).includedIn.includes(planByKey(planKey).key) || (addons ?? []).includes(feature);
+  return planRank(planKey) >= PLAN_ORDER.indexOf(FEATURE_MIN_PLAN[feature]);
 }
+
+/** Nejnižší tarif, který funkci obsahuje (u doplňků nejnižší tarif, kde je v ceně). */
+export function minPlanFor(feature: FeatureKey): Plan {
+  if (isAddonKey(feature)) return planByKey(PLAN_ORDER.find((k) => addonByKey(feature).includedIn.includes(k)) ?? "pro");
+  return planByKey(FEATURE_MIN_PLAN[feature]);
+}
+
+/** Nejvyšší počet aktivních uživatelů v tarifu (null = bez limitu). */
+export const userLimitOf = (planKey: string | null | undefined): number | null => planByKey(planKey).employeeLimit;
 
 // ---------------------------------------------------------------------------
 // Srovnávací tabulka funkcí (pořadí sloupců = pořadí tarifů: Free, Starter, Team, Pro)
@@ -149,6 +194,8 @@ export function hasFeature(planKey: string | null | undefined, addons: readonly 
 export type Cell = boolean | "addon" | string;
 
 export interface FeatureRow {
+  /** Funkce, kterou řádek popisuje — test hlídá, že tabulka odpovídá hasFeature(). */
+  feature?: FeatureKey;
   label: string;
   /** Krátká věta, proč to zákazníkovi pomáhá (zobrazí se pod názvem). */
   benefit?: string;
@@ -175,25 +222,26 @@ export const FEATURE_MATRIX: FeatureGroup[] = [
   {
     title: "Mzdy a účetnictví",
     rows: [
-      { label: "iCal a CSV export", benefit: "Kalendář v telefonu a data do Excelu.", values: [false, true, true, true] },
-      { label: "Role Účetní a mzdový export", benefit: "Účetní si podklady stáhne sama, bez psaní e-mailů.", values: ["addon", true, true, true] },
+      { feature: "exports", label: "Exporty (CSV, Excel), mzdový podklad a vyrovnání", benefit: "Data do Excelu, podklady pro mzdy, uzávěrka měsíce a vyrovnání dovolené při odchodu.", values: [false, true, true, true] },
+      { feature: "ical", label: "iCal export kalendáře", benefit: "Kalendář absencí v telefonu, Outlooku nebo Google kalendáři.", values: [false, true, true, true] },
+      { feature: "accountant", label: "Role Účetní", benefit: "Účetní si podklady stáhne sama, bez psaní e-mailů.", values: ["addon", true, true, true] },
     ],
   },
   {
     title: "Propojení",
     rows: [
-      { label: "Teams, Slack, Discord a další", benefit: "Nové žádosti a schválení se ukazují přímo ve firemním chatu.", values: [false, false, true, true] },
-      { label: "Webhooky", benefit: "Napojení na vlastní systémy.", values: [false, false, false, true] },
+      { feature: "chat_integrations", label: "Teams, Slack, Discord a další", benefit: "Nové žádosti a schválení se ukazují přímo ve firemním chatu.", values: [false, false, true, true] },
+      { feature: "webhooks", label: "Webhooky", benefit: "Napojení na vlastní systémy.", values: [false, false, false, true] },
     ],
   },
   {
     title: "Řízení a přehledy",
     rows: [
-      { label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
-      { label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, false, true] },
+      { feature: "escalation", label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
+      { feature: "seniority", label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, false, true] },
       { label: "Analytika", benefit: "Přehledy absencí, kapacita a nadcházející absence za firmu i oddělení.", values: [true, true, true, true] },
-      { label: "Historie změn", values: [false, false, false, true] },
-      { label: "HR Insights a role HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
+      { feature: "audit_log", label: "Historie změn", benefit: "Kdo, kdy a co změnil — u žádostí, lidí i nastavení.", values: [false, false, false, true] },
+      { feature: "hr_insights", label: "HR Insights a role HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
     ],
   },
 ];

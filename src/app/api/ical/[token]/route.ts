@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hasFeature } from "@/lib/plans";
 import { allowRequest, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 function icsDate(iso: string, offsetDays = 0): string {
@@ -41,6 +42,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   // A deactivated (former) employee's calendar link stops working immediately.
   if (viewerError || !viewer || !viewer.active) {
     return NextResponse.json({ error: "Neplatný odkaz na kalendář." }, { status: 404 });
+  }
+
+  // iCal export je od tarifu Starter; po snížení tarifu odkaz přestane fungovat, po návratu zase funguje.
+  const { data: co } = await supabase.from("companies").select("plan, addons").eq("id", viewer.company_id).maybeSingle();
+  if (!hasFeature(co?.plan, (co?.addons as string[] | null) ?? [], "ical")) {
+    return NextResponse.json({ error: "Export kalendáře je od tarifu Starter." }, { status: 403 });
   }
 
   let query = supabase

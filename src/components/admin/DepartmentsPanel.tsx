@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { DbDepartment, LeaveColor } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { PlanTag } from "@/components/shared/FeatureGate";
+import { useFeatures } from "@/lib/use-features";
 
 const colorDot: Record<LeaveColor, string> = {
   teal: "bg-teal",
@@ -261,6 +263,8 @@ function EditDepartmentModal({
   const [name, setName] = useState(department.name);
   const [headId, setHeadId] = useState(department.head_profile_id ?? "none");
   const [deputyId, setDeputyId] = useState(department.deputy_head_profile_id ?? "none");
+  const features = useFeatures();
+  const canDeputy = features.has("escalation");
   const [color, setColor] = useState<LeaveColor>(department.color);
   const [useCustomCapacity, setUseCustomCapacity] = useState(department.capacity_warning_percent !== null);
   const [capacity, setCapacity] = useState(String(department.capacity_warning_percent ?? companyCapacityDefault));
@@ -334,8 +338,10 @@ function EditDepartmentModal({
               </Select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium">Zástupce vedoucího</label>
-              <Select value={deputyId} onValueChange={setDeputyId}>
+              <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+                Zástupce vedoucího {!features.loading && !canDeputy && <PlanTag feature="escalation" />}
+              </label>
+              <Select value={deputyId} onValueChange={setDeputyId} disabled={!canDeputy}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

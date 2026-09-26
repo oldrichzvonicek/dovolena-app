@@ -28,7 +28,7 @@ const expect = (name: string, actual: boolean, expected: boolean) => record(actu
 const info = (name: string, actual: unknown) => record("INFO", `${name}: ${typeof actual === "string" ? actual : JSON.stringify(actual)}`);
 
 async function main() {
-  const { data: company } = await sb.from("companies").insert({ name: "ZZ matrix (smazat)" }).select().single();
+  const { data: company } = await sb.from("companies").insert({ name: "ZZ matrix (smazat)", plan: "pro" }).select().single();
   const { data: other } = await sb.from("companies").insert({ name: "ZZ matrix other (smazat)" }).select().single();
   const cid = company!.id as string;
   const created: string[] = [];

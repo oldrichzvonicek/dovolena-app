@@ -17,6 +17,7 @@ import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationRepor
 import { HrInsights } from "@/components/admin/HrInsights";
 import { reducesPresence } from "@/lib/leave-kinds";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { useFeatures } from "@/lib/use-features";
 import { fetchAnalyticsDepartmentIds } from "@/lib/approval-scope";
 
 interface State {
@@ -75,6 +76,8 @@ const presetLabels: [Preset, string][] = [
 
 export function OverviewPanel() {
   const { profile } = useAuth();
+  const features = useFeatures();
+  const canExport = features.has("exports");
   const [state, setState] = useState<State | null>(null);
   const [loading, setLoading] = useState(true);
   const [anchor, setAnchor] = useState(() => new Date());
@@ -342,7 +345,12 @@ export function OverviewPanel() {
                 ))}
               </SelectContent>
             </Select>
-            <button onClick={exportCsv} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
+            <button
+              onClick={exportCsv}
+              disabled={!canExport}
+              title={canExport ? undefined : "Export do CSV je od tarifu Starter"}
+              className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper disabled:cursor-not-allowed disabled:opacity-50"
+            >
               <Download size={13} /> Excel (CSV)
             </button>
             <button onClick={() => window.print()} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">

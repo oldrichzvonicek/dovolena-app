@@ -183,12 +183,14 @@ export interface AdminEmployeeRow {
   personal_number?: string | null;
   staff_role?: "hr" | "accountant" | null;
   join_pending?: boolean;
+  /** Ukázkový účet (nepočítá se do limitu tarifu). */
+  is_demo?: boolean;
 }
 
 export async function fetchCompanyEmployees(companyId: string): Promise<AdminEmployeeRow[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name, email, role, department_id, manager_id, substitute_id, avatar_initials, active, staff_role, join_pending")
+    .select("id, name, email, role, department_id, manager_id, substitute_id, avatar_initials, active, staff_role, join_pending, is_demo")
     .eq("company_id", companyId)
     .order("name", { ascending: true });
   if (error) throw error;
