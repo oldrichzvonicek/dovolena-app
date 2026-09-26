@@ -567,8 +567,8 @@ export function UsersPanel() {
                           <span className="h-1.5 w-1.5 rounded-full bg-current" /> Aktivní
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-sm bg-warning-light px-2 py-0.5 text-xs font-medium text-warning-dark">
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" /> Čeká na pozvánku
+                        <span className="inline-flex items-center gap-1.5 rounded-sm bg-warning-light px-2 py-0.5 text-xs font-medium text-warning-dark" title="Pozvánka je založená (a případně i odeslaná e-mailem) — čeká se, až ji dotyčný dokončí.">
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" /> Čeká na registraci
                         </span>
                       )}
                     </td>

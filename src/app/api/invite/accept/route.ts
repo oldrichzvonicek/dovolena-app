@@ -10,6 +10,8 @@ export const dynamic = "force-dynamic";
  * ještě jednou potvrzovat e-mail, i když odkaz z pozvánky je sám o sobě stejně silný důkaz, že adresu vlastní —
  * databázová funkce claim_invite potvrzení e-mailu vyžaduje, tady ho jen zajistíme jinak než druhým e-mailem.
  * Token jen dokazuje, komu adresa patří; přiřazení do firmy provede až claim_invite po přihlášení (RLS, auth.uid()).
+ * Když pro daný e-mail v auth.users už existuje záznam bez profilu (nedokončený dřívější pokus, viz findOrphanUser),
+ * dokončí se ten — nezakládá se duplicitní účet.
  */
 export async function POST(req: Request) {
   if (!(await allowRequest(`invite-accept:ip:${clientIp(req.headers)}`, 20, 3600))) return tooManyRequests();
@@ -30,23 +32,28 @@ export async function POST(req: Request) {
   if (!error) return NextResponse.json({ ok: true, email });
   if (!/already.*registered|already.*exists/i.test(error.message)) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  // E-mail už v auth.users existuje. Nejčastěji jde o nedokončený pokus z dřívějška (čekal na potvrzovací e-mail,
-  // který se nikdy neposlal) — takový účet dokončíme, protože platný token je stejný důkaz vlastnictví adresy.
-  // Skutečně dokončený (potvrzený) účet ale nepřepisujeme — supabase-js nemá vyhledání podle e-mailu, projdeme stránky.
-  const abandoned = await findUnconfirmedUser(admin, email);
-  if (!abandoned) return NextResponse.json({ error: "Pro tento e-mail už účet existuje. Přihlaste se svým heslem." }, { status: 400 });
+  // E-mail už v auth.users existuje. Rozhoduje, jestli k němu existuje profil — ne potvrzení e-mailu:
+  // "potvrzeno, ale bez profilu" je stejně nedokončený stav jako "nepotvrzeno" (ať už z dřívějšího pokusu s klientským
+  // supabase.auth.signUp, nebo proto, že se e-mail sice potvrdil, ale zařazení do firmy se nikdy nedokončilo).
+  // Bez profilu je účet v aplikaci k ničemu, takže ho bezpečně dokončíme — platný token je stejný důkaz vlastnictví adresy.
+  // Skutečný, už zařazený účet (má profil) nepřepisujeme. supabase-js nemá vyhledání podle e-mailu, projdeme stránky.
+  const orphan = await findOrphanUser(admin, email);
+  if (!orphan) return NextResponse.json({ error: "Pro tento e-mail už účet existuje. Přihlaste se svým heslem." }, { status: 400 });
 
-  const { error: repairError } = await admin.auth.admin.updateUserById(abandoned.id, { password, email_confirm: true });
+  const { error: repairError } = await admin.auth.admin.updateUserById(orphan.id, { password, email_confirm: true });
   if (repairError) return NextResponse.json({ error: repairError.message }, { status: 400 });
   return NextResponse.json({ ok: true, email });
 }
 
-async function findUnconfirmedUser(admin: ReturnType<typeof createAdminClient>, email: string) {
+async function findOrphanUser(admin: ReturnType<typeof createAdminClient>, email: string) {
   for (let page = 1; page <= 20; page++) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
     if (error || !data?.users?.length) return null;
     const hit = data.users.find((u) => u.email?.toLowerCase() === email);
-    if (hit) return hit.email_confirmed_at ? null : hit;
+    if (hit) {
+      const { data: profile } = await admin.from("profiles").select("id").eq("id", hit.id).maybeSingle();
+      return profile ? null : hit;
+    }
     if (data.users.length < 200) return null;
   }
   return null;
