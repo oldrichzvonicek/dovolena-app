@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createRouteClient } from "@/lib/supabase/server";
 import { verifyApprovalToken } from "@/lib/approval-token";
 import { appUrl } from "@/lib/email";
 import { headers } from "next/headers";
@@ -86,6 +88,15 @@ export default async function ApprovePage(props: { params: Promise<{ token: stri
       />
     );
   }
+
+  // Jste v tomhle prohlížeči zrovna přihlášený jako přesně ten schvalovatel, komu e-mail patří? Pak ať žádost
+  // rozhodnete rovnou v appce (Ke schválení, žádost zvýrazněná) — ne na samostatné stránce mimo Dodio. Tahle
+  // stránka mimo aplikaci zůstává jako záloha pro případ, že přihlášení nejste (např. odkaz otevřený na mobilu).
+  const routeClient = await createRouteClient();
+  const {
+    data: { user },
+  } = await routeClient.auth.getUser();
+  if (user?.id === payload.a) redirect(`/approvals?zadost=${payload.r}`);
 
   // Kontext pro rozhodnutí, stejný jako v appce: zůstatek dovolené po schválení a kdo další z oddělení v tomto
   // termínu chybí. Bez přihlášení (odkaz z e-mailu), proto se čte servisním klíčem — jen k tomuto jednomu požadavku.
