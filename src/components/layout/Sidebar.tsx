@@ -29,8 +29,8 @@ const managerNav = [
 
 const adminNav = [
   { href: "/admin/overview", label: "Analytika", icon: BarChart3 },
-  { href: "/admin/insights", label: "Smart HR", icon: Sparkles, feature: "hr_insights" as FeatureKey },
   { href: "/admin/exports", label: "Exporty", icon: Download, feature: "exports" as FeatureKey },
+  { href: "/admin/insights", label: "Smart HR", icon: Sparkles, feature: "hr_insights" as FeatureKey },
 ];
 
 // Nastavení firmy — sekce přímo v hlavním menu (stránka /admin/settings?sekce=…).
@@ -69,6 +69,7 @@ function NavLink({
   tourId,
   indent,
   locked,
+  trailing,
 }: {
   href: string;
   label: string;
@@ -79,6 +80,8 @@ function NavLink({
   indent?: boolean;
   /** Funkce není v tarifu — položka zůstane, ale ukáže zámek a stránka vysvětlí, co odemkne. */
   locked?: boolean;
+  /** Doplněk na konci řádku (např. odznáček klávesové zkratky). */
+  trailing?: React.ReactNode;
 }) {
   return (
     <Link
@@ -86,7 +89,7 @@ function NavLink({
       data-tour={tourId ?? `nav-${href.replace(/^\//, "").replace(/\//g, "-")}`}
       className={cn(
         "flex items-center justify-between rounded py-2 pr-3 text-sm transition-colors",
-        indent ? "pl-7" : "pl-3",
+        "pl-3",
         active ? "bg-teal-light text-teal-dark font-medium" : "text-ink hover:bg-paper"
       )}
     >
@@ -95,6 +98,7 @@ function NavLink({
         {label}
       </span>
       {locked && <Lock size={12} className="text-muted" aria-label="Není v tarifu" />}
+      {trailing}
       {!!badge && (
         <span className="rounded-full bg-warning px-1.5 py-0.5 text-[11px] font-semibold text-white leading-none">
           {badge}
@@ -242,7 +246,7 @@ export function Sidebar() {
             </button>
             )}
             {canSeeSettings(profile) && (settingsOpen || settingsSection !== null) && (
-              <div id="sidebar-settings" className="mt-0.5 space-y-0.5">
+              <div id="sidebar-settings" className="ml-[22px] mt-0.5 space-y-0.5 border-l-2 border-line pl-2">
                 {settingsGroups
                   .flatMap((g) => g.items)
                   .filter((i) => allowedSettingsSections(profile).includes(i.key))
@@ -265,12 +269,17 @@ export function Sidebar() {
       </nav>
 
       <div className="px-3 pb-2">
-        <NavLink href="/help" label="Nápověda" icon={HelpCircle} active={pathname === "/help"} />
-        <div data-tour="sidebar-cmdk" className="mt-1 flex items-center gap-1.5 px-3 py-1 text-[11px] text-muted">
-          <kbd className="rounded border border-line bg-paper px-1 py-0.5 font-sans">Ctrl</kbd>+
-          <kbd className="rounded border border-line bg-paper px-1 py-0.5 font-sans">K</kbd>
-          rychlá navigace
-        </div>
+        <NavLink
+          href="/help"
+          label="Nápověda"
+          icon={HelpCircle}
+          active={pathname === "/help"}
+          trailing={
+            <span data-tour="sidebar-cmdk" className="ml-auto rounded border border-line bg-paper px-1.5 py-0.5 text-[11px] font-normal text-muted" title="Rychlá navigace: Ctrl + K">
+              Ctrl K
+            </span>
+          }
+        />
       </div>
 
       <div className="flex items-center gap-2.5 border-t border-line px-5 py-4">
