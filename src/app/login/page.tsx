@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -164,7 +165,7 @@ function LoginForm() {
     }
     // Always show the same message, whether or not the email exists — don't leak which emails have accounts.
     // Not an error, so it gets the neutral/warning styling below, not the danger-red one.
-    setInfo("Pokud pod tímto e-mailem existuje účet, poslali jsme na něj odkaz pro obnovení hesla.");
+    setInfo("Odkaz pro obnovení hesla jsme odeslali, pokud je tento e-mail u nás zaregistrovaný. Zkontrolujte schránku, případně i složku Spam.");
   }
 
   async function handleJoin(e: React.FormEvent) {
@@ -301,7 +302,12 @@ function LoginForm() {
           )}
 
           {error && <p className="rounded bg-danger-light px-3 py-2 text-sm text-danger">{error}</p>}
-          {info && <p className="rounded bg-warning-light px-3 py-2 text-sm text-warning-dark">{info}</p>}
+          {info && (
+            <div role="status" className="flex items-start gap-2 rounded border border-teal/30 bg-teal-light px-3 py-2.5 text-sm text-teal-dark">
+              <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>{info}</span>
+            </div>
+          )}
 
           <Button type="submit" variant="primary" className="w-full justify-center" disabled={loading}>
             {loading
