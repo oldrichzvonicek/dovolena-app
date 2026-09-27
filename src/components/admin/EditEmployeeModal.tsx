@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   AdminEmployeeRow,
   EntitlementMap,
+  previewProratedVacation,
   updateEmployeeDepartment,
   updateEmployeeHireDate,
   updateEmployeeHrData,
@@ -20,7 +21,7 @@ import {
   upsertEntitlement,
 } from "@/lib/admin-data";
 import { DbDepartment, DbLeaveType, Role } from "@/lib/supabase/types";
-import { errorMessage } from "@/lib/utils";
+import { errorMessage, formatNumber } from "@/lib/utils";
 
 const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin" };
 
@@ -63,6 +64,25 @@ export function EditEmployeeModal({
   const [personalNumber, setPersonalNumber] = useState(employee.personal_number ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recalcState, setRecalcState] = useState<"idle" | "loading" | "done">("idle");
+
+  // Nárok se poměrně krátí podle data nástupu jen v okamžiku založení účtu — pozdější změna data sama o sobě
+  // už uložený nárok nepřepočítá. Tohle spočítá, kolik by teď podle aktuálního data mělo být, a jen předvyplní
+  // pole Dovolená / rok; admin číslo vidí a potvrdí ho běžným Uložit (nic se nezapíše samo od sebe).
+  async function handleRecalc() {
+    if (!vacationType) return;
+    setRecalcState("loading");
+    setError(null);
+    try {
+      const days = await previewProratedVacation(employee.id, year);
+      if (days !== null) setVacationDays(String(days));
+      setRecalcState("done");
+      setTimeout(() => setRecalcState("idle"), 2500);
+    } catch (e) {
+      setError(errorMessage(e));
+      setRecalcState("idle");
+    }
+  }
 
   async function handleSave() {
     setSubmitting(true);
@@ -213,14 +233,24 @@ export function EditEmployeeModal({
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Datum nástupu (volitelné)</label>
-            <input
-              type="date"
-              value={hireDate}
-              onChange={(e) => setHireDate(e.target.value)}
-              aria-label="Datum nástupu"
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-            />
-            <p className="mt-1 text-xs text-muted">Podle něj se počítá poměrná dovolená v roce nástupu a příplatek za odpracované roky (Nastavení → Typy absencí).</p>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={hireDate}
+                onChange={(e) => setHireDate(e.target.value)}
+                aria-label="Datum nástupu"
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+              {vacationType && (
+                <Button type="button" variant="secondary" className="shrink-0 px-3 py-2 text-sm" onClick={handleRecalc} disabled={!hireDate || recalcState === "loading"}>
+                  {recalcState === "loading" ? "Počítám…" : recalcState === "done" ? "Přepočteno ✓" : "Přepočítat"}
+                </Button>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Poměrná dovolená v roce nástupu (Nastavení → Typy absencí) a příplatek za odpracované roky se počítají automaticky jen při zakládání účtu. Když datum
+              nástupu měníte dodatečně, tlačítkem Přepočítat si nechte pod tím do pole „Dovolená / rok" doplnit odpovídající počet dní a uložte.
+            </p>
           </div>
 
           <div className="contents">

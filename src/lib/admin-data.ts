@@ -228,6 +228,18 @@ export async function updateEmployeeHireDate(id: string, hireDate: string | null
   if (error) throw error;
 }
 
+/**
+ * Kolik by podle AKTUÁLNÍHO data nástupu měl být roční nárok na dovolenou — nic nezapisuje, jen spočítá.
+ * Nárok se sám přepočítá jen při založení účtu (grant_default_entitlements); změna data nástupu u už
+ * existujícího zaměstnance na už uložený nárok sama o sobě nemá vliv, proto je v Upravit uživatele
+ * tlačítko „Přepočítat", které zavolá tohle a předvyplní jím pole Dovolená / rok.
+ */
+export async function previewProratedVacation(profileId: string, year: number): Promise<number | null> {
+  const { data, error } = await supabase.rpc("preview_prorated_vacation", { target_profile_id: profileId, target_year: year });
+  if (error) throw error;
+  return data === null ? null : Number(data);
+}
+
 /** Leaver: keeps the profile and its history, removes access (RLS treats an inactive profile as having no company). */
 export async function setEmployeeActive(id: string, active: boolean) {
   const { error } = await supabase

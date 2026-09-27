@@ -2436,6 +2436,34 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------------
+-- preview_prorated_vacation — grant_default_entitlements poměrnou dovolenou spočítá jen JEDNOU, v okamžiku
+-- založení účtu. Když admin datum nástupu zadá nebo změní až POTOM (typicky hned po pozvání, než se dotyčný
+-- stihne přihlásit), na už existující nárok to samo nemá vliv — updateEmployeeHireDate() jen uloží datum,
+-- žádost o přepočet nic nevolá. Tahle funkce jen SPOČÍTÁ, kolik by nárok podle aktuálního data nástupu měl
+-- být (nic nezapisuje) — použije ji tlačítko „Přepočítat" u pole Dovolená / rok v Upravit uživatele, ať admin
+-- vidí číslo a potvrdí ho stejným Uložit jako u ruční úpravy. Bez zapnutého „Krátit dovolenou podle data
+-- nástupu" (Nastavení → Typy absencí) vrátí prorate_from() nezkrácenou hodnotu, takže je bezpečné volat vždy.
+create or replace function preview_prorated_vacation(target_profile_id uuid, target_year int)
+returns numeric
+language sql
+stable
+as $$
+  select case
+    when h.hire_date is not null and extract(year from h.hire_date) < target_year
+      then c.default_vacation_days + seniority_bonus_days(h.hire_date, c.id, target_year)
+    else prorate_from(
+           c.default_vacation_days + seniority_bonus_days(h.hire_date, c.id, target_year),
+           c.id,
+           coalesce(h.hire_date, make_date(target_year, 1, 1))
+         )
+  end
+  from profiles p
+  join companies c on c.id = p.company_id
+  left join profile_hr h on h.profile_id = p.id
+  where p.id = target_profile_id;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- public_company_name — lets an unauthenticated (no-profile-yet) signup page
 -- show which company an invite link points to. Returns only the name, never
 -- more; RLS on `companies` still blocks direct table reads for such users.
