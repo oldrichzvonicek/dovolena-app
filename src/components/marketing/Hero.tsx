@@ -1,7 +1,7 @@
 import { Container } from "./Container";
 import { CheckIcon } from "./icons";
 import { DodioMark } from "./DodioLogo";
-import { DEMO_URL, SIGNUP_URL } from "@/lib/dodio-links";
+import { SIGNUP_URL } from "@/lib/dodio-links";
 
 const BENEFITS = ["Celé v češtině", "Zdarma do 5 lidí", "Exporty do CSV a Excelu"];
 
@@ -37,6 +37,74 @@ function ApprovalChatCard({ className = "" }: { className?: string }) {
   );
 }
 
+interface BalanceTile {
+  label: string;
+  badge?: string;
+  value: string;
+  unit: string;
+  usedPct?: number;
+  plannedPct?: number;
+  caption: string;
+  note?: string;
+}
+
+const BALANCE_TILES: BalanceTile[] = [
+  {
+    label: "Dovolená",
+    badge: "Dochází",
+    value: "4,5",
+    unit: "dne zbývá",
+    usedPct: 16,
+    plannedPct: 66,
+    caption: "Vyč. 4 · Napl. 16,5",
+  },
+  {
+    label: "Sick Days",
+    value: "6",
+    unit: "dní zbývá",
+    usedPct: 0,
+    plannedPct: 0,
+    caption: "Vyč. 0 · Napl. 0",
+  },
+  {
+    label: "Home Office letos",
+    value: "22",
+    unit: "dní letos",
+    caption: "Vyč. 4 · Napl. 18",
+    note: "bez limitu",
+  },
+];
+
+function BalanceCard({ tile }: { tile: BalanceTile }) {
+  const hasBar = tile.usedPct !== undefined;
+  return (
+    <div className="flex flex-col gap-1.5 rounded-dodio-md bg-dodio-surface p-3.5">
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs font-medium text-dodio-ink-muted">{tile.label}</span>
+        {tile.badge && (
+          <span className="rounded-dodio-sm bg-[#FDF1DE] px-1.5 py-0.5 text-[10px] font-semibold text-dodio-warning-dark">
+            {tile.badge}
+          </span>
+        )}
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className="font-dodio-display text-2xl font-extrabold text-dodio-ink">{tile.value}</span>
+        <span className="text-[11px] text-dodio-ink-muted">{tile.unit}</span>
+      </div>
+      {hasBar && (
+        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-dodio-border/50">
+          <div className="h-full bg-dodio-teal-dark" style={{ width: `${tile.usedPct}%` }} />
+          <div className="h-full bg-dodio-teal" style={{ width: `${tile.plannedPct}%` }} />
+        </div>
+      )}
+      <div className="text-[10px] leading-[14px] text-dodio-ink-muted">
+        {tile.caption}
+        {tile.note && <span> · {tile.note}</span>}
+      </div>
+    </div>
+  );
+}
+
 function OverviewCard() {
   const outToday = [
     { initials: "MS", bg: "bg-[#FBE4DA]", fg: "text-dodio-coral-dark", name: "Martin Svoboda", detail: "Nemoc · do úterý" },
@@ -59,18 +127,9 @@ function OverviewCard() {
         </span>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-dodio-md bg-[#E3F2EC] p-3.5">
-          <div className="font-dodio-display text-3xl font-extrabold text-dodio-teal-dark">14</div>
-          <div className="text-xs font-medium text-dodio-teal-dark">dní dovolené zbývá</div>
-        </div>
-        <div className="rounded-dodio-md bg-dodio-surface p-3.5">
-          <div className="font-dodio-display text-3xl font-extrabold text-dodio-ink">3</div>
-          <div className="text-xs font-medium text-dodio-ink-muted">sick days zbývají</div>
-        </div>
-        <div className="rounded-dodio-md bg-[#FDF1DE] p-3.5">
-          <div className="font-dodio-display text-3xl font-extrabold text-dodio-warning-dark">1</div>
-          <div className="text-xs font-medium text-dodio-warning-dark">žádost čeká</div>
-        </div>
+        {BALANCE_TILES.map((tile) => (
+          <BalanceCard key={tile.label} tile={tile} />
+        ))}
       </div>
       <div className="flex flex-col gap-1">
         <div className="pb-1.5 text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">Dnes chybí</div>
@@ -110,18 +169,12 @@ export function Hero() {
             Žádost za tři kliknutí, schválení jedním klikem přímo z e-mailu a podklady pro mzdy jedním
             exportem. Dodio hlídá zůstatky, české svátky i to, kdo dnes chybí.
           </p>
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex">
             <a
               href={SIGNUP_URL}
               className="w-full rounded-dodio-md bg-dodio-teal-dark px-6 py-4 text-center text-base font-semibold text-white no-underline hover:bg-dodio-teal sm:w-auto lg:px-[26px] lg:py-4 lg:text-[17px]"
             >
               Vyzkoušet zdarma
-            </a>
-            <a
-              href={DEMO_URL}
-              className="w-full rounded-dodio-md border border-dodio-border bg-dodio-surface-card px-6 py-3.5 text-center text-base font-semibold text-dodio-ink no-underline sm:w-auto lg:px-6 lg:py-[15px] lg:text-[17px]"
-            >
-              Ukázat demo
             </a>
           </div>
           <div className="hidden flex-wrap gap-6 text-sm text-dodio-ink-muted lg:flex">

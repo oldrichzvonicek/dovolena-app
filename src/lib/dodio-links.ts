@@ -6,7 +6,6 @@
 export const SIGNUP_URL = "https://app.dodio.cz/login";
 export const APP_LOGIN_URL = "https://app.dodio.cz/login";
 // Still open per the spec's "Otevřené body k doplnění":
-export const DEMO_URL = "[KAM VEDE DEMO]";
 export const CONTACT_EMAIL = "[e-mail]@dodio.cz";
 
 export const NAV_LINKS = [
