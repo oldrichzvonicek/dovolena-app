@@ -733,7 +733,9 @@ as $$
     (target_company_id, 'sick', 'Sick Day', 'wine', 'sick', true),
     (target_company_id, 'home_office', 'Home Office', 'sky', 'none', true),
     (target_company_id, 'lekar', 'Lékař', 'violet', 'none', true),
-    (target_company_id, 'nahradni_volno', 'Náhradní volno', 'gold', 'none', true),
+    -- 'gold' se v kalendáři barevně plete se žlutým podbarvením státních svátků — 'rust' (neutrální šedohnědá) je od
+    -- svátků i od ostatních výchozích typů absencí jasně odlišitelná.
+    (target_company_id, 'nahradni_volno', 'Náhradní volno', 'rust', 'none', true),
     -- Seeded but off by default — admin switches these on in Typy absencí
     -- once actually needed, rather than every company starting with them live.
     (target_company_id, 'osetrovacka', 'Ošetřování člena rodiny', 'plum', 'none', false),
@@ -1081,7 +1083,7 @@ create table if not exists notifications (
   created_at timestamptz not null default now()
 );
 
--- 'vacation_reminder' (Smart HR Insights bulk reminder) and 'help_question'
+-- 'vacation_reminder' (Smart HR bulk reminder) and 'help_question'
 -- (Nápověda v2 "Napsat na HR/Podporu") added on top of the original three.
 alter table notifications drop constraint if exists notifications_type_check;
 alter table notifications add constraint notifications_type_check
@@ -1217,7 +1219,7 @@ create trigger leave_requests_notify_status_change
   for each row execute function notify_on_leave_request_status_change();
 
 -- ---------------------------------------------------------------------------
--- send_vacation_reminders — Smart HR Insights: admin picks employees with a
+-- send_vacation_reminders — Smart HR: admin picks employees with a
 -- large unused vacation balance near year-end and sends them each an
 -- in-app nudge. security definer because a plain admin has no RLS insert
 -- privilege on other people's notifications rows.
@@ -3607,10 +3609,10 @@ select cron.schedule(
   'dodio-process-emails',
   '*/3 * * * *',
   $$
-  select net.http_post(
+  -- /api/cron/process je GET handler (stejně jako denní vercel.json cron) — net.http_post na něj vrací 405 a e-mail se nikdy neodešle.
+  select net.http_get(
     url := 'https://dodio-app.vercel.app/api/cron/process',
-    headers := jsonb_build_object('Authorization', 'Bearer ' || (select value from system_secrets where key = 'cron_secret')),
-    body := '{}'::jsonb
+    headers := jsonb_build_object('Authorization', 'Bearer ' || (select value from system_secrets where key = 'cron_secret'))
   );
   $$
 );
