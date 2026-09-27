@@ -34,7 +34,7 @@ function timeAgo(iso: string): string {
 }
 
 export function NotificationBell() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,11 +46,18 @@ export function NotificationBell() {
     if (profile) setEmailOn(profile.email_notifications !== false);
   }, [profile]);
 
+  // Stejné nastavení jako v Můj účet → E-mailová upozornění — po změně zde se musí opravit i sdílený
+  // profil v kontextu (refreshProfile), jinak by na stránce Můj účet ukazoval starý (nepřepnutý) stav.
   async function toggleEmail() {
     if (!profile) return;
     const next = !emailOn;
     setEmailOn(next);
-    await createClient().from("profiles").update({ email_notifications: next }).eq("id", profile.id);
+    const { error } = await createClient().from("profiles").update({ email_notifications: next }).eq("id", profile.id);
+    if (error) {
+      setEmailOn(!next);
+      return;
+    }
+    await refreshProfile();
   }
 
   async function load() {

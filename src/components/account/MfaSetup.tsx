@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ShieldCheck, ShieldOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { showToast } from "@/lib/toast";
 import { errorMessage } from "@/lib/utils";
 
@@ -76,7 +77,7 @@ export function MfaSetup({ onChanged }: { onChanged?: () => void }) {
   }
 
   async function disable(id: string) {
-    if (!window.confirm("Opravdu vypnout dvoufázové ověření? Účet bude chráněný jen heslem.")) return;
+    if (!(await confirmDialog("Opravdu vypnout dvoufázové ověření? Účet bude chráněný jen heslem.", { confirmLabel: "Vypnout", danger: true }))) return;
     setBusy(true);
     setError(null);
     try {

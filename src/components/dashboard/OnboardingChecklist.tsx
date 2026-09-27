@@ -98,7 +98,7 @@ export function OnboardingChecklist() {
           key: "approvers",
           title: "Určete, kdo schvaluje žádosti",
           hint: noApprover > 0 ? `${noApprover} ${noApprover === 1 ? "člověk nemá" : "lidí nemá"} nadřízeného ani vedoucího oddělení — jejich žádosti schválí jen admin.` : "Každému nastavte nadřízeného, nebo oddělení určete vedoucího.",
-          href: "/admin/settings?sekce=users",
+          href: "/admin/settings?sekce=users&akce=schvalovatel",
           cta: "Přiřadit",
           done: nonAdmins > 0 && noApprover === 0,
         },

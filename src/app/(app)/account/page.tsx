@@ -6,10 +6,12 @@ import { Header } from "@/components/layout/Header";
 import { MfaSetup } from "@/components/account/MfaSetup";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { showToast } from "@/lib/toast";
 import { errorMessage } from "@/lib/utils";
+import { ICalExportPanel } from "@/components/calendar/ICalExportPanel";
 
 const roleLabel = (role: string, staff: string | null) => {
   const base = role === "admin" ? "Admin" : role === "manager" ? "Manažer" : "Zaměstnanec";
@@ -63,7 +65,7 @@ export default function AccountPage() {
   }
 
   async function signOutEverywhere() {
-    if (!window.confirm("Odhlásit se ze všech zařízení včetně tohoto?")) return;
+    if (!(await confirmDialog("Odhlásit se ze všech zařízení včetně tohoto?", { confirmLabel: "Odhlásit ze všech", danger: true }))) return;
     await createClient().auth.signOut({ scope: "global" });
     router.replace("/login");
   }
@@ -125,6 +127,12 @@ export default function AccountPage() {
             </div>
             <Switch checked={emailOn} onCheckedChange={toggleEmail} label="E-mailová upozornění" />
           </div>
+        </div>
+
+        <div className="card p-5">
+          <h2 className="font-display text-h2">Kalendář (iCal)</h2>
+          <p className="mb-3 mt-1 text-sm text-muted">Přihlaste si svoje absence do Google Kalendáře, Outlooku nebo Applu — nové schválené absence se pak promítnou samy.</p>
+          <ICalExportPanel />
         </div>
 
         <div className="card p-5">

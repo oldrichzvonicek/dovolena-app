@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useFeatures } from "@/lib/use-features";
 import { Link2, Pencil, Search, Trash2, Upload, UserCheck, UserX, Users, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -75,6 +76,10 @@ export function UsersPanel() {
   const [bulkTarget, setBulkTarget] = useState("");
   const [bulkSick, setBulkSick] = useState("");
   const [onlyNoApprover, setOnlyNoApprover] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [autoApplied, setAutoApplied] = useState(false);
+  // Z karty "Začínáme": rovnou vyfiltruje a vybere lidi bez schvalovatele, ať je jasné, na koho kliknout a co dál.
+  const autoApprover = useSearchParams().get("akce") === "schvalovatel";
   // HR správuje lidi, ale roli, deaktivaci, mazání a registrační odkaz nastavuje jen admin.
   const isAdmin = profile?.role === "admin";
   const features = useFeatures();
@@ -141,6 +146,14 @@ export function UsersPanel() {
   }, [employees, departments]);
   const pendingJoiners = useMemo(() => employees.filter((e) => e.join_pending && e.active === false), [employees]);
 
+  useEffect(() => {
+    if (!autoApprover || autoApplied || loading) return;
+    setAutoApplied(true);
+    if (noApproverIds.size === 0) return;
+    setOnlyNoApprover(true);
+    setSelected(new Set(noApproverIds));
+  }, [autoApprover, autoApplied, loading, noApproverIds]);
+
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
@@ -202,11 +215,12 @@ export function UsersPanel() {
       : `Deaktivovat uživatele ${row.name}? Ztratí přístup do aplikace a zmizí z kalendáře a týmových přehledů, historie absencí zůstane. Jeho čekající žádosti se zamítnou.${handover ? ` Dále: ${handover}.` : ""}`;
     if (!(await confirmDialog(msg, { confirmLabel: active ? "Aktivovat" : "Deaktivovat", danger: !active }))) return;
     setDeletingId(row.id);
+    setErrorMsg(null);
     try {
       await setEmployeeActive(row.id, active);
       load();
     } catch (e) {
-      alert(errorMessage(e));
+      setErrorMsg(errorMessage(e));
     } finally {
       setDeletingId(null);
     }
@@ -215,20 +229,22 @@ export function UsersPanel() {
   async function handleDeleteEmployee(row: Extract<Row, { status: "active" }>) {
     if (!(await confirmDialog(`Opravdu TRVALE smazat uživatele ${row.name} včetně celé historie absencí? Nejde vzít zpět. (Odcházející lidi raději jen deaktivujte.)`, { confirmLabel: "Trvale smazat", danger: true }))) return;
     setDeletingId(row.id);
+    setErrorMsg(null);
     try {
       await deleteEmployee(row.id);
       load();
     } catch (e) {
-      alert(errorMessage(e));
+      setErrorMsg(errorMessage(e));
     } finally {
       setDeletingId(null);
     }
   }
 
   async function copyGenericLink() {
+    setErrorMsg(null);
     const r = await copyJoinLink();
     if (!r.ok) {
-      alert(r.reason);
+      setErrorMsg(r.reason);
       return;
     }
     setLinkCopied(true);
@@ -237,11 +253,12 @@ export function UsersPanel() {
 
   async function handleApproveJoin(row: Extract<Row, { status: "active" }>) {
     setDeletingId(row.id);
+    setErrorMsg(null);
     try {
       await approveJoiner(row.id);
       load();
     } catch (e) {
-      alert(errorMessage(e));
+      setErrorMsg(errorMessage(e));
     } finally {
       setDeletingId(null);
     }
@@ -250,11 +267,12 @@ export function UsersPanel() {
   async function handleRejectJoin(row: Extract<Row, { status: "active" }>) {
     if (!(await confirmDialog(`Odmítnout registraci ${row.name}? Účet se smaže a dotyčný se do firmy nedostane.`, { confirmLabel: "Odmítnout a smazat", danger: true }))) return;
     setDeletingId(row.id);
+    setErrorMsg(null);
     try {
       await deleteEmployee(row.id);
       load();
     } catch (e) {
-      alert(errorMessage(e));
+      setErrorMsg(errorMessage(e));
     } finally {
       setDeletingId(null);
     }
@@ -263,6 +281,7 @@ export function UsersPanel() {
   async function applyBulk() {
     if (!bulk) return;
     setBulkApplying(true);
+    setErrorMsg(null);
     try {
       const ids = [...selected];
       if (bulk === "dept") await Promise.all(ids.map((id) => updateEmployeeDepartment(id, bulkTarget === "none" ? null : bulkTarget)));
@@ -282,7 +301,7 @@ export function UsersPanel() {
       setSelected(new Set());
       load();
     } catch (e) {
-      alert(errorMessage(e));
+      setErrorMsg(errorMessage(e));
     } finally {
       setBulkApplying(false);
     }
@@ -293,12 +312,13 @@ export function UsersPanel() {
     if (ids.length === 0) return;
     if (!(await confirmDialog(`Deaktivovat ${ids.length} vybraných uživatelů? Ztratí přístup, historie absencí zůstane.`, { confirmLabel: "Deaktivovat", danger: true }))) return;
     setBulkApplying(true);
+    setErrorMsg(null);
     try {
       await Promise.all(ids.map((id) => setEmployeeActive(id, false)));
       setSelected(new Set());
       load();
     } catch (e) {
-      alert(errorMessage(e));
+      setErrorMsg(errorMessage(e));
     } finally {
       setBulkApplying(false);
     }
@@ -313,6 +333,14 @@ export function UsersPanel() {
 
   return (
     <div className="space-y-6">
+      {errorMsg && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded border border-danger/30 bg-danger-light px-4 py-3 text-sm text-danger">
+          <span>{errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} aria-label="Zavřít" className="shrink-0 text-danger/70 hover:text-danger">
+            <X size={14} />
+          </button>
+        </div>
+      )}
       {atLimit && (
         <div role="status" className="rounded border border-warning/40 bg-warning-light px-4 py-3 text-sm">
           <strong>
@@ -349,7 +377,8 @@ export function UsersPanel() {
       {noApproverIds.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded border border-line bg-white px-4 py-3 text-sm" role="status">
           <span>
-            <strong>{noApproverIds.size} {noApproverIds.size === 1 ? "člověk nemá" : "lidí nemá"} nadřízeného ani vedoucího oddělení</strong> — jejich žádosti schválí jen admin.
+            <strong>{noApproverIds.size} {noApproverIds.size === 1 ? "člověk nemá" : "lidí nemá"} nadřízeného ani vedoucího oddělení</strong> — jejich žádosti schválí jen admin. Vyberte je a dole tlačítkem{" "}
+            <strong>Změnit nadřízeného</strong> jim ho nastavte najednou (nebo u každého zvlášť ikonou tužky).
           </span>
           <button onClick={() => setOnlyNoApprover((v) => !v)} className="text-teal-dark underline">
             {onlyNoApprover ? "Zobrazit všechny" : "Zobrazit je"}
