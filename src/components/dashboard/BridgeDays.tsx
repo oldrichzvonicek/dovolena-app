@@ -19,7 +19,13 @@ interface Tip extends BridgeSuggestion {
   teamSize: number;
 }
 
-const fmt = (iso: string) => format(parseISO(iso), "EEE d. M.", { locale: cs });
+// Horizont je 365 dní dopředu, takže návrh může spadat i do příštího roku — bez roku v popisku pak den v týdnu
+// "nesedí" k datu, jak ho čtenář zná z letoška (např. "pon 27. 9." vypadalo jako letošní neděle 27. 9.).
+const fmt = (iso: string) => {
+  const d = parseISO(iso);
+  const otherYear = d.getFullYear() !== new Date().getFullYear();
+  return format(d, otherYear ? "EEE d. M. yyyy" : "EEE d. M.", { locale: cs });
+};
 const VISIBLE_DEFAULT = 5;
 
 /**

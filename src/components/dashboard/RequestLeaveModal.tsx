@@ -371,7 +371,23 @@ export function RequestLeaveModal({
   }
 
   const dialog = (
-    <DialogContent title={isEditing ? "Upravit žádost o absenci" : "Nová žádost o absenci"}>
+    <DialogContent
+      title={isEditing ? "Upravit žádost o absenci" : "Nová žádost o absenci"}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setOpen(false)}>
+            Zrušit
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={submitting || !typeId || !!policyError || blockingOverlap.length > 0 || (!!blackoutWarning && !overrideBlackout)}
+          >
+            {submitting ? "Odesílám…" : isEditing ? "Uložit změny" : blackoutWarning ? "Odeslat i přesto" : "Odeslat ke schválení"}
+          </Button>
+        </div>
+      }
+    >
       <div className="space-y-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium">Typ absence</label>
@@ -568,19 +584,6 @@ export function RequestLeaveModal({
         )}
 
         {error && <p className="text-sm text-danger">{error}</p>}
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            Zrušit
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={submitting || !typeId || !!policyError || blockingOverlap.length > 0 || (!!blackoutWarning && !overrideBlackout)}
-          >
-            {submitting ? "Odesílám…" : isEditing ? "Uložit změny" : blackoutWarning ? "Odeslat i přesto" : "Odeslat ke schválení"}
-          </Button>
-        </div>
       </div>
     </DialogContent>
   );

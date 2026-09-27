@@ -155,17 +155,30 @@ export function BalanceCards() {
     <div className="flex flex-col gap-4 md:flex-row">
       <BalanceCard label="Dovolená" used={vacation.used} upcoming={vacation.upcoming} total={vacation.total} carryover={vacation.carryover} unit="dní" color="teal" />
       <BalanceCard label="Sick Days" used={sick.used} upcoming={sick.upcoming} total={sick.total} unit="dní" color="rust" />
-      <div className={cn("card flex-1 p-5", homeOffice.limit !== null && homeOffice.used > homeOffice.limit && "border-warning/40")}>
-        <div className="text-sm text-muted">Home Office letos</div>
-        <div className="mt-1.5 flex items-baseline gap-1.5">
-          <span className="font-display text-3xl">{formatNumber(homeOffice.used)}</span>
-          <span className="text-sm text-muted">{homeOffice.limit !== null ? `z ${formatNumber(homeOffice.limit)} dní` : "dní"}</span>
+      {/* Se stanoveným limitem má Home Office stejnou strukturu (zbývá / pruh / vyčerpáno+naplánováno) jako ostatní dvě karty.
+          Bez limitu (firma ho nenastavila) zůstává jednodušší — nedá se počítat "zbývá" bez celkového nároku. */}
+      {homeOffice.limit !== null ? (
+        <BalanceCard label="Home Office" used={homeOffice.taken} upcoming={homeOffice.planned} total={homeOffice.limit} unit="dní" color="moss" />
+      ) : (
+        <div className="card flex-1 p-5">
+          <div className="text-sm text-muted">Home Office letos</div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+            <span className="font-display text-3xl">{formatNumber(homeOffice.used)}</span>
+            <span className="text-sm text-muted">{dayWord(homeOffice.used)} letos</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-sm bg-moss" /> Vyčerpáno: {formatNumber(homeOffice.taken)} {dayWord(homeOffice.taken)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-sm bg-moss/40" /> Naplánováno: {formatNumber(homeOffice.planned)} {dayWord(homeOffice.planned)}
+            </span>
+          </div>
+          <div className="mt-2 text-[11px] text-muted">
+            Tento měsíc: {formatNumber(homeOffice.thisMonth)} {dayWord(homeOffice.thisMonth)} · bez ročního limitu
+          </div>
         </div>
-        <div className="mt-2 text-[11px] text-muted">
-          Tento měsíc: {formatNumber(homeOffice.thisMonth)} {dayWord(homeOffice.thisMonth)}
-          {homeOffice.limit !== null && <> · zbývá {formatNumber(Math.max(0, homeOffice.limit - homeOffice.used))}</>}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

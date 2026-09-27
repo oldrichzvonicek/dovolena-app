@@ -284,8 +284,16 @@ export function WhoIsOutToday() {
           <h3 className="mb-3 text-sm font-medium">Tento týden</h3>
           <div className="grid grid-cols-[88px_repeat(5,1fr)] items-center gap-x-1 gap-y-1.5 text-[11px] text-muted sm:grid-cols-[160px_repeat(5,1fr)]">
             <span />
+            {/* O trochu větší a tučnější než zbytek mřížky — jinak den a datum skoro nejde přečíst. */}
             {week.days.map((d, i) => (
-              <span key={week.isos[i]} className={cn("text-center capitalize", week.isos[i] === todayISO && "font-semibold text-teal-dark underline decoration-2 underline-offset-4")}>
+              <span
+                key={week.isos[i]}
+                title={format(d, "EEEE d. M.", { locale: cs })}
+                className={cn(
+                  "text-center text-xs font-medium capitalize text-ink",
+                  week.isos[i] === todayISO && "font-semibold text-teal-dark underline decoration-2 underline-offset-4"
+                )}
+              >
                 {format(d, "EEEEEE d.", { locale: cs })}
               </span>
             ))}
@@ -324,7 +332,7 @@ export function WhoIsOutToday() {
               ))}
             </div>
           )}
-          <p className="mt-2 text-xs text-muted">Barevný pruh = nepřítomen, šedé pole = v práci. Dnešní den je podtržený a orámovaný.</p>
+          <p className="mt-2 text-xs text-muted">Barevný pruh (viz vysvětlivky výše) = nepřítomen, prázdné pole = v práci. Dnešní den je podtržený a orámovaný.</p>
           {week.people.length > 6 && (
             <button onClick={() => setShowAllWeek((v) => !v)} aria-expanded={showAllWeek} className="mt-2 text-xs font-medium text-teal-dark underline underline-offset-2">
               {showAllWeek ? "Zobrazit méně" : `Zobrazit všech ${week.people.length} lidí, kteří tento týden chybí (dalších ${week.people.length - 6})`}

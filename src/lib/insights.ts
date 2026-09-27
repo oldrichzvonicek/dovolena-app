@@ -1,4 +1,4 @@
-// Smart HR Insights — čisté výpočty nad načtenými daty (žádný přístup k databázi), aby šly použít v prohlížeči i v serverové
+// Smart HR — čisté výpočty nad načtenými daty (žádný přístup k databázi), aby šly použít v prohlížeči i v serverové
 // týdenní kontrole a snadno testovat. Zásady: agregace místo jmen u citlivých údajů (nemoc se nikdy nevypisuje
 // po jednotlivcích, skupiny menší než MIN_GROUP se neukazují), každý postřeh vychází z dat, která jdou dohledat.
 import { addDays, format, parseISO, startOfWeek } from "date-fns";
@@ -259,7 +259,8 @@ export function bridgeSuggestions(fromISO: string, horizonDays: number, workDays
       let b = end + 1;
       while (b + 1 < days.length && isOff(days[b + 1])) b++;
       const offDays = b - a + 1;
-      if (offDays < 4 || iso(days[i]) < fromISO || iso(days[i]) > iso(addDays(start, horizonDays))) continue;
+      // <= fromISO (ne jen <): dnešek už se žádat nedá, i kdyby byl náhodou pracovní den.
+      if (offDays < 4 || iso(days[i]) <= fromISO || iso(days[i]) > iso(addDays(start, horizonDays))) continue;
       const key = `${iso(days[a])}-${iso(days[b])}`;
       if (seen.has(key)) continue;
       seen.add(key);
