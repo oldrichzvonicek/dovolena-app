@@ -87,6 +87,15 @@ export function TeamCalendar() {
   // Seskupení podle oddělení je výchozí: hned je vidět, jestli v týmu nechybí všichni najednou.
   const [groupByDept, setGroupByDept] = useState(true);
   const [marksOpen, setMarksOpen] = useState(false);
+  const marksRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!marksOpen) return;
+    const close = (e: MouseEvent) => {
+      if (marksRef.current && !marksRef.current.contains(e.target as Node)) setMarksOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [marksOpen]);
   const [legendOpen, setLegendOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [hover, setHover] = useState<{ x: number; y: number; req: RequestRow; name: string; all?: RequestRow[] } | null>(null);
@@ -477,7 +486,7 @@ export function TeamCalendar() {
         </button>
       )}
       {leaveTypesLegend.length > 0 && (
-        <div className={cn("relative mt-2 flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted sm:mt-3 sm:flex", legendOpen ? "flex" : "hidden")}>
+        <div ref={marksRef} className={cn("relative mt-2 flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted sm:mt-3 sm:flex", legendOpen ? "flex" : "hidden")}>
           <span className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
             {/* Jen barevný čtvereček + název — ikony v mřížce samotné nikde nejsou (jen barva pruhu), takže by
                 jejich přítomnost v legendě neodpovídala tomu, co je vidět v kalendáři. */}
