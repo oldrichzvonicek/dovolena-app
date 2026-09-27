@@ -373,7 +373,10 @@ export function TeamCalendar() {
                     : undefined
                 }
                 className={cn(
-                  "h-full border-x border-transparent",
+                  // Jemná svislá dělicí čára mezi KAŽDÝM dnem (i obyčejným) — jinak u posledního dne v měsíci,
+                  // pokud zrovna není víkend/svátek/dnešek, není nic, čím by šlo poznat, že mřížka pokračuje
+                  // dál, a vypadá to jako uříznutí u posuvníku, i když se nic neztrácí.
+                  "h-full border-x border-line/25 last:border-r-line/60",
                   isCzechHoliday(d) ? "border-warning/40 bg-warning/25" : isWeekend(d) && "bg-ink/[0.07]",
                   isToday && "border-sky/60 bg-sky/10",
                   inDrag && "bg-teal/30"
