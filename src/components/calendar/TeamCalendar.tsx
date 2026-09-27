@@ -321,7 +321,7 @@ export function TeamCalendar() {
         </div>
         <div
           className={cn("relative grid h-7 select-none", canDrag && "cursor-crosshair")}
-          style={{ gridTemplateColumns: `repeat(${days.length}, minmax(28px, 1fr))` }}
+          style={{ gridTemplateColumns: `repeat(${days.length}, minmax(34px, 1fr))` }}
           title={canDrag ? (isOwnRow ? "Přetažením vyberte termín žádosti o absenci" : `Přetažením zadáte absenci za: ${emp.name}`) : undefined}
           onMouseLeave={() => setHover(null)}
         >
@@ -493,6 +493,10 @@ export function TeamCalendar() {
             <span className="flex items-center gap-1.5" title="U soukromých absencí (např. nemoc) kolegové důvod nevidí">
               <span className="h-2.5 w-2.5 rounded-sm bg-slate" /> Nepřítomen
             </span>
+            {/* Dřív bylo vysvětlené jen za druhým klikem na "?" — kdo si toho nevšiml, netušil, proč je sloupec žlutý. */}
+            <span className="flex items-center gap-1.5" title="Státní svátek — barevné podbarvení celého sloupce v kalendáři">
+              <span className="h-2.5 w-2.5 rounded-sm bg-warning/60" /> Státní svátek
+            </span>
           </span>
           <button type="button" onClick={() => setMarksOpen((v) => !v)} aria-expanded={marksOpen} aria-label="Vysvětlivky značek" title="Vysvětlivky značek" className="rounded p-0.5 hover:bg-paper hover:text-ink">
             <HelpCircle size={14} />
@@ -500,7 +504,6 @@ export function TeamCalendar() {
           {marksOpen && (
             <div className="absolute right-0 top-full z-30 mt-1 w-64 space-y-1.5 rounded-lg border border-line bg-white p-3 shadow-[0_8px_30px_rgba(22,35,59,0.12)]" role="dialog" aria-label="Značky v kalendáři">
               <div className="flex items-center gap-2"><span className={cn("h-2.5 w-6 shrink-0 rounded-sm bg-ink/50", hatch)} /> Šrafování = čeká na schválení</div>
-              <div className="flex items-center gap-2"><span className="h-2.5 w-6 shrink-0 rounded-sm bg-warning/60" /> Státní svátek</div>
               <div className="flex items-center gap-2"><span className="h-2.5 w-6 shrink-0 rounded-sm border-x-2 border-sky bg-sky/20" /> Dnešní den (modrý sloupec)</div>
               <div className="flex items-center gap-2"><span className="h-2.5 w-6 shrink-0 rounded-sm bg-ink/10" /> Víkend</div>
             </div>
@@ -509,10 +512,12 @@ export function TeamCalendar() {
       )}
 
       <div className="mt-5 max-h-[70vh] overflow-auto">
-        <div className="min-w-[var(--cal-min)] sm:min-w-[900px]" style={{ "--cal-min": `${104 + days.length * 30}px` } as React.CSSProperties}>
+        {/* 36px/den (dřív 30px): v měsíčním pohledu (až 31 sloupců) bylo na půldenní absenci a přesné klikání málo
+            místa. Kdo chce vidět víc najednou bez vodorovného scrollu, zvolí pohled Týden nebo 2 týdny. */}
+        <div className="min-w-[var(--cal-min)] sm:min-w-[900px]" style={{ "--cal-min": `${104 + days.length * 36}px` } as React.CSSProperties}>
           <div className="sticky top-0 z-20 grid h-[52px] grid-cols-[104px_1fr] bg-white sm:grid-cols-[200px_1fr]">
             <div className="sticky left-0 z-30 bg-white" />
-            <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(28px, 1fr))` }}>
+            <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(34px, 1fr))` }}>
               {days.map((d) => {
                 const holidayName = czechHolidayName(d);
                 const isToday = isSameDay(d, today);
@@ -527,7 +532,8 @@ export function TeamCalendar() {
                       holidayName ? "bg-warning-light text-warning-dark" : isToday ? "bg-sky-light" : isWeekend(d) ? "bg-ink/[0.09] text-ink/70" : "bg-white"
                     )}
                   >
-                    <div className={cn("pt-0.5 leading-tight", isToday ? "text-[10px] font-bold uppercase text-sky-dark" : "text-muted")}>{isToday ? "Dnes" : format(d, "EEEEEE", { locale: cs })}</div>
+                    {/* Den v týdnu zůstává i pro dnešek (jinde v hlavičce už je dost zvýraznění — modré pozadí, tučné orámování, tučné číslo) — nahrazením za "DNES" by se ztratila informace, jaký je to den. */}
+                    <div className={cn("pt-0.5 leading-tight", isToday ? "text-[10px] font-bold uppercase text-sky-dark" : "text-muted")}>{format(d, "EEEEEE", { locale: cs })}</div>
                     <div className={cn("text-sm font-medium leading-tight", isToday && "font-bold text-sky-dark")}>{format(d, "d")}</div>
                   </div>
                 );
@@ -554,7 +560,7 @@ export function TeamCalendar() {
                           {g.name} ({g.members.length})
                         </span>
                       </button>
-                      <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(28px, 1fr))` }} aria-label={`Dostupnost oddělení ${g.name} po dnech`}>
+                      <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(34px, 1fr))` }} aria-label={`Dostupnost oddělení ${g.name} po dnech`}>
                         {days.map((d) => {
                           const iso = format(d, "yyyy-MM-dd");
                           const size = g.members.length;
