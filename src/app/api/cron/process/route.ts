@@ -36,6 +36,7 @@ async function withApprovalButtons(supabase: Admin, m: { notification_id?: strin
         { label: "Otevřít v aplikaci", url: `${appUrl()}/approvals`, kind: "link" },
       ],
       footer: `${FOOTER_NOTIFICATION} Tlačítka platí 7 dní a vedou na stránku, kde rozhodnutí potvrdíte.`,
+      baseUrl: appUrl(),
     });
     return { html, body: `${m.body}\n\nSchválit: ${approve}\nZamítnout: ${reject}` };
   } catch {

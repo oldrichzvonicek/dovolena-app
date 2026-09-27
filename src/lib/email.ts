@@ -19,6 +19,7 @@ export function renderHtml(subject: string, body: string): string {
     paragraphs: body.split(/\n{2,}/),
     cta: { label: "Otevřít Dodio", url: `${appUrl()}/dashboard` },
     footer: FOOTER_NOTIFICATION,
+    baseUrl: appUrl(),
   });
 }
 

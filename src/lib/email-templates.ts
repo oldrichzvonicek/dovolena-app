@@ -447,7 +447,18 @@ const ACTION_STYLE: Record<EmailAction["kind"], string> = {
   link: "background:#fff;color:#085041;border:1px solid #D3D1C7",
 };
 
-export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: { label: string; url: string }; actions?: EmailAction[]; footer: string }): string {
+// Stejná značka jako v aplikaci (src/components/shared/AppLogo.tsx). V e-mailu ale NESMÍ jít o inline SVG ani o
+// CSS position:absolute — Gmail i Outlook takové věci z HTML e-mailu vystřihnou (proto se dřív ukazoval jen
+// text "Dodio" bez značky). Jde tedy o obyčejný <img> na PNG v public/brand/logo-mark.png (viz scripts/gen-email-logo.mjs),
+// což zvládne spolehlivě úplně každý klient.
+const emailLogoHtml = (baseUrl: string) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:16px"><tr>
+  <td style="width:32px;padding-right:9px" valign="middle">
+    <img src="${esc(baseUrl)}/brand/logo-mark.png" width="32" height="32" alt="" style="display:block;border-radius:7px" />
+  </td>
+  <td valign="middle" style="font-size:20px;font-weight:bold;color:#085041">Dodio</td>
+</tr></table>`;
+
+export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: { label: string; url: string }; actions?: EmailAction[]; footer: string; baseUrl: string }): string {
   const body = opts.paragraphs.map((p) => `<p style="margin:0 0 14px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   const actions = (opts.actions ?? [])
     .map((a) => `<a href="${esc(a.url)}" style="display:inline-block;margin:6px 8px 0 0;${ACTION_STYLE[a.kind]};text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;font-weight:bold">${esc(a.label)}</a>`)
@@ -457,7 +468,7 @@ export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: {
     : "";
   return `<!doctype html><html lang="cs"><body style="margin:0;background:#F7F5F0;font-family:Arial,Helvetica,sans-serif;color:#2C2C2A">
 <div style="max-width:560px;margin:0 auto;padding:24px">
-  <div style="font-size:20px;font-weight:bold;color:#085041;margin-bottom:16px">Dodio</div>
+  ${emailLogoHtml(opts.baseUrl)}
   <div style="background:#fff;border:1px solid #D3D1C7;border-radius:8px;padding:24px">
     <h1 style="font-size:18px;margin:0 0 14px">${esc(opts.title)}</h1>
     ${body}
@@ -482,6 +493,6 @@ export function renderTemplate(key: string, vars: Vars, baseUrl: string) {
   return {
     subject,
     text: `${paragraphs.join("\n\n")}${cta ? `\n\n${cta.label}: ${cta.url}` : ""}\n\n${footer}`,
-    html: emailLayout({ title: subject, paragraphs, cta, footer }),
+    html: emailLayout({ title: subject, paragraphs, cta, footer, baseUrl: baseUrl.replace(/\/$/, "") }),
   };
 }
