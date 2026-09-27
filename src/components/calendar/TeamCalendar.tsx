@@ -33,7 +33,6 @@ import { DbDepartment, DbProfile, LeaveColor } from "@/lib/supabase/types";
 import { fetchAll } from "@/lib/fetch-all";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { BookForEmployeeModal } from "@/components/manager/BookForEmployeeModal";
-import { leaveIconFor, LeaveTypeIcon } from "@/components/shared/LeaveTypeIcon";
 
 const colorDot: Record<LeaveColor, string> = {
   teal: "bg-teal",
@@ -480,16 +479,14 @@ export function TeamCalendar() {
       {leaveTypesLegend.length > 0 && (
         <div className={cn("relative mt-2 flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted sm:mt-3 sm:flex", legendOpen ? "flex" : "hidden")}>
           <span className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
-            {leaveTypesLegend.map((t) => {
-              const icon = leaveIconFor(t.key);
-              return (
-                <span key={t.key} className="flex items-center gap-1.5" title={`${t.label} — barva tohoto typu v kalendáři`}>
-                  {icon ? <LeaveTypeIcon name={icon} size={13} /> : null}
-                  <span className={cn("h-2.5 w-2.5 rounded-sm", colorDot[t.color])} />
-                  {t.label}
-                </span>
-              );
-            })}
+            {/* Jen barevný čtvereček + název — ikony v mřížce samotné nikde nejsou (jen barva pruhu), takže by
+                jejich přítomnost v legendě neodpovídala tomu, co je vidět v kalendáři. */}
+            {leaveTypesLegend.map((t) => (
+              <span key={t.key} className="flex items-center gap-1.5" title={`${t.label} — barva tohoto typu v kalendáři`}>
+                <span className={cn("h-2.5 w-2.5 rounded-sm", colorDot[t.color])} />
+                {t.label}
+              </span>
+            ))}
             <span className="flex items-center gap-1.5" title="U soukromých absencí (např. nemoc) kolegové důvod nevidí">
               <span className="h-2.5 w-2.5 rounded-sm bg-slate" /> Nepřítomen
             </span>
@@ -513,8 +510,17 @@ export function TeamCalendar() {
 
       <div className="mt-5 max-h-[70vh] overflow-auto">
         {/* 36px/den (dřív 30px): v měsíčním pohledu (až 31 sloupců) bylo na půldenní absenci a přesné klikání málo
-            místa. Kdo chce vidět víc najednou bez vodorovného scrollu, zvolí pohled Týden nebo 2 týdny. */}
-        <div className="min-w-[var(--cal-min)] sm:min-w-[900px]" style={{ "--cal-min": `${104 + days.length * 36}px` } as React.CSSProperties}>
+            místa. Kdo chce vidět víc najednou bez vodorovného scrollu, zvolí pohled Týden nebo 2 týdny.
+            BUG, který tohle odhalilo: "sm:min-w-[900px]" byl v CSS pevná hodnota, která od 640px šířky PŘEBÍJELA
+            (ne jen dorovnávala) dynamickou šířku podle počtu dní — při 31 dnech je potřeba víc než 900px, ale
+            kontejner se stejně zastavil na 900px. Uvnitř mřížka dnů (a barvy víkendu/svátku/dnešku u ní) tu
+            šířku ignoruje a jede dál, ale pozadí a spodní linka řádku (oddělení, "vy") končí přesně na 900px —
+            proto vypadalo, jako by se vodorovné čáry/podbarvení "utnuly" v polovině měsíce, i když svislé sloupce
+            dnů šly dál. Řešení: sm:900px je teď jen SPODNÍ hranice (max s dynamickou hodnotou), ne pevný strop. */}
+        <div
+          className="min-w-[var(--cal-min)] sm:min-w-[var(--cal-min-sm)]"
+          style={{ "--cal-min": `${104 + days.length * 36}px`, "--cal-min-sm": `max(${104 + days.length * 36}px, 900px)` } as React.CSSProperties}
+        >
           <div className="sticky top-0 z-20 grid h-[52px] grid-cols-[104px_1fr] bg-white sm:grid-cols-[200px_1fr]">
             <div className="sticky left-0 z-30 bg-white" />
             <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(34px, 1fr))` }}>
