@@ -15,6 +15,10 @@ const POINTS = [
     rest: " – volitelné pro každého, povinné pro admina, HR a účetní.",
   },
   { strong: "Historie změn", rest: " – kdo, kdy a co změnil, dohledatelné a filtrovatelné." },
+  {
+    strong: "Běží v cloudu",
+    rest: " – funguje z počítače, tabletu i mobilu, stačí prohlížeč. Žádná instalace, přístup odkudkoli.",
+  },
   { strong: "Data hostovaná v EU", rest: " a appka celá v češtině." },
 ];
 
