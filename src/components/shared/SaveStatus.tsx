@@ -30,8 +30,11 @@ export function useSaveStatus() {
 }
 
 export function SaveStatusBar({ status, error }: { status: Status; error: string | null }) {
+  // fixed, ne sticky: na delší stránce (např. Provoz & kalendář má sekcí hodně) by sticky prvek umístěný
+  // až za posledním polem formuláře nebyl vidět, dokud se ke konci stránky nedoscrolluje — takže při úpravě
+  // pole nahoře nebyla vidět žádná zpětná vazba, i když se ve skutečnosti ukládalo.
   return (
-    <div className="pointer-events-none sticky bottom-4 z-30 flex justify-end" aria-live="polite">
+    <div className="pointer-events-none fixed bottom-4 right-4 z-30 flex justify-end" aria-live="polite">
       {status === "idle" && (
         <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-white/90 px-3 py-1.5 text-xs text-muted shadow-sm backdrop-blur">
           <Check size={12} className="text-teal-dark" /> Změny se ukládají automaticky
