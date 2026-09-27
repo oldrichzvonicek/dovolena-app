@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { LeaveBadge, StatusBadge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { dayWord, formatRange } from "@/lib/working-days";
+import { dayWord, daysWithin, DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
 import { KebabMenu, KebabItem } from "@/components/shared/KebabMenu";
 import { CompactBalances } from "@/components/dashboard/CompactBalances";
@@ -54,6 +54,7 @@ export default function RequestsPage() {
   // Na desktopu se vejde víc řádků; na telefonu zůstává kratší stránka.
   const [pageSize, setPageSize] = useState(() => (typeof window !== "undefined" && window.innerWidth < 768 ? 10 : 20));
   const [coverNames, setCoverNames] = useState<Record<string, string>>({});
+  const [workDays, setWorkDays] = useState<number[]>(DEFAULT_WORK_DAYS);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [sortDesc, setSortDesc] = useState(true);
@@ -81,6 +82,17 @@ export default function RequestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
   useOnDataChanged(load);
+
+  // Pro rozpad dní u žádostí přesahujících Silvestra (viz daysWithin níže) — bez toho by se počítalo s Po–Pá napevno.
+  useEffect(() => {
+    if (!profile) return;
+    createClient()
+      .from("companies")
+      .select("work_days")
+      .eq("id", profile.company_id)
+      .single()
+      .then(({ data }) => setWorkDays((data?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS));
+  }, [profile]);
 
   useEffect(() => {
     const ids = Array.from(new Set(rows.map((r) => r.covering_profile_id).filter((x): x is string => !!x)));
@@ -110,6 +122,19 @@ export default function RequestsPage() {
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
   const shownRows = filteredRows.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
+  // Prázdné sloupce (většinou nikdo zástup ani poznámku nevyplní) se v tabulce vůbec nezobrazí.
+  const showCoverCol = filteredRows.some((r) => r.covering_profile_id);
+  const showNoteCol = filteredRows.some((r) => r.note || (r.status === "rejected" && r.rejection_reason));
+
+  /** Rozpad dní přes přelom roku (30. 12. – 6. 1. → kolik z toho je letos a kolik napřesrok), kvůli ročním limitům. */
+  function yearSplit(r: Row): string | null {
+    const y1 = r.start_date.slice(0, 4);
+    const y2 = r.end_date.slice(0, 4);
+    if (y1 === y2) return null;
+    const inY1 = daysWithin(r, r.start_date, `${y1}-12-31`, workDays);
+    const inY2 = daysWithin(r, `${y2}-01-01`, r.end_date, workDays);
+    return `${formatNumber(inY1)} ${dayWord(inY1)} v r. ${y1} / ${formatNumber(inY2)} ${dayWord(inY2)} v r. ${y2}`;
+  }
 
   async function handleCancel(id: string) {
     if (!(await confirmDialog("Zrušit tuto žádost? Nejde vzít zpět — pro jiný termín podáte novou.", { confirmLabel: "Zrušit žádost", danger: true }))) return;
@@ -161,9 +186,10 @@ export default function RequestsPage() {
     if (r.status === "rejected") {
       items.push({
         key: "resubmit",
+        // Kratší text v tabulce, ať má tlačítko stejnou šířku jako "Upravit" u čekajících — celá věta zůstává v kartách a v menu •••.
         node: (
           <button onClick={() => setResubmitRow(r)} className={btn}>
-            <RefreshCw size={12} /> Upravit a poslat znovu
+            <RefreshCw size={12} /> {compact ? "Upravit" : "Upravit a poslat znovu"}
           </button>
         ),
         menu: { label: "Upravit a poslat znovu", icon: <RefreshCw size={13} />, onClick: () => setResubmitRow(r) },
@@ -381,37 +407,46 @@ export default function RequestsPage() {
                   <th className="px-3 py-2.5 font-medium">Termín</th>
                   <th className="px-3 py-2.5 font-medium">Dní</th>
                   <th className="px-3 py-2.5 font-medium">Stav</th>
-                  <th className="px-3 py-2.5 font-medium">Zástup</th>
-                  <th className="px-3 py-2.5 font-medium">Poznámka</th>
+                  {showCoverCol && <th className="px-3 py-2.5 font-medium">Zástup</th>}
+                  {showNoteCol && <th className="px-3 py-2.5 font-medium">Poznámka</th>}
                   <th className="px-3 py-2.5 font-medium">Akce</th>
                 </tr>
               </thead>
               <tbody>
-                {shownRows.map((r) => (
-                  <tr key={r.id} className="border-b border-line align-top last:border-0">
-                    <td className="px-4 py-2">
-                      <LeaveBadge type={r.leave_type} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">{formatRange(r.start_date, r.end_date)}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-muted">
-                      {formatNumber(Number(r.working_days))}
-                      {Number(r.working_days) === 0 && <span className="ml-1 rounded-sm bg-paper px-1.5 py-0.5 text-[11px] ring-1 ring-line">víkend/svátek</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      <StatusBadge status={r.status} title={r.status === "rejected" ? (r.rejection_reason ?? undefined) : undefined} />
-                      {r.status === "rejected" && r.rejection_reason && <div className="mt-1 max-w-[200px] text-xs text-danger">{r.rejection_reason}</div>}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-xs">
-                      {r.covering_profile_id ? <span className="text-ink">{coverNames[r.covering_profile_id] ?? "…"}</span> : <span className="text-muted">—</span>}
-                    </td>
-                    <td className="max-w-[220px] px-3 py-2 text-xs text-muted">
-                      <span className="line-clamp-2" title={r.note ?? undefined}>
-                        {r.note || "—"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">{renderActions(r, true)}</td>
-                  </tr>
-                ))}
+                {shownRows.map((r) => {
+                  const split = yearSplit(r);
+                  // Zamítnutí patří obsahově k poznámce (proč), ne pod stavový odznak — tam jen krátký odznak s tooltipem.
+                  const noteText = r.status === "rejected" && r.rejection_reason ? `Důvod zamítnutí: ${r.rejection_reason}` : r.note;
+                  return (
+                    <tr key={r.id} className="border-b border-line align-top last:border-0">
+                      <td className="px-4 py-2">
+                        <LeaveBadge type={r.leave_type} />
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">{formatRange(r.start_date, r.end_date)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-muted">
+                        {formatNumber(Number(r.working_days))}
+                        {Number(r.working_days) === 0 && <span className="ml-1 rounded-sm bg-paper px-1.5 py-0.5 text-[11px] ring-1 ring-line">víkend/svátek</span>}
+                        {split && <div className="mt-0.5 whitespace-normal text-[11px] text-muted">{split}</div>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={r.status} title={r.status === "rejected" ? (r.rejection_reason ?? undefined) : undefined} />
+                      </td>
+                      {showCoverCol && (
+                        <td className="whitespace-nowrap px-3 py-2 text-xs">
+                          {r.covering_profile_id ? <span className="text-ink">{coverNames[r.covering_profile_id] ?? "…"}</span> : <span className="text-muted">—</span>}
+                        </td>
+                      )}
+                      {showNoteCol && (
+                        <td className={cn("max-w-[220px] px-3 py-2 text-xs", r.status === "rejected" && r.rejection_reason ? "text-danger" : "text-muted")}>
+                          <span className="line-clamp-2" title={noteText ?? undefined}>
+                            {noteText || "—"}
+                          </span>
+                        </td>
+                      )}
+                      <td className="px-3 py-2">{renderActions(r, true)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -439,17 +474,20 @@ export default function RequestsPage() {
             <span>
               {currentPage * pageSize + 1}–{Math.min(filteredRows.length, (currentPage + 1) * pageSize)} z {filteredRows.length}
             </span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPage(Math.max(0, currentPage - 1))} disabled={currentPage === 0} aria-label="Předchozí stránka" className="rounded border border-line bg-white p-1.5 hover:bg-paper disabled:opacity-40">
-                <ChevronLeft size={16} />
-              </button>
-              <span className="px-2">
-                {currentPage + 1} / {pageCount}
-              </span>
-              <button onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))} disabled={currentPage >= pageCount - 1} aria-label="Další stránka" className="rounded border border-line bg-white p-1.5 hover:bg-paper disabled:opacity-40">
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            {/* Šipky a "1/1" jsou balast, když se vše vejde na jednu stránku. */}
+            {pageCount > 1 && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(Math.max(0, currentPage - 1))} disabled={currentPage === 0} aria-label="Předchozí stránka" className="rounded border border-line bg-white p-1.5 hover:bg-paper disabled:opacity-40">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="px-2">
+                  {currentPage + 1} / {pageCount}
+                </span>
+                <button onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))} disabled={currentPage >= pageCount - 1} aria-label="Další stránka" className="rounded border border-line bg-white p-1.5 hover:bg-paper disabled:opacity-40">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
