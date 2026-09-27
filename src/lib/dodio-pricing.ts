@@ -5,16 +5,17 @@
 
 export type BillingPeriod = "monthly" | "yearly";
 
-export type PlanId = "free" | "starter" | "pro" | "enterprise";
+export type PlanId = "free" | "starter" | "team" | "pro";
 
 interface PlanDefinition {
   id: PlanId;
   name: string;
   usersLabel: string;
-  monthlyPrice: number | null; // null = "0 Kč", still shown explicitly
-  /** Per-extra-user monthly surcharge above the plan's user cap (Enterprise only). */
+  monthlyPrice: number;
+  forWhom: string;
+  /** Per-extra-user monthly surcharge above the plan's user cap (Pro only — it has no cap otherwise). */
   extraUserMonthlyPrice?: number;
-  /** User cap used only for the Enterprise FAQ/example calculation. */
+  /** User count used only for the Pro example calculation. */
   exampleUserCount?: number;
   recommended?: boolean;
 }
@@ -22,14 +23,22 @@ interface PlanDefinition {
 const YEARLY_MONTHS = 10;
 
 const PLAN_DEFINITIONS: PlanDefinition[] = [
-  { id: "free", name: "Free", usersLabel: "do 5", monthlyPrice: 0 },
-  { id: "starter", name: "Starter", usersLabel: "do 15", monthlyPrice: 590 },
-  { id: "pro", name: "Pro", usersLabel: "do 30", monthlyPrice: 1190, recommended: true },
+  { id: "free", name: "Free", usersLabel: "do 5", monthlyPrice: 0, forWhom: "Úplný začátek" },
+  { id: "starter", name: "Starter", usersLabel: "do 10", monthlyPrice: 290, forWhom: "Malý tým, podklady pro mzdy" },
   {
-    id: "enterprise",
-    name: "Enterprise",
-    usersLabel: "nad 30",
+    id: "team",
+    name: "Team",
+    usersLabel: "do 15",
+    monthlyPrice: 590,
+    forWhom: "Rostoucí firma",
+    recommended: true,
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    usersLabel: "bez limitu",
     monthlyPrice: 1190,
+    forWhom: "Firma, která lidi opravdu řídí",
     extraUserMonthlyPrice: 39,
     exampleUserCount: 50,
   },
@@ -57,6 +66,7 @@ export interface PlanPricing {
   id: PlanId;
   name: string;
   usersLabel: string;
+  forWhom: string;
   recommended: boolean;
   price: string;
   perUnit: "/ měs." | "/ rok" | "";
@@ -70,26 +80,27 @@ export interface PlanPricing {
 const CTA_LABEL: Record<PlanId, string> = {
   free: "Začít zdarma",
   starter: "Vybrat Starter",
+  team: "Vybrat Team",
   pro: "Vybrat Pro",
-  enterprise: "Vybrat Enterprise",
 };
 
 /** Registration URL to fill in once the app's sign-up flow is live. */
-const SIGNUP_URL = "[URL REGISTRACE]";
+const SIGNUP_URL = "https://app.dodio.cz/login";
 
 export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
   return PLAN_DEFINITIONS.map((plan) => {
-    const monthly = plan.monthlyPrice ?? 0;
+    const monthly = plan.monthlyPrice;
 
     if (plan.id === "free") {
       return {
         id: plan.id,
         name: plan.name,
         usersLabel: plan.usersLabel,
+        forWhom: plan.forWhom,
         recommended: false,
         price: "0 Kč",
         perUnit: "",
-        note: "Pro mikrofirmy a startupy. Bez exportů pro mzdy a Slacku/Teams.",
+        note: "Bez platební karty. Stačí se zaregistrovat.",
         ctaLabel: CTA_LABEL[plan.id],
         ctaHref: `${SIGNUP_URL}?plan=free`,
       };
@@ -98,7 +109,7 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
     const price = formatKc(priceForPeriod(monthly, period));
     const perUnit = period === "yearly" ? "/ rok" : "/ měs.";
 
-    if (plan.id === "enterprise") {
+    if (plan.id === "pro") {
       const extraMonthly = plan.extraUserMonthlyPrice ?? 0;
       const extraPrice = formatKc(priceForPeriod(extraMonthly, period));
       const exampleUsers = plan.exampleUserCount ?? 50;
@@ -108,6 +119,7 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
         id: plan.id,
         name: plan.name,
         usersLabel: plan.usersLabel,
+        forWhom: plan.forWhom,
         recommended: false,
         price,
         perUnit,
@@ -115,7 +127,7 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
         extraUserPrice: `${extraPrice} ${perUnit}`,
         exampleLine: `Např. ${exampleUsers} lidí = ${formatKc(exampleTotal)} ${perUnit}`,
         ctaLabel: CTA_LABEL[plan.id],
-        ctaHref: `${SIGNUP_URL}?plan=enterprise&billing=${period}`,
+        ctaHref: `${SIGNUP_URL}?plan=pro&billing=${period}`,
       };
     }
 
@@ -128,6 +140,7 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
       id: plan.id,
       name: plan.name,
       usersLabel: plan.usersLabel,
+      forWhom: plan.forWhom,
       recommended: Boolean(plan.recommended),
       price,
       perUnit,
@@ -138,10 +151,8 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
   });
 }
 
-/** Used by the Enterprise FAQ answer so its numbers can never drift from the pricing table. */
-export function enterpriseFaqAnswer(): string {
-  const base = PLAN_DEFINITIONS.find((p) => p.id === "enterprise")!;
-  const monthly = formatKc(base.monthlyPrice ?? 0);
-  const extra = formatKc(base.extraUserMonthlyPrice ?? 0);
-  return `Tarif Enterprise plynule navazuje na Pro: ${monthly} měsíčně a ${extra} za každého uživatele nad 30. Při roční platbě máte 2 měsíce zdarma.`;
-}
+/** Standalone add-ons purchasable on top of the lower tiers (Smart HR, Účetní). */
+export const ADDONS = [
+  { name: "Smart HR", monthlyPrice: 200, note: "predikce kapacity, trendy, rychlost schvalování" },
+  { name: "Účetní", monthlyPrice: 100, note: "doplňková role jen pro čtení mzdových podkladů" },
+];

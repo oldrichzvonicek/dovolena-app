@@ -109,3 +109,43 @@ export function CloseIcon() {
     </svg>
   );
 }
+
+// Persona icons for "Pro koho appka je" — same flat geometric language.
+
+export function EmployeeIcon() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 26 26" aria-hidden="true">
+      <circle cx="13" cy="8" r="5" fill="#0F9D7C" />
+      <path d="M3 24c0-6 4.5-9 10-9s10 3 10 9" fill="#0F9D7C" />
+    </svg>
+  );
+}
+
+export function ManagerIcon() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 26 26" aria-hidden="true">
+      <circle cx="10" cy="8" r="5" fill="#F0997B" />
+      <path d="M2 24c0-5.5 3.8-8.5 8-8.9" fill="#F0997B" />
+      <circle cx="19" cy="17" r="6" fill="#085041" />
+      <path
+        d="M16 17l2 2 4-4"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function HRIcon() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 26 26" aria-hidden="true">
+      <circle cx="8" cy="7" r="4" fill="#2C2C2A" />
+      <circle cx="18" cy="7" r="4" fill="#5F5E5A" />
+      <path d="M1 23c0-4.8 3.2-7.5 7-7.5s7 2.7 7 7.5" fill="#2C2C2A" />
+      <path d="M11 23c0-4.2 2.8-6.8 7-6.8s7 2.6 7 6.8" fill="#5F5E5A" />
+    </svg>
+  );
+}

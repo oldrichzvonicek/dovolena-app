@@ -3,51 +3,37 @@
 import { useState } from "react";
 import { Container } from "./Container";
 import { CheckIcon } from "./icons";
-import { getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/dodio-pricing";
+import { ADDONS, getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/dodio-pricing";
 
-const INCLUDED = [
+// Each tier's feature list is cumulative — Starter includes everything Free
+// has plus its own additions, and so on up to Pro. Matches how the tiers
+// are actually scoped: nothing is ever removed going up, only added.
+const FREE_FEATURES = [
   "Žádosti a zůstatky pro každého",
+  "Schvalování na webu i z e-mailu",
   "Týmový kalendář",
-  "Centrum schvalování",
-  "České svátky a typy absencí",
-  "Exporty pro mzdy (od tarifu Starter)",
-  "Synchronizace s kalendářem (iCal)",
-];
-
-// Every tier's own feature checklist. Starter/Pro/Enterprise all get the
-// same set — Free is the only one missing payroll exports and the
-// Slack/Teams add-on (per its card note: "Bez exportů pro mzdy a
-// Slacku/Teams").
-const BASE_FEATURES = [
-  "Žádosti a zůstatky pro každého",
-  "Týmový kalendář",
-  "Centrum schvalování",
-  "České svátky a typy absencí",
-  "Synchronizace s kalendářem (iCal)",
+  "Notifikace v appce a e-mailem",
+  "Analytika a přehled kapacity",
+  "Chytré návrhy dovolené",
   "GDPR ready",
 ];
 
-const PLAN_FEATURES: Record<PlanId, Array<{ label: string; included: boolean }>> = {
-  free: [
-    ...BASE_FEATURES.map((label) => ({ label, included: true })),
-    { label: "Exporty pro mzdy", included: false },
-    { label: "Slack a Teams", included: false },
-  ],
-  starter: [
-    ...BASE_FEATURES.map((label) => ({ label, included: true })),
-    { label: "Exporty pro mzdy (CSV, XLSX, PDF)", included: true },
-    { label: "Slack a Teams (placený doplněk)", included: true },
-  ],
-  pro: [
-    ...BASE_FEATURES.map((label) => ({ label, included: true })),
-    { label: "Exporty pro mzdy (CSV, XLSX, PDF)", included: true },
-    { label: "Slack a Teams (placený doplněk)", included: true },
-  ],
-  enterprise: [
-    ...BASE_FEATURES.map((label) => ({ label, included: true })),
-    { label: "Exporty pro mzdy (CSV, XLSX, PDF)", included: true },
-    { label: "Slack a Teams (placený doplněk)", included: true },
-  ],
+const STARTER_ADDS = ["Exporty pro mzdy (CSV, Excel)", "iCal synchronizace kalendáře", "Doplňková role Účetní"];
+
+const TEAM_ADDS = ["Historie změn (audit log)", "Nárok podle odpracovaných let"];
+
+const PRO_ADDS = [
+  "Smart HR — predikce kapacity a trendy",
+  "Doplňková role HR",
+  "Eskalace schvalování a zástupy",
+  "Bez limitu uživatelů",
+];
+
+const PLAN_FEATURES: Record<PlanId, string[]> = {
+  free: FREE_FEATURES,
+  starter: [...FREE_FEATURES, ...STARTER_ADDS],
+  team: [...FREE_FEATURES, ...STARTER_ADDS, ...TEAM_ADDS],
+  pro: [...FREE_FEATURES, ...STARTER_ADDS, ...TEAM_ADDS, ...PRO_ADDS],
 };
 
 export function Pricing() {
@@ -68,7 +54,7 @@ export function Pricing() {
             Paušál podle velikosti týmu.
           </h2>
           <p className="m-0 max-w-[600px] text-[15px] leading-[23px] text-dodio-ink-muted lg:text-lg lg:leading-[28px]">
-            Do 5 uživatelů zdarma, při roční platbě máte 2 měsíce zdarma.
+            Do 5 uživatelů zdarma, bez platební karty. Při roční platbě máte 2 měsíce zdarma.
           </p>
         </div>
 
@@ -119,7 +105,9 @@ export function Pricing() {
                   </span>
                 )}
               </div>
-              <div className="text-sm text-dodio-ink-muted lg:text-[15px]">{plan.usersLabel} uživatelů</div>
+              <div className="text-sm text-dodio-ink-muted lg:text-[15px]">
+                {plan.forWhom} · {plan.usersLabel} uživatelů
+              </div>
               <div className="flex flex-wrap items-baseline gap-1.5">
                 <span className="font-dodio-display text-[26px] font-extrabold tracking-[-1px] lg:text-[38px]">
                   {plan.price}
@@ -127,7 +115,7 @@ export function Pricing() {
                 {plan.perUnit && <span className="text-sm text-dodio-ink-muted">{plan.perUnit}</span>}
               </div>
               <div className="min-h-[40px] text-[13px] leading-5 text-dodio-ink-muted lg:text-sm">
-                {plan.id === "enterprise" ? (
+                {plan.id === "pro" ? (
                   <>
                     <strong className="font-semibold text-dodio-ink">+ {plan.extraUserPrice}</strong> za
                     každého uživatele nad 30. {plan.exampleLine}
@@ -137,18 +125,10 @@ export function Pricing() {
                 )}
               </div>
               <div className="flex flex-col gap-2 border-t border-dodio-border pt-4 text-[13px] leading-5 lg:text-sm">
-                {PLAN_FEATURES[plan.id].map((feature) => (
-                  <div key={feature.label} className="flex items-center gap-2.5">
-                    {feature.included ? (
-                      <CheckIcon />
-                    ) : (
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-dodio-ink-muted">
-                        –
-                      </span>
-                    )}
-                    <span className={feature.included ? "text-dodio-ink" : "text-dodio-ink-muted"}>
-                      {feature.label}
-                    </span>
+                {PLAN_FEATURES[plan.id].map((label) => (
+                  <div key={label} className="flex items-center gap-2.5">
+                    <CheckIcon />
+                    <span className="text-dodio-ink">{label}</span>
                   </div>
                 ))}
               </div>
@@ -166,18 +146,28 @@ export function Pricing() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-4 rounded-dodio-lg border border-dodio-border p-6 lg:gap-4 lg:p-8">
-          <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
-            Všechny tarify obsahují
+        <div className="flex flex-col gap-4 rounded-dodio-lg border border-dodio-border p-6 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:p-8">
+          <div className="flex flex-col gap-1.5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
+              Doplňky k dokoupení pro nižší tarify
+            </div>
+            <div className="text-sm text-dodio-ink-muted">
+              Smart HR a role Účetní nejsou jen ve vyšších tarifech — dokoupíte je samostatně, i když je
+              ještě nepotřebujete jako celý balíček.
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-2.5 text-[15px] leading-[22px] sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-3">
-            {INCLUDED.map((item) => (
-              <span key={item}>{item}</span>
+          <div className="flex flex-wrap gap-3">
+            {ADDONS.map((addon) => (
+              <div
+                key={addon.name}
+                className="rounded-dodio-md border border-dodio-border bg-dodio-surface px-4 py-3"
+              >
+                <div className="text-sm font-semibold text-dodio-ink">
+                  {addon.name} <span className="font-normal text-dodio-ink-muted">— {addon.monthlyPrice} Kč / měs.</span>
+                </div>
+                <div className="text-xs text-dodio-ink-muted">{addon.note}</div>
+              </div>
             ))}
-          </div>
-          <div className="text-sm text-dodio-ink-muted">
-            Integrace se Slackem a Microsoft Teams jako doplněk za [CENA DOPLŇKU]. Ceny jsou uvedeny [s
-            DPH / bez DPH].
           </div>
         </div>
       </Container>

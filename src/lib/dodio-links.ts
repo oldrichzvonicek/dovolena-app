@@ -10,7 +10,7 @@ export const DEMO_URL = "[KAM VEDE DEMO]";
 export const CONTACT_EMAIL = "[e-mail]@dodio.cz";
 
 export const NAV_LINKS = [
-  { href: "#funkce", label: "Funkce" },
+  { href: "#funkce", label: "Pro koho" },
   { href: "#kalendar", label: "Kalendář" },
   { href: "#integrace", label: "Integrace" },
   { href: "#cenik", label: "Ceník" },

@@ -17,7 +17,7 @@ export function Footer() {
           <div className="flex flex-col gap-3">
             <div className="font-semibold text-dodio-ink">Produkt</div>
             <a href="#funkce" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
-              Funkce
+              Pro koho
             </a>
             <a href="#integrace" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Integrace

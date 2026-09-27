@@ -3,7 +3,7 @@ import { CheckIcon } from "./icons";
 import { DodioMark } from "./DodioLogo";
 import { DEMO_URL, SIGNUP_URL } from "@/lib/dodio-links";
 
-const BENEFITS = ["Celé v češtině", "Zdarma do 5 lidí", "Exporty pro Pohodu"];
+const BENEFITS = ["Celé v češtině", "Zdarma do 5 lidí", "Exporty do CSV a Excelu"];
 
 function ApprovalChatCard({ className = "" }: { className?: string }) {
   // Illustrative app preview, not a real control surface — the whole card
@@ -17,7 +17,7 @@ function ApprovalChatCard({ className = "" }: { className?: string }) {
       <div className="flex items-center gap-2.5">
         <DodioMark size={28} />
         <div className="text-sm font-semibold">
-          Dodio <span className="font-normal text-dodio-ink-muted">· ve Slacku a Teams</span>
+          Dodio <span className="font-normal text-dodio-ink-muted">· schválení z e-mailu</span>
         </div>
       </div>
       <div className="text-[15px] leading-[22px]">
@@ -107,7 +107,7 @@ export function Hero() {
             Evidence absencí na pár kliků.
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
-            Žádost za tři kliknutí, schválení přímo ve Slacku nebo Teams a podklady pro mzdy jedním
+            Žádost za tři kliknutí, schválení jedním klikem přímo z e-mailu a podklady pro mzdy jedním
             exportem. Dodio hlídá zůstatky, české svátky i to, kdo dnes chybí.
           </p>
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">

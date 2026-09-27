@@ -1,5 +1,4 @@
 import { Container } from "./Container";
-import { enterpriseFaqAnswer } from "@/lib/dodio-pricing";
 
 const QUESTIONS = [
   {
@@ -7,16 +6,24 @@ const QUESTIONS = [
     a: "Ano. Státní svátky jsou v kalendáři vyznačené automaticky a do čerpání dovolené se nezapočítávají.",
   },
   {
-    q: "Do jakých mzdových systémů umíte exportovat?",
-    a: "Exporty ve formátu CSV, XLSX a PDF jsou připravené pro Pohodu, Pamicu a VEMA. Najdete je v tarifech Starter, Pro a Enterprise.",
+    q: "Do jakých formátů umíte exportovat podklady pro mzdy?",
+    a: "CSV, Excel a ODS — najdete je od tarifu Starter. Appka spočítá měsíční mzdový podklad i vyrovnání dovolené při odchodu zaměstnance.",
   },
   {
-    q: "Potřebujeme Slack nebo Teams?",
-    a: "Ne. Dodio funguje samostatně ve webovém prohlížeči. Napojení na Slack a Teams je volitelný doplněk.",
+    q: "Jak funguje schválení, když manažer není u počítače?",
+    a: "Manažer může schválit nebo zamítnout žádost jedním kliknutím přímo z e-mailu, bez přihlašování do appky. Odkaz platí 7 dní a rozhodnutí se vždy ještě potvrzuje, takže nejde nic schválit omylem.",
   },
   {
-    q: "Co když nás je víc než 30?",
-    a: enterpriseFaqAnswer(),
+    q: "Vidí appka moje zdravotní údaje?",
+    a: "Kolegové v týmovém kalendáři vidí jen „Nepřítomen“, ne že jde o nemoc. Konkrétní typ absence vidí jen nadřízený, admin, HR a účetní.",
+  },
+  {
+    q: "Musím appku vyzkoušet na kartu?",
+    a: "Ne. Tarif Free je zdarma do 5 uživatelů bez zadávání platební karty — stačí se zaregistrovat.",
+  },
+  {
+    q: "Jak dlouho trvá zavedení appky ve firmě?",
+    a: "Pár minut. Zaregistrujete se, nastavíte typy absencí a nároky, pošlete týmu registrační odkaz — žádný konzultant ani zavádění na týdny.",
   },
 ];
 

@@ -7,15 +7,18 @@ const CZECH_POINTS = [
     strong: "Typy absencí podle české praxe",
     rest: " – dovolená, nemoc, lékař, home office, neplacené a náhradní volno.",
   },
-  { strong: "Exporty pro české mzdové systémy", rest: " – Pohoda, Pamica, VEMA." },
+  {
+    strong: "Exporty do CSV, Excelu a ODS",
+    rest: " – měsíční mzdový podklad i vyrovnání dovolené při odchodu zaměstnance.",
+  },
   { strong: "Cena v korunách", rest: " – paušál podle velikosti týmu, bez přepočítávání lidí." },
   { strong: "GDPR ready", rest: "" },
 ];
 
 const INTEGRATION_GROUPS = [
-  { title: "Chat a schvalování", items: ["Slack", "Microsoft Teams"] },
   { title: "Kalendáře", items: ["Google Kalendář", "Outlook", "iCal"] },
-  { title: "Mzdy a účetnictví", items: ["Pohoda", "Pamica", "VEMA", "CSV · XLSX · PDF"] },
+  { title: "Mzdy a účetnictví", items: ["CSV", "Excel", "ODS"] },
+  { title: "Chystáme", items: ["Slack", "Microsoft Teams", "Discord", "Webhooky"] },
 ];
 
 export function Integrations() {
@@ -51,23 +54,30 @@ export function Integrations() {
               Nemusíte měnit návyky týmu. Dodio přijde za vámi.
             </p>
           </div>
-          {INTEGRATION_GROUPS.map((group) => (
-            <div key={group.title} className="flex flex-col gap-2.5">
-              <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
-                {group.title}
+          {INTEGRATION_GROUPS.map((group) => {
+            const upcoming = group.title === "Chystáme";
+            return (
+              <div key={group.title} className="flex flex-col gap-2.5">
+                <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
+                  {group.title}
+                </div>
+                <div className="flex flex-wrap gap-2.5">
+                  {group.items.map((item) => (
+                    <span
+                      key={item}
+                      className={
+                        upcoming
+                          ? "rounded-dodio-md border border-dashed border-dodio-border px-4 py-2.5 text-[15px] font-medium text-dodio-ink-muted"
+                          : "rounded-dodio-md border border-dodio-border bg-dodio-surface px-4 py-2.5 text-[15px] font-medium"
+                      }
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2.5">
-                {group.items.map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-dodio-md border border-dodio-border bg-dodio-surface px-4 py-2.5 text-[15px] font-medium"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Container>
     </section>
