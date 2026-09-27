@@ -16,7 +16,7 @@ interface Row {
   remaining: number;
 }
 
-/** Smart HR Insights — end-of-year report of people sitting on a large unused vacation balance, with a one-click bulk in-app reminder. */
+/** Smart HR — end-of-year report of people sitting on a large unused vacation balance, with a one-click bulk in-app reminder. */
 const TOP = 8;
 
 export function ExpiringVacationReport({ departmentId = "all" }: { departmentId?: string }) {

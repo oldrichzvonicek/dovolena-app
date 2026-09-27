@@ -44,7 +44,7 @@ export interface ExtraInsights {
   dailyCost: number | null;
 }
 
-/** Načte data pro další karty Smart HR Insights (vlastní dotazy, aby se hlavní komponenta nezatěžovala). */
+/** Načte data pro další karty Smart HR (vlastní dotazy, aby se hlavní komponenta nezatěžovala). */
 export function useExtraInsights(companyId: string | undefined, enabled: boolean, departmentId: string): ExtraInsights | null {
   const [state, setState] = useState<ExtraInsights | null>(null);
   useEffect(() => {
@@ -164,7 +164,7 @@ function Names({ ids, nameOf, limit = 6 }: { ids: string[]; nameOf: (id: string)
   );
 }
 
-/** Devět dalších karet. Vkládá se do mřížky karet Smart HR Insights. */
+/** Devět dalších karet. Vkládá se do mřížky karet Smart HR. */
 export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "plan" | "people" | "flow" }) {
   const { results: r, nameOf, dailyCost } = extra;
   const show = (key: string) => GROUPS[group].includes(key);

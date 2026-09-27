@@ -21,7 +21,7 @@ interface FlaggedRow {
 const LONG_VACATION_MIN_DAYS = 3;
 const FLAG_AFTER_DAYS = 182; // ~6 months
 
-/** Smart HR Insights — flags team members who haven't taken a proper break in 6+ months, so a manager can nudge them before it becomes a burnout problem. */
+/** Smart HR — flags team members who haven't taken a proper break in 6+ months, so a manager can nudge them before it becomes a burnout problem. */
 export function BurnoutWatch({ employees }: Props) {
   const [rows, setRows] = useState<FlaggedRow[] | null>(null);
   const [sent, setSent] = useState<Set<string>>(new Set());

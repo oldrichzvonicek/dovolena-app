@@ -1,4 +1,4 @@
-// Smart HR Insights — další postřehy nad daty, která v aplikaci už jsou. Stejné zásady jako v insights.ts: čisté funkce bez
+// Smart HR — další postřehy nad daty, která v aplikaci už jsou. Stejné zásady jako v insights.ts: čisté funkce bez
 // přístupu k databázi, nemoc jen souhrnně (nikdy po jménech, jen pro skupiny od MIN_GROUP lidí), každý postřeh jde dohledat.
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { MIN_GROUP } from "@/lib/insights";
