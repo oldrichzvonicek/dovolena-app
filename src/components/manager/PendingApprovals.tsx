@@ -365,7 +365,7 @@ export function PendingApprovals() {
                   </div>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setCalendarOpenId(calendarOpenId === r.id ? null : r.id)}
                     aria-expanded={calendarOpenId === r.id}
