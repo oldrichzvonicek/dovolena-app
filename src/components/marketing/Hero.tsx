@@ -163,7 +163,7 @@ export function Hero() {
             Pro malé a střední české firmy
           </div>
           <h1 className="m-0 font-dodio-display text-[40px] font-extrabold leading-[44px] tracking-[-1px] text-dodio-ink lg:text-[68px] lg:leading-[72px] lg:tracking-[-2px]">
-            Firemní absence na pár kliků.
+            Správa firemních absencí na pár kliknutí.
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
             Žádost za tři kliknutí, schválení jedním klikem přímo z e-mailu a podklady pro mzdy jedním
