@@ -50,6 +50,10 @@ create table if not exists companies (
   created_at timestamptz not null default now()
 );
 
+-- Krátké, na první pohled čitelné číslo firmy (na rozdíl od "id" výše, což je interní UUID) — pro komunikaci
+-- s podporou. Přiděluje se samo, popořadě, novým i zpětně existujícím firmám.
+alter table companies add column if not exists seq_id bigserial;
+
 -- Whether this company operates on weekends (e.g. retail/e-shop shift work).
 -- When false (the common case), the team calendar hides Saturday/Sunday
 -- columns entirely instead of showing them as always-empty gray columns.

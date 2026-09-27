@@ -316,12 +316,12 @@ export function CompanySettingsPanel() {
         <div className="mt-4">
           <label className="mb-1.5 block text-sm font-medium">ID firmy</label>
           <div className="flex flex-wrap items-center gap-2">
-            <input readOnly value={company.id} onFocus={(e) => e.currentTarget.select()} aria-label="ID firmy" className="min-w-0 flex-1 max-w-sm rounded border border-line bg-paper px-3 py-2 font-mono text-xs text-muted" />
+            <span className="rounded border border-line bg-paper px-3 py-1.5 font-mono text-sm tracking-wide">DOD-{company.seq_id}</span>
             <Button
               variant="secondary"
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(company.id);
+                  await navigator.clipboard.writeText(`DOD-${company.seq_id}`);
                   setCopiedId(true);
                   setTimeout(() => setCopiedId(false), 2000);
                 } catch {
@@ -332,7 +332,7 @@ export function CompanySettingsPanel() {
               {copiedId ? <Check size={14} className="text-teal-dark" /> : <Copy size={14} />} {copiedId ? "Zkopírováno" : "Kopírovat"}
             </Button>
           </div>
-          <p className="mt-1 text-xs text-muted">Jedinečný identifikátor vaší firmy v systému — uveďte ho, když řešíte cokoliv s podporou.</p>
+          <p className="mt-1 text-xs text-muted">Uveďte ho, když řešíte cokoliv s podporou.</p>
         </div>
       </div>
 

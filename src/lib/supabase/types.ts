@@ -17,6 +17,8 @@ export type ShiftPattern = "none" | "two_shift" | "three_shift";
 
 export interface DbCompany {
   id: string;
+  /** Krátké čitelné číslo firmy pro podporu (na rozdíl od "id", což je interní UUID). */
+  seq_id: number;
   name: string;
   weekend_operations: boolean;
   /** Tlačítka Schválit / Zamítnout v e-mailu schvalovateli (výchozí zapnuto). */
