@@ -107,7 +107,7 @@ function BalanceCard({ tile }: { tile: BalanceTile }) {
 
 function OverviewCard() {
   const outToday = [
-    { initials: "MS", bg: "bg-[#FBE4DA]", fg: "text-dodio-coral-dark", name: "Martin Svoboda", detail: "Nemoc · do úterý" },
+    { initials: "MS", bg: "bg-[#FBE4DA]", fg: "text-dodio-coral-dark", name: "Martin Svoboda", detail: "Nepřítomen · do úterý" },
     { initials: "TD", bg: "bg-[#ECEAE3]", fg: "text-dodio-ink", name: "Tomáš Dvořák", detail: "Home office · celý den" },
     { initials: "LČ", bg: "bg-[#E3F2EC]", fg: "text-dodio-teal-dark", name: "Lucie Černá", detail: "Lékař · 8:00–11:00" },
   ];

@@ -35,7 +35,7 @@ export default function OpengraphImage() {
             <div
               style={{
                 position: "absolute",
-                top: -26,
+                bottom: -26,
                 right: -26,
                 width: 52,
                 height: 52,

@@ -1,18 +1,18 @@
-// Dodio's mark: a rounded teal square with a coral "bitten corner" circle —
-// reads as one highlighted day in a calendar. Reproduced from the design
-// system's mark.svg/lockup.svg description; not to be redrawn or recolored.
+// Dodio's mark: a rounded teal square with a coral "bitten corner" circle in
+// the bottom-right — reads as one highlighted day in a calendar. Exact copy
+// of the design system's mark.svg geometry; not to be redrawn or recolored.
 export function DodioMark({ size = 32, className }: { size?: number; className?: string }) {
   const clipId = `dodio-mark-clip-${size}`;
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={className}>
+    <svg width={size} height={size} viewBox="0 0 96 96" aria-hidden="true" className={className}>
       <defs>
         <clipPath id={clipId}>
-          <rect width="32" height="32" rx="8" />
+          <rect x="0" y="0" width="96" height="96" rx="22" />
         </clipPath>
       </defs>
+      <rect x="0" y="0" width="96" height="96" rx="22" fill="#0F9D7C" />
       <g clipPath={`url(#${clipId})`}>
-        <rect width="32" height="32" fill="#0F9D7C" />
-        <circle cx="32" cy="0" r="13" fill="#F0997B" />
+        <circle cx="96" cy="96" r="34" fill="#F0997B" />
       </g>
     </svg>
   );

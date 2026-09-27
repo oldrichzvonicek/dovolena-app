@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 96 96">
   <defs>
     <clipPath id="dodio-favicon-clip">
-      <rect width="32" height="32" rx="8" />
+      <rect x="0" y="0" width="96" height="96" rx="22" />
     </clipPath>
   </defs>
+  <rect x="0" y="0" width="96" height="96" rx="22" fill="#0F9D7C" />
   <g clip-path="url(#dodio-favicon-clip)">
-    <rect width="32" height="32" fill="#0F9D7C" />
-    <circle cx="32" cy="0" r="13" fill="#F0997B" />
+    <circle cx="96" cy="96" r="34" fill="#F0997B" />
   </g>
 </svg>

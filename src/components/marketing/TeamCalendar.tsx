@@ -111,7 +111,7 @@ export function TeamCalendar() {
               Čeká · dovolená
             </div>
             <div className="z-[2] col-start-2 col-end-4 row-start-5 mx-1.5 flex h-[34px] items-center self-center rounded-dodio-md bg-dodio-coral px-3 text-[13px] font-semibold text-dodio-coral-dark">
-              Nemoc
+              Nepřítomen
             </div>
             <div className="z-[2] col-start-7 col-end-8 row-start-6 mx-1.5 flex h-8 items-center justify-center self-center rounded-dodio-md border border-dodio-teal bg-[#E3F2EC] text-xs font-semibold text-dodio-teal-dark">
               Lékař
