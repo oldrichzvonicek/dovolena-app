@@ -477,6 +477,12 @@ const ALL_FAQS: HelpFaq[] = [
     roles: ["admin"],
   },
   {
+    q: "Jak přidám APD (all-purpose day) a jak ho čerpat ze sick days?",
+    section: "Nastavení firmy (admin)",
+    a: "V Nastavení firmy → Typy absencí dole vyplňte „Nový typ“ (např. „APD“ nebo „Volno k vyřízení“), zvolte barvu a v poli „Čerpá se z“ vyberte „Čerpá sick days“ — od schválení se pak APD strhává rovnou ze zůstatku sick days, žádné ruční přepočítávání není potřeba. Počet dní k dispozici řídí nárok na sick days u zaměstnance (Uživatelé → Upravit) — zvlášť „APD dny“ appka nevede, jde o stejný fond. Když chcete APD oddělit od nemoci, přidejte ho zvlášť s „Čerpá se z“ = „Nečerpá nic“ a fond nastavte vlastním výchozím počtem dní typu.",
+    roles: ["admin"],
+  },
+  {
     q: "Změnil(a) jsem pravidla. Platí i pro už podané žádosti?",
     a: "Ne. Nová pravidla (předstih, zpětné zadávání, mínus, blokované termíny) se uplatní až u nově zadávaných žádostí. Už podané a schválené žádosti zůstanou beze změny.",
     section: "Nastavení firmy (admin)",
