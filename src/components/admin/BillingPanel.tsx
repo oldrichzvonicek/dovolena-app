@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Banknote, Building2, Check, CreditCard, Download, FileArchive, Search } from "lucide-react";
+import { AlertTriangle, Banknote, Building2, Check, CreditCard, Download, FileArchive, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { CompanyBilling, fetchBilling, fetchCompany, fetchCompanyInvoices, invoiceFileUrl, saveBilling } from "@/lib/admin-data";
 import { Button } from "@/components/ui/button";
@@ -151,7 +151,7 @@ export function BillingPanel() {
         onChanged={() => profile && fetchCompany(profile.company_id).then(setCompany)}
       />
 
-      <div className="card p-5">
+      <div id="fakturacni-udaje" className="card scroll-mt-24 p-5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-light text-sky-dark">
             <Building2 size={15} />
@@ -213,7 +213,11 @@ export function BillingPanel() {
           <Button onClick={handleSaveBilling} disabled={!dirty || saving}>
             {saving ? "Ukládám…" : "Uložit fakturační údaje"}
           </Button>
-          {dirty && !saving && <span className="text-sm text-warning-dark">Máte neuložené změny.</span>}
+          {dirty && !saving && (
+            <span className="flex items-center gap-1.5 rounded-full bg-warning-light px-2.5 py-1 text-xs font-medium text-warning-dark">
+              <AlertTriangle size={12} /> Máte neuložené změny
+            </span>
+          )}
           {saveMsg && (
             <span className={cn("flex items-center gap-1.5 text-sm", saveMsg.error ? "text-danger-dark" : "text-teal-dark")}>
               {!saveMsg.error && <Check size={14} />} {saveMsg.text}
@@ -221,6 +225,18 @@ export function BillingPanel() {
           )}
         </div>
       </div>
+
+      {/* I když formulář odscrolluje z dohledu, upozornění a možnost uložit zůstává vidět. */}
+      {dirty && !saving && (
+        <div className="pointer-events-none sticky bottom-4 z-30 flex justify-end" aria-live="polite">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-warning/40 bg-warning-light px-4 py-2 text-sm text-warning-dark shadow-[0_8px_30px_rgba(22,35,59,0.14)]">
+            <AlertTriangle size={14} /> Máte neuložené fakturační údaje
+            <Button className="px-3 py-1 text-xs" onClick={handleSaveBilling} disabled={saving}>
+              Uložit
+            </Button>
+          </div>
+        </div>
+      )}
 
       {planByKey(company.plan).key !== "free" && (
         <div className="card p-5">

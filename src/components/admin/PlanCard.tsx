@@ -66,6 +66,11 @@ export function PlanCard({ planKey, billing, onChanged }: { planKey: string | nu
 
   const paidUntil = billing?.plan_paid_until ?? null;
   const pendingPlan = billing?.pending_plan ? planByKey(billing.pending_plan) : null;
+  // Skutečně placená částka: podle SKUTEČNÉ fakturační periody firmy (ne podle přepínače Měsíčně/Ročně níže,
+  // který jen umožňuje si prohlédnout ceny ostatních tarifů — na to, co firma doopravdy platí, nemá vliv).
+  // Stejná funkce planPrice() jako v mřížce tarifů, ať se to nikdy nerozejde.
+  const actualPeriod = billing?.billing_period ?? "monthly";
+  const topPrice = planPrice(plan, users, actualPeriod);
 
   async function choose(target: Plan) {
     const kind = changeKind(plan.key, target.key);
@@ -117,9 +122,12 @@ Děkujeme.`);
     window.location.href = `mailto:${salesEmail}?subject=${subject}&body=${body}`;
   }
 
+  // U ročního přepínače jde vždy o CELKOVOU částku za rok (ne měsíční ekvivalent) — "účtováno ročně" to říká
+  // natvrdo, ať nikdo netipuje, jestli je to za měsíc nebo za rok.
   const priceOf = (p: Plan) => {
     const price = planPrice(p, users, period);
-    return price === 0 ? "0 Kč" : `${formatKc(price)} / ${period === "monthly" ? "měs." : "rok"}`;
+    if (price === 0) return "0 Kč";
+    return period === "monthly" ? `${formatKc(price)} / měs.` : `${formatKc(price)} / rok (účtováno ročně)`;
   };
 
   return (
@@ -135,7 +143,7 @@ Děkujeme.`);
                 Váš tarif: <span className="text-teal-dark">{plan.name}</span>
               </h2>
               <p className="text-xs text-muted">
-                {planPrice(plan, users, "monthly") === 0 ? "0 Kč" : `${formatKc(planPrice(plan, users, "monthly"))} / měs.`}
+                {topPrice === 0 ? "0 Kč" : `${formatKc(topPrice)} / ${actualPeriod === "monthly" ? "měs." : "rok"}`}
                 {paidUntil && plan.monthly > 0 && (
                   <>
                     {" "}
@@ -245,16 +253,20 @@ Děkujeme.`);
                   ))}
                 </ul>
                 {!fits && !current && employees !== null && <p className="mt-2 text-xs text-warning-dark">Tarif je pro max. {p.employeeLimit} uživatelů. Pro váš tým ({employees} členů) zvolte {recommendedFor(employees).name}.</p>}
-                <Button
-                  className="mt-4 w-full justify-center"
-                  variant={p.recommended && !current ? "primary" : "secondary"}
-                  disabled={current || changing || isPending || (fits && !(kind === "downgrade" && paidUntil) && !salesEmail)}
-                  title={!fits ? `Tarif je určen pro maximálně ${p.employeeLimit} uživatelů. Kliknutím uvidíte, co je potřeba udělat.` : undefined}
-                  onClick={() => (!fits ? setBlockedPlan(p) : choose(p))}
-                >
-                  {current
-                    ? "Aktuální tarif"
-                    : isPending
+                {/* "Váš tarif" nahoře v kartě už stav řekl — dole ať je místo šedého neaktivního tlačítka skutečná akce. */}
+                {current ? (
+                  <a href="#fakturacni-udaje" className="mt-4 flex w-full items-center justify-center rounded border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper">
+                    Upravit fakturační údaje
+                  </a>
+                ) : (
+                  <Button
+                    className="mt-4 w-full justify-center"
+                    variant={p.recommended ? "primary" : "secondary"}
+                    disabled={changing || isPending || (fits && !(kind === "downgrade" && paidUntil) && !salesEmail)}
+                    title={!fits ? `Tarif je určen pro maximálně ${p.employeeLimit} uživatelů. Kliknutím uvidíte, co je potřeba udělat.` : undefined}
+                    onClick={() => (!fits ? setBlockedPlan(p) : choose(p))}
+                  >
+                    {isPending
                       ? `Naplánováno od ${billing?.pending_plan_from ? czDate(billing.pending_plan_from) : ""}`
                       : kind === "downgrade" && paidUntil
                         ? "Naplánovat přechod"
@@ -263,7 +275,8 @@ Děkujeme.`);
                           : kind === "upgrade"
                             ? "Požádat o přechod"
                             : "Zvolit tarif"}
-                </Button>
+                  </Button>
+                )}
                 {kind === "upgrade" && quote && (
                   <p className="mt-2 text-[11px] text-muted">
                     Orientační doplatek při přechodu dnes: <strong>{formatKc(quote.toPay)}</strong> (kredit za nevyužité období {formatKc(quote.credit)}).
