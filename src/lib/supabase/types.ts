@@ -23,6 +23,8 @@ export interface DbCompany {
   email_approval_enabled?: boolean;
   /** Vyžadovat 2FA pro admina, HR a účetní. */
   require_mfa_staff?: boolean;
+  /** Zaměstnanci a manažeři vidí absence jen vlastního oddělení (a svých přímých podřízených). */
+  department_scoped_visibility?: boolean;
   shift_pattern: ShiftPattern;
   standard_daily_hours: number;
   work_days: number[];

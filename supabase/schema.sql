@@ -1199,12 +1199,14 @@ begin
   if new.status = 'approved' then
     insert into notifications (profile_id, type, leave_request_id, title, body)
     values (new.profile_id, 'request_approved', new.id, 'Žádost schválena',
-      'Vaše žádost o absenci (' || coalesce(type_label, 'absence') || ', ' || date_range || ') byla schválena.');
+      -- Typ se jmenuje přímo v závorce hned vedle "žádost" (ne přes obecné "absenci"), ať je hned na první
+      -- pohled jasné, co bylo schváleno: dovolená / sick day / home office apod.
+      'Vaše žádost (' || coalesce(type_label, 'absence') || ', ' || date_range || ') byla schválena.');
   elsif new.status = 'rejected' then
     insert into notifications (profile_id, type, leave_request_id, title, body)
     values (
       new.profile_id, 'request_rejected', new.id, 'Žádost zamítnuta',
-      'Vaše žádost o absenci (' || coalesce(type_label, 'absence') || ', ' || date_range || ') byla zamítnuta.'
+      'Vaše žádost (' || coalesce(type_label, 'absence') || ', ' || date_range || ') byla zamítnuta.'
         || case when new.rejection_reason is not null and new.rejection_reason <> ''
              then ' Důvod: ' || new.rejection_reason
              else ''
@@ -2006,6 +2008,10 @@ $$;
 alter table companies add column if not exists email_approval_enabled boolean not null default true;
 -- Firma může vyžadovat dvoufázové ověření (2FA) pro admina, HR a účetní (kontrola v aplikaci, viz MfaGate).
 alter table companies add column if not exists require_mfa_staff boolean not null default false;
+-- Když je zapnuto, zaměstnanci a manažeři vidí absence jen kolegů ve svém vlastním oddělení (a svých přímých
+-- podřízených, i mimo oddělení — viz superior_check). Admin, HR a účetní vidí vždy vše. Vynucuje se v can_view_request,
+-- ne jen v UI, takže to platí i pro Týmový kalendář, "Kdo dnes chybí" i případné budoucí reporty.
+alter table companies add column if not exists department_scoped_visibility boolean not null default false;
 
 create or replace function email_decide_request(p_request uuid, p_approver uuid, p_decision text, p_reason text default null)
 returns text
@@ -2631,6 +2637,23 @@ as $$
   select coalesce((select hide_from_colleagues from leave_types where id = type_id), false);
 $$;
 
+-- Je volající ve stejném oddělení jako p_profile? (Bez oddělení na obou stranách se nepočítá jako shoda.)
+create or replace function same_department(p_profile uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from profiles me
+    join profiles them on them.id = p_profile
+    where me.id = auth.uid()
+      and me.department_id is not null
+      and me.department_id = them.department_id
+  );
+$$;
+
 create or replace function can_view_request(req_profile uuid, req_type uuid)
 returns boolean
 language sql
@@ -2641,8 +2664,14 @@ as $$
   select req_profile = auth.uid()
     or current_user_role() = 'admin'
     or current_user_staff() is not null
-    or not request_type_hidden(req_type)
-    or is_superior_of(req_profile);
+    or is_superior_of(req_profile)
+    or (
+      not request_type_hidden(req_type)
+      and (
+        not coalesce((select department_scoped_visibility from companies where id = current_company_id()), false)
+        or same_department(req_profile)
+      )
+    );
 $$;
 
 drop policy if exists "select leave_requests in company" on leave_requests;

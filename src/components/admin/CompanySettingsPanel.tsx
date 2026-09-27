@@ -3,7 +3,7 @@
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Ban, CalendarOff, CheckCircle2, Settings, Trash2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Ban, Building2, CalendarOff, Check, CheckCircle2, Copy, Settings, Trash2, ShieldCheck } from "lucide-react";
 import { FeatureGate, LockedFeature, PlanTag } from "@/components/shared/FeatureGate";
 import { useFeatures } from "@/lib/use-features";
 import { useAuth } from "@/lib/auth-context";
@@ -43,6 +43,7 @@ const weekDays = [
 ];
 
 const sections = [
+  { id: "sec-obecne", label: "Obecné" },
   { id: "sec-logo", label: "Logo firmy" },
   { id: "sec-kalendar", label: "Kalendář a směny" },
   { id: "sec-pravidla", label: "Pravidla pro žádosti" },
@@ -254,7 +255,8 @@ export function CompanySettingsPanel() {
   const [blackouts, setBlackouts] = useState<DbBlackoutPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const save = useSaveStatus();
-  const [activeSection, setActiveSection] = useState("sec-kalendar");
+  const [activeSection, setActiveSection] = useState("sec-obecne");
+  const [copiedId, setCopiedId] = useState(false);
 
   async function load() {
     if (!profile) return;
@@ -293,6 +295,47 @@ export function CompanySettingsPanel() {
     <div className="space-y-6">
       <SectionIndex sections={sections} active={activeSection} onActive={setActiveSection} />
 
+      <div id="sec-obecne" className="card scroll-mt-24 p-5">
+        <SectionHeader icon={<Building2 size={15} />} title="Obecné" className="bg-sky-light text-sky-dark" />
+
+        <div className="mt-4">
+          <label className="mb-1.5 block text-sm font-medium">Název firmy</label>
+          <input
+            defaultValue={company.name}
+            aria-label="Název firmy"
+            className="w-full max-w-sm rounded border border-line bg-white px-3 py-2 text-sm"
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (v && v !== company.name) patch({ name: v });
+              else e.target.value = company.name;
+            }}
+          />
+          <p className="mt-1 text-xs text-muted">Zobrazuje se v hlavičce, e-mailech a na faktuře.</p>
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-1.5 block text-sm font-medium">ID firmy</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input readOnly value={company.id} onFocus={(e) => e.currentTarget.select()} aria-label="ID firmy" className="min-w-0 flex-1 max-w-sm rounded border border-line bg-paper px-3 py-2 font-mono text-xs text-muted" />
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(company.id);
+                  setCopiedId(true);
+                  setTimeout(() => setCopiedId(false), 2000);
+                } catch {
+                  /* clipboard blocked */
+                }
+              }}
+            >
+              {copiedId ? <Check size={14} className="text-teal-dark" /> : <Copy size={14} />} {copiedId ? "Zkopírováno" : "Kopírovat"}
+            </Button>
+          </div>
+          <p className="mt-1 text-xs text-muted">Jedinečný identifikátor vaší firmy v systému — uveďte ho, když řešíte cokoliv s podporou.</p>
+        </div>
+      </div>
+
       <div id="sec-logo" className="scroll-mt-24">
         <LogoCard />
       </div>
@@ -315,45 +358,52 @@ export function CompanySettingsPanel() {
           />
         </label>
 
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Směnný provoz</label>
-            <Select value={company.shift_pattern} onValueChange={(v) => patch({ shift_pattern: v as ShiftPattern })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(shiftLabel) as ShiftPattern[]).map((k) => (
-                  <SelectItem key={k} value={k}>
-                    {shiftLabel[k]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Standardní úvazek</label>
-            <UnitInput unit="hodin / den" min={1} max={24} step={0.5} defaultValue={company.standard_daily_hours} aria-label="Standardní úvazek v hodinách za den" onBlur={(e) => patch({ standard_daily_hours: Number(e.target.value) })} className="[&_input]:w-16" />
-          </div>
-        </div>
-        <p className="mt-1.5 text-xs text-muted">
-          Směnný provoz je zatím informativní. Pracovní dny níže se už používají při výpočtu počtu dní absence.
-        </p>
-
         <div className="mt-3">
-          <label className="mb-1.5 block text-sm font-medium">Pracovní dny</label>
-          <div className="flex gap-1.5">
-            {weekDays.map((d) => (
-              <button
-                key={d.iso}
-                onClick={() => toggleWorkDay(d.iso)}
-                className={`h-9 w-9 rounded border text-sm font-medium ${
-                  company.work_days.includes(d.iso) ? "border-teal bg-teal-light text-teal-dark" : "border-line text-muted hover:bg-paper"
-                }`}
-              >
-                {d.label}
-              </button>
-            ))}
+          <label className="mb-1.5 block text-sm font-medium">Směnný provoz</label>
+          <Select value={company.shift_pattern} onValueChange={(v) => patch({ shift_pattern: v as ShiftPattern })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(shiftLabel) as ShiftPattern[]).map((k) => (
+                <SelectItem key={k} value={k}>
+                  {shiftLabel[k]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1.5 text-xs text-muted">Zatím jen informativní, nikde se s ním nepočítá.</p>
+        </div>
+
+        <div className="mt-4 border-t border-line pt-4">
+          <div className="text-sm font-medium">Týdenní pracovní rozvrh</div>
+          <p className="mt-0.5 text-sm text-muted">
+            Pracovní dny se používají při výpočtu počtu dní absence (kolik dní se strhne ze zůstatku). Hodiny za den jsou zatím jen informativní (zobrazí se ve statistikách, na absenci v celých dnech vliv nemají).
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">Pracovní dny</label>
+              <div className="flex gap-1.5">
+                {weekDays.map((d) => (
+                  <button
+                    key={d.iso}
+                    onClick={() => toggleWorkDay(d.iso)}
+                    className={`h-9 w-9 rounded border text-sm font-medium ${
+                      company.work_days.includes(d.iso) ? "border-teal bg-teal-light text-teal-dark" : "border-line text-muted hover:bg-paper"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">Hodin za den</label>
+              <UnitInput unit="hodin / den" min={1} max={24} step={0.5} defaultValue={company.standard_daily_hours} aria-label="Standardní úvazek v hodinách za den" onBlur={(e) => patch({ standard_daily_hours: Number(e.target.value) })} className="[&_input]:w-16" />
+            </div>
+            <p className="pb-2 text-sm text-muted">
+              = {company.work_days.length * company.standard_daily_hours} h týdně ({company.work_days.length} {dayWord(company.work_days.length)})
+            </p>
           </div>
         </div>
       </div>
@@ -508,6 +558,21 @@ export function CompanySettingsPanel() {
             disabled={company.require_mfa_staff === true}
             title={company.require_mfa_staff === true ? "Vypnuto, protože je vyžadováno dvoufázové ověření" : undefined}
             onChange={(e) => patch({ email_approval_enabled: e.target.checked })}
+            className="h-5 w-5 shrink-0 rounded border-line accent-teal"
+          />
+        </label>
+
+        <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
+          <div>
+            <div className="text-sm font-medium">Absence jen v rámci vlastního oddělení</div>
+            <p className="mt-0.5 text-sm text-muted">
+              Zaměstnanci a manažeři uvidí v Týmovém kalendáři a widgetu „Kdo dnes chybí" absence jen kolegů ze svého oddělení. Přímé podřízené a lidi ve svém oddělení vidí manažer vždy, i když formálně patří jinam. Admin, HR a účetní vidí vždy vše.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={company.department_scoped_visibility === true}
+            onChange={(e) => patch({ department_scoped_visibility: e.target.checked })}
             className="h-5 w-5 shrink-0 rounded border-line accent-teal"
           />
         </label>
