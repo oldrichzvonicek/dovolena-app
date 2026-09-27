@@ -108,7 +108,7 @@ const SERIES: { key: TrendSeries; label: string }[] = [
 const hours = (h: number) => (h < 1 ? "do hodiny" : h < 48 ? `${formatNumber(h)} h` : `${formatNumber(Math.round((h / 24) * 10) / 10)} dní`);
 
 /**
- * Smart HR Insights (admin + HR): předpověď kapacity, nemocnost jen souhrnně (nikdy po jménech), rychlost schvalování,
+ * Smart HR (admin + HR): předpověď kapacity, nemocnost jen souhrnně (nikdy po jménech), rychlost schvalování,
  * závazek z nevyčerpané dovolené a zůstatky. Výpočty jsou v lib/insights.ts.
  */
 export function HrInsights({ departmentId = "all" }: { departmentId?: string }) {
@@ -272,7 +272,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
 
   if (!profile || !allowed || features.loading) return null;
   if (!unlocked) return <LockedInsights />;
-  if (error) return <p className="text-sm text-danger-dark">Smart HR Insights se nepodařilo načíst: {error}</p>;
+  if (error) return <p className="text-sm text-danger-dark">Smart HR se nepodařilo načíst: {error}</p>;
   if (!data) return null;
 
   const recharge = rechargeScore(
@@ -609,13 +609,13 @@ function FairRota({ data, periodKey }: { data: Data; periodKey: string }) {
   );
 }
 
-/** Zamčená ukázka pro firmy bez Smart HR Insights (Free / Starter / Team): vysvětlení a cesta k doplňku nebo vyššímu tarifu. */
+/** Zamčená ukázka pro firmy bez Smart HR (Free / Starter / Team): vysvětlení a cesta k doplňku nebo vyššímu tarifu. */
 function LockedInsights() {
   const addon = ADDONS.find((a) => a.key === "hr_insights")!;
   return (
     <div className="card border-dashed p-5">
       <div className="flex items-center gap-2 font-display text-h2">
-        <LineChart size={18} className="text-teal-dark" /> Smart HR Insights <InfoTip text={addon.info} label="Co jsou Smart HR Insights" />
+        <LineChart size={18} className="text-teal-dark" /> Smart HR <InfoTip text={addon.info} label="Co je Smart HR" />
       </div>
       <p className="mt-1 text-sm text-muted">
         Shrnutí týdne, předpověď kapacity, hokejka dovolené, zástupy a kolize vedoucích, trendy, anonymní nemocnost, závazek z dovolené a férové plánování. Ve vašem tarifu nejsou zahrnuty.
