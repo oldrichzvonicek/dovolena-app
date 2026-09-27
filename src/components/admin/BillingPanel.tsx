@@ -43,6 +43,9 @@ export function BillingPanel() {
   const [aresError, setAresError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ text: string; error: boolean } | null>(null);
+  // Odlišuje "appka sama předvyplnila e-mail admina" od "uživatel opravdu něco napsal" — jinak by
+  // appka hlásila neuložené změny (a nabízela beforeunload) hned po otevření, aniž se čehokoli dotkl.
+  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -59,21 +62,23 @@ export function BillingPanel() {
   }, [profile]);
 
   const dirty = !!billing && !!draft && JSON.stringify(draft) !== JSON.stringify(toDraft(billing));
+  const warnDirty = dirty && touched;
   const invoiceEmailMissing = (billing?.payment_method ?? "invoice") === "invoice" && !!draft && !draft.billing_email.trim();
 
-  // Explicit-save form: warn before the browser tab is closed with unsaved changes.
+  // Explicit-save form: warn before the browser tab is closed with unsaved changes the person actually made.
   useEffect(() => {
-    if (!dirty) return;
+    if (!warnDirty) return;
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [warnDirty]);
 
   function setField(key: keyof Draft, value: string) {
     setSaveMsg(null);
+    setTouched(true);
     setDraft((d) => (d ? { ...d, [key]: value } : d));
   }
 
@@ -116,6 +121,7 @@ export function BillingPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Vyhledání v ARES se nezdařilo.");
       setSaveMsg(null);
+      setTouched(true);
       showToast("Fakturační údaje z ARES úspěšně načteny. Zkontrolujte je a uložte.");
       // Fills the form only — nothing is stored until "Uložit fakturační údaje".
       setDraft((d) => ({
@@ -213,7 +219,7 @@ export function BillingPanel() {
           <Button onClick={handleSaveBilling} disabled={!dirty || saving}>
             {saving ? "Ukládám…" : "Uložit fakturační údaje"}
           </Button>
-          {dirty && !saving && (
+          {warnDirty && !saving && (
             <span className="flex items-center gap-1.5 rounded-full bg-warning-light px-2.5 py-1 text-xs font-medium text-warning-dark">
               <AlertTriangle size={12} /> Máte neuložené změny
             </span>
@@ -227,7 +233,7 @@ export function BillingPanel() {
       </div>
 
       {/* I když formulář odscrolluje z dohledu, upozornění a možnost uložit zůstává vidět. */}
-      {dirty && !saving && (
+      {warnDirty && !saving && (
         <div className="pointer-events-none sticky bottom-4 z-30 flex justify-end" aria-live="polite">
           <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-warning/40 bg-warning-light px-4 py-2 text-sm text-warning-dark shadow-[0_8px_30px_rgba(22,35,59,0.14)]">
             <AlertTriangle size={14} /> Máte neuložené fakturační údaje

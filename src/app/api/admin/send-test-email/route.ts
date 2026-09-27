@@ -29,6 +29,10 @@ export async function POST(req: NextRequest) {
   const { subject, text, html } = renderTemplate(template.key, TEMPLATE_SAMPLE, appUrl());
   const result = await sendEmail(to, `[TEST] ${subject}`, text, html);
   if (result.skipped) return NextResponse.json({ error: "RESEND_API_KEY není nastaven — e-maily se zatím jen řadí do fronty." }, { status: 400 });
-  if (!result.ok) return NextResponse.json({ error: result.error ?? "Odeslání se nezdařilo." }, { status: 500 });
+  if (!result.ok) {
+    // result.error je syrová odpověď poskytovatele (JSON, anglicky) — adminovi se nezobrazuje, jen se zaloguje pro ladění.
+    console.error("send-test-email selhalo:", result.error);
+    return NextResponse.json({ error: "Odeslání se nezdařilo — zkuste to prosím znovu, nebo kontaktujte podporu." }, { status: 502 });
+  }
   return NextResponse.json({ ok: true, to });
 }
