@@ -80,11 +80,18 @@ function SectionIndex({ sections, active, onActive }: { sections: { id: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Na mobilu je ten pruh užší než všech 7 položek — aktivní se sama nejspíš odscrolluje mimo obrazovku a
+  // vypadá to, že se při scrollování stránky nic neděje. Aktivní položku proto vždy dotáhneme zpátky do vidu.
+  useEffect(() => {
+    document.getElementById(`tab-${active}`)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [active]);
+
   return (
     <nav aria-label="Sekce provozu" className="sticky top-0 z-20 -mx-1 flex gap-1.5 overflow-x-auto bg-paper/95 px-1 py-2 backdrop-blur">
       {sections.map((s) => (
         <a
           key={s.id}
+          id={`tab-${s.id}`}
           href={`#${s.id}`}
           onClick={(e) => {
             e.preventDefault();

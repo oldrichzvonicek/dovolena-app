@@ -313,7 +313,7 @@ function LoginForm() {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full rounded border border-line px-3 py-2 text-sm"
-                placeholder="NaturaMed s.r.o." aria-label="NaturaMed s.r.o."
+                placeholder="Název firmy s.r.o." aria-label="Název firmy s.r.o."
               />
             </div>
           )}
