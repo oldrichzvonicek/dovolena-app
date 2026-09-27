@@ -101,7 +101,10 @@ alter table companies add column if not exists logo_url text;
 
 -- Poměrná dovolená pro nováčky během roku: nárok se krátí podle zbývajících
 -- měsíců (včetně měsíce nástupu), zaokrouhleno na půl dne.
-alter table companies add column if not exists prorate_new_hires boolean not null default false;
+alter table companies add column if not exists prorate_new_hires boolean not null default true;
+-- Výchozí pro NOVĚ založené firmy je zapnuto (poměrná dovolená nováčkům dává smysl skoro vždy) — u firem, které
+-- už existují, se "add column if not exists" na jejich uloženou hodnotu nesahá, tohle jen mění výchozí pro budoucí.
+alter table companies alter column prorate_new_hires set default true;
 
 -- Tarif firmy (free / basic = Starter / starter = Team / pro; zastaralé 'enterprise' se bere jako pro) — názvy, limity a ceny viz src/lib/plans.ts.
 alter table companies add column if not exists plan text not null default 'free';
