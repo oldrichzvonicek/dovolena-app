@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Bell, CheckCircle2, Clock, RefreshCw, RotateCcw } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, Clock, Eye, RefreshCw, RotateCcw, Send } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { EMAIL_TEMPLATES } from "@/lib/email-templates";
+import { EMAIL_TEMPLATES, renderTemplate, TEMPLATE_SAMPLE } from "@/lib/email-templates";
 import { EMAIL_CATEGORIES, EmailCategoryKey, EmailStatus, PLANNED_TEMPLATES, STATUS_LABEL, categoryLabel, isCategoryEnabled } from "@/lib/email-settings";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingLines } from "@/components/ui/skeleton";
+import { showToast } from "@/lib/toast";
 import { cn, errorMessage } from "@/lib/utils";
 
 interface LogRow {
@@ -57,6 +59,22 @@ function Overview() {
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const [testBusy, setTestBusy] = useState<string | null>(null);
+
+  async function sendTest(templateKey: string) {
+    setTestBusy(templateKey);
+    try {
+      const res = await fetch("/api/admin/send-test-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateKey }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Odeslání se nezdařilo.");
+      showToast(`Testovací e-mail odeslán na ${json.to}.`);
+    } catch (e) {
+      showToast(errorMessage(e), "error");
+    } finally {
+      setTestBusy(null);
+    }
+  }
 
   useEffect(() => {
     if (!profile) return;
@@ -118,11 +136,27 @@ function Overview() {
             </div>
             <ul className="mt-3 divide-y divide-line rounded border border-line text-sm">
               {templates.map((t) => (
-                <li key={t.key} className="px-3 py-2">
-                  <div className="font-medium">{t.name}</div>
-                  <div className="text-xs text-muted">
-                    Komu: {t.to} · Kdy: {t.when}
+                <li key={t.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <div>
+                    <div className="font-medium">{t.name}</div>
+                    <div className="text-xs text-muted">
+                      Komu: {t.to} · Kdy: {t.when}
+                    </div>
                   </div>
+                  {isAdmin && (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button onClick={() => setPreviewKey(t.key)} className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark">
+                        <Eye size={12} /> Náhled
+                      </button>
+                      <button
+                        onClick={() => sendTest(t.key)}
+                        disabled={testBusy === t.key}
+                        className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark disabled:opacity-50"
+                      >
+                        <Send size={12} /> {testBusy === t.key ? "Odesílám…" : "Testovací e-mail"}
+                      </button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -139,6 +173,20 @@ function Overview() {
           Pozvánky, uvítání, fakturace, změny podmínek a smazání dat jsou provozní a vypnout je nepůjde. Část z nich se zatím neposílá ({PLANNED_TEMPLATES.length} připravených šablon), rozjedou se s fakturací a s právními dokumenty.
         </p>
       </div>
+
+      <Dialog open={previewKey !== null} onOpenChange={(o) => !o && setPreviewKey(null)}>
+        {previewKey && (
+          <DialogContent title={`Náhled — ${EMAIL_TEMPLATES.find((t) => t.key === previewKey)?.name ?? previewKey}`} className="max-w-2xl">
+            <p className="mb-3 text-xs text-muted">S ukázkovými daty (jméno, termín…), skutečný e-mail bude mít reálné údaje.</p>
+            <iframe
+              title="Náhled e-mailu"
+              srcDoc={renderTemplate(previewKey, TEMPLATE_SAMPLE, typeof window !== "undefined" ? window.location.origin : "").html}
+              className="h-[60vh] w-full rounded border border-line bg-white"
+              sandbox=""
+            />
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }
