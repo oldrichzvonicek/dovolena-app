@@ -496,7 +496,8 @@ export function UsersPanel() {
                 <SelectContent>
                   <SelectItem value="none">Bez nadřízeného</SelectItem>
                   {employees
-                    .filter((e) => e.active !== false && !selected.has(e.id))
+                    // Jen manažer nebo admin může reálně schvalovat — zaměstnanec by tu byl matoucí volba.
+                    .filter((e) => e.active !== false && !selected.has(e.id) && (e.role === "manager" || e.role === "admin"))
                     .map((e) => (
                       <SelectItem key={e.id} value={e.id}>
                         {e.name}

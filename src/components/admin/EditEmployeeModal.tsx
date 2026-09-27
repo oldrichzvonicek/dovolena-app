@@ -181,7 +181,10 @@ export function EditEmployeeModal({
                 <SelectContent>
                   <SelectItem value="none">Bez nadřízeného</SelectItem>
                   {employees
-                    .filter((e) => e.id !== employee.id)
+                    // Jen manažer nebo admin může reálně schvalovat — kdyby tu byl zaměstnanec, žádosti by
+                    // stejně tiše schvaloval jen admin. Aktuálně nastavená hodnota zůstává vidět, i kdyby
+                    // (ze starších dat) šlo o zaměstnance, ať admin ví, co je nastavené, a může to změnit.
+                    .filter((e) => e.id !== employee.id && (e.role === "manager" || e.role === "admin" || e.id === managerId))
                     .map((e) => (
                       <SelectItem key={e.id} value={e.id}>
                         {e.name}
