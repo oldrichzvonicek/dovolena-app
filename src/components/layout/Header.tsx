@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { HelpCircle, Menu, Search } from "lucide-react";
+import { HelpCircle, Menu } from "lucide-react";
 import { TOGGLE_NAV_EVENT } from "@/components/layout/Sidebar";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TOGGLE_HELP_EVENT } from "@/components/layout/HelpDrawer";
-import { TOGGLE_COMMAND_EVENT } from "@/components/layout/CommandPalette";
 import { NewRequestSplit } from "@/components/layout/NewRequestSplit";
 
 export function Header({ title, subtitle, hideNewRequest }: { title: string; subtitle?: string; hideNewRequest?: boolean }) {
@@ -30,16 +29,6 @@ export function Header({ title, subtitle, hideNewRequest }: { title: string; sub
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {!hideNewRequest && <NewRequestSplit />}
-        {/* Rychlé hledání (Cmd/Ctrl+K) dřív šlo otevřít jen klávesovou zkratkou, o které nikdo nevěděl — teď má i viditelné tlačítko. */}
-        <button
-          onClick={() => window.dispatchEvent(new Event(TOGGLE_COMMAND_EVENT))}
-          className="hidden items-center gap-1.5 rounded border border-line bg-white px-2.5 py-1.5 text-sm text-muted hover:bg-paper hover:text-ink sm:flex"
-          aria-label="Hledat (Ctrl+K)"
-        >
-          <Search size={15} />
-          <span className="hidden text-xs lg:inline">Hledat</span>
-          <kbd className="hidden rounded border border-line bg-paper px-1 text-[10px] font-medium text-muted lg:inline">Ctrl K</kbd>
-        </button>
         <button
           onClick={() => window.dispatchEvent(new Event(TOGGLE_HELP_EVENT))}
           className="hidden rounded p-2 text-muted hover:bg-white hover:text-ink sm:block"

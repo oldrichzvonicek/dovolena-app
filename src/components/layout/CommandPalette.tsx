@@ -58,8 +58,6 @@ const adminItems: Item[] = [
 ];
 const helpItem: Item = { href: "/help", label: "Nápověda", icon: HelpCircle, group: "Navigace" };
 
-export const TOGGLE_COMMAND_EVENT = "dodio:toggle-command";
-
 /** Global Cmd+K / Ctrl+K quick navigation — mounted once in the app shell. */
 export function CommandPalette() {
   const { profile } = useAuth();
@@ -140,13 +138,6 @@ export function CommandPalette() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  // Otevření i bez klávesnice — Ctrl+K/Cmd+K by bez viditelného tlačítka málokdo objevil (viz tlačítko Hledat v hlavičce).
-  useEffect(() => {
-    const toggle = () => setOpen((v) => !v);
-    window.addEventListener(TOGGLE_COMMAND_EVENT, toggle);
-    return () => window.removeEventListener(TOGGLE_COMMAND_EVENT, toggle);
   }, []);
 
   useEffect(() => {
