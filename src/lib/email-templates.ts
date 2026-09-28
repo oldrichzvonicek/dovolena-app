@@ -407,7 +407,7 @@ export const TEMPLATE_SAMPLE: Vars = {
   vysledek: "schváleno",
   cekajici: "2",
   pocet: "5",
-  seznam: "• Petr Novák — Dovolená (12. 10. – 16. 10.)",
+  seznam: "• Petr Novák — Dovolená (12. 10. – 16. 10.)\n• Jana Malá — Sick Day (13. 10. 2026)\n• Karel Beneš — Home Office (14. 10. – 15. 10.)",
   firma: "NaturaMed s.r.o.",
   pozvatel: "Oldřich Zvoníček",
   odkaz: "https://app.dodio.cz/login",
@@ -458,8 +458,27 @@ const emailLogoHtml = (baseUrl: string) => `<table role="presentation" cellpaddi
   <td valign="middle" style="font-size:20px;font-weight:bold;color:#085041">Dodio</td>
 </tr></table>`;
 
+// A paragraph made only of "• " lines (e.g. the weekly digest's list of who's out) renders as a real list —
+// bordered rows, the part before " — " in bold — instead of one <br>-joined wall of text.
+function renderParagraph(p: string): string {
+  const rawLines = p.split("\n");
+  if (rawLines.length < 2 || !rawLines.every((l) => l.startsWith("• "))) {
+    return `<p style="margin:0 0 14px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`;
+  }
+  const items = rawLines
+    .map((l) => l.slice(2))
+    .map((l, i, all) => {
+      const border = i < all.length - 1 ? "border-bottom:1px solid #EFEDE6;" : "";
+      const dashIdx = l.indexOf(" — ");
+      if (dashIdx === -1) return `<li style="padding:7px 0;${border}">${esc(l)}</li>`;
+      return `<li style="padding:7px 0;${border}"><strong>${esc(l.slice(0, dashIdx))}</strong> — ${esc(l.slice(dashIdx + 3))}</li>`;
+    })
+    .join("");
+  return `<ul style="margin:0 0 14px;padding:0;list-style:none">${items}</ul>`;
+}
+
 export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: { label: string; url: string }; actions?: EmailAction[]; footer: string; baseUrl: string }): string {
-  const body = opts.paragraphs.map((p) => `<p style="margin:0 0 14px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  const body = opts.paragraphs.map(renderParagraph).join("");
   const actions = (opts.actions ?? [])
     .map((a) => `<a href="${esc(a.url)}" style="display:inline-block;margin:6px 8px 0 0;${ACTION_STYLE[a.kind]};text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;font-weight:bold">${esc(a.label)}</a>`)
     .join("");
