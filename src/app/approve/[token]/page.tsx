@@ -9,7 +9,7 @@ import { allowRequest, clientIp } from "@/lib/rate-limit";
 import { computeBalance, remainingOf } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
 import { cn } from "@/lib/utils";
-import { AppLogo } from "@/components/shared/AppLogo";
+import { AppLockup } from "@/components/shared/AppLockup";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Schválení žádosti – Dodio", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -21,9 +21,8 @@ function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }
   return (
     <main className="flex min-h-screen items-start justify-center bg-paper px-4 py-10">
       <div className={cn("w-full", wide ? "max-w-lg" : "max-w-md")}>
-        <div className="mb-4 flex items-center gap-2">
-          <AppLogo className="h-7 w-7" />
-          <span className="font-display text-xl text-teal-dark">Dodio</span>
+        <div className="mb-4">
+          <AppLockup className="h-7 w-auto" />
         </div>
         <div className="card p-6">{children}</div>
       </div>

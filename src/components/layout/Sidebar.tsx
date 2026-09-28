@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useOnDataChanged } from "@/lib/events";
 import { fetchDecisionScope } from "@/lib/approval-scope";
 import { allowedSettingsSections, canSeeInsights, canSeeReports, canSeeSettings } from "@/lib/access";
-import { AppLogo } from "@/components/shared/AppLogo";
+import { AppLockup } from "@/components/shared/AppLockup";
 
 export const TOGGLE_NAV_EVENT = "dodio:toggle-nav";
 
@@ -189,10 +189,7 @@ export function Sidebar() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="Logo firmy" className="h-9 max-w-full object-contain" />
         ) : (
-          <div className="flex items-center gap-2">
-            <AppLogo className="h-8 w-8" />
-            <div className="font-display text-base leading-tight">Dodio</div>
-          </div>
+          <AppLockup className="h-8 w-auto" />
         )}
       </Link>
 
@@ -300,7 +297,7 @@ export function Sidebar() {
       </div>
 
       <div className="flex items-center gap-1.5 border-t border-line px-5 py-2 text-[11px] text-muted">
-        <AppLogo className="h-3 w-3" /> Poháněno aplikací Dodio
+        Poháněno aplikací <AppLockup className="h-4 w-auto" />
       </div>
     </>
   );

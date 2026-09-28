@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { AppLogo } from "@/components/shared/AppLogo";
+import { AppLockup } from "@/components/shared/AppLockup";
 import { claimInvite } from "@/lib/admin-data";
 import { joinCompanyByCode, publicCompanyNameByCode } from "@/lib/join-link";
 import { saveOnboardingIntent } from "@/lib/onboarding-intent";
@@ -266,8 +266,7 @@ function LoginForm() {
     <div className="flex min-h-screen items-center justify-center bg-paper px-4">
       <div className="card w-full max-w-sm p-8">
         <div className="mb-6 text-center">
-          <AppLogo className="mx-auto mb-3 h-10 w-10" />
-          <h1 className="font-display text-2xl">Dodio</h1>
+          <AppLockup className="mx-auto mb-3 h-10 w-auto" />
           <p className="mt-0.5 text-sm font-medium text-teal-dark">Správa firemních absencí na pár kliknutí</p>
           <p className="mt-3 text-sm text-muted">
             {mode === "signin" && "Přihlaste se ke svému účtu"}
