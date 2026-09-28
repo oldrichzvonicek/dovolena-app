@@ -10,9 +10,20 @@ import { AppLockup } from "@/components/shared/AppLockup";
 import { claimInvite } from "@/lib/admin-data";
 import { joinCompanyByCode, publicCompanyNameByCode } from "@/lib/join-link";
 import { saveOnboardingIntent } from "@/lib/onboarding-intent";
+import { LEGAL } from "@/lib/legal";
 import { cn, errorMessage } from "@/lib/utils";
 
 type Mode = "signin" | "signup" | "join" | "forgot" | "invitee";
+
+/** Odkaz na právní dokument (otevře se v nové záložce, ať člověk nepřijde o rozepsaný formulář). Bez adresy jen text. */
+function LegalLink({ href, children }: { href: string | null; children: React.ReactNode }) {
+  if (!href) return <span className="font-medium">{children}</span>;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-teal-dark underline underline-offset-2">
+      {children}
+    </a>
+  );
+}
 
 export default function LoginPage() {
   return (
@@ -53,6 +64,8 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -127,9 +140,18 @@ function LoginForm() {
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!acceptTerms || !acceptPrivacy) {
+      setError("Pro založení firmy je potřeba souhlasit s obchodními podmínkami i se zpracováním osobních údajů.");
+      return;
+    }
     setLoading(true);
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+    // Doklad souhlasu: čas a znění se uloží u účtu (auth metadata), spolu s časem vzniku účtu na serveru.
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { terms_accepted_at: new Date().toISOString(), privacy_accepted_at: new Date().toISOString(), legal_version: LEGAL.version } },
+    });
     if (signUpError) {
       setLoading(false);
       setError(czechAuthError(signUpError.message));
@@ -358,6 +380,26 @@ function LoginForm() {
                 className="w-full rounded border border-line px-3 py-2 text-sm"
                 placeholder="Minimálně 8 znaků" aria-label="Minimálně 8 znaků"
               />
+            </div>
+          )}
+
+          {mode === "signup" && (
+            <div className="space-y-2 rounded border border-line bg-paper p-3 text-xs">
+              <label className="flex cursor-pointer items-start gap-2">
+                <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} aria-required="true" className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-teal" />
+                <span>
+                  Souhlasím se <LegalLink href={LEGAL.termsUrl}>Všeobecnými obchodními podmínkami</LegalLink>.
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2">
+                <input type="checkbox" checked={acceptPrivacy} onChange={(e) => setAcceptPrivacy(e.target.checked)} aria-required="true" className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-teal" />
+                <span>
+                  Souhlasím se zpracováním osobních údajů podle <LegalLink href={LEGAL.privacyUrl}>Zásad zpracování osobních údajů</LegalLink>.
+                </span>
+              </label>
+              <p className="pl-6 text-muted">
+                Údaje o zaměstnancích do Dodia zadáváte vy a Dodio je pro vás jen zpracovává — k ničemu jinému je nepoužívá. Zdravotní údaje do Dodia nezadávejte.
+              </p>
             </div>
           )}
 
