@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useOnDataChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
 import { CHAT_INTEGRATIONS_ENABLED } from "@/lib/plans";
+import { Progress } from "@/components/ui/progress";
 
 interface Step {
   key: string;
@@ -168,9 +169,7 @@ export function OnboardingChecklist() {
           <p className="mt-0.5 text-sm text-muted">
             {allDone ? "Všechny základní kroky jsou hotové. Tuto kartu můžete skrýt." : `Ještě pár kroků a vaši lidé mohou žádat o absence. Hotovo ${doneCount} ze ${required.length}.`}
           </p>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-paper" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Průběh nastavení">
-            <div className="h-full rounded-full bg-teal transition-all" style={{ width: `${pct}%` }} />
-          </div>
+          <Progress value={pct} label="Průběh nastavení" className="mt-3" />
         </div>
         <button onClick={hide} aria-label="Skrýt kartu Začínáme" title="Skrýt" className="rounded p-1.5 text-muted hover:bg-paper hover:text-ink">
           <X size={16} />
