@@ -242,7 +242,8 @@ export function RequestLeaveModal({
     }
 
     return null;
-  }, [company, blackouts, startDate, endDate, workingDays, remainingForType, today]);
+    // blackout overlap has its own check above (blackoutWarning) — not read here.
+  }, [company, startDate, workingDays, remainingForType, today]);
 
   // Does the person already have another request in this range? (a duplicate would count against the balance twice)
   useEffect(() => {
@@ -320,7 +321,7 @@ export function RequestLeaveModal({
         teamSize: team.size,
       });
     });
-  }, [startDate, endDate, profile, open, team, isEditing, editingRequest]);
+  }, [startDate, endDate, profile, open, team, isEditing, editingRequest, selectedType?.key]);
 
   async function handleSubmit() {
     if (!profile || !typeId || policyError) return;

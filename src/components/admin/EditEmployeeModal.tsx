@@ -252,7 +252,7 @@ export function EditEmployeeModal({
             </div>
             <p className="mt-1 text-xs text-muted">
               Poměrná dovolená v roce nástupu (Nastavení → Typy absencí) a příplatek za odpracované roky se počítají automaticky jen při zakládání účtu. Když datum
-              nástupu měníte dodatečně, tlačítkem Přepočítat si nechte pod tím do pole „Dovolená / rok" doplnit odpovídající počet dní a uložte.
+              nástupu měníte dodatečně, tlačítkem Přepočítat si nechte pod tím do pole „Dovolená / rok“ doplnit odpovídající počet dní a uložte.
             </p>
           </div>
 

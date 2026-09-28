@@ -63,7 +63,7 @@ export default function HelpPage() {
       .sort((x, y) => (audience === "employee" ? 0 : Number(!!y.roles) - Number(!!x.roles)));
     const rest = audienceFaqs.filter((f) => !f.top && !tracked.includes(f));
     return [...tracked, ...curated, ...rest].slice(0, TOP_COUNT);
-  }, [audienceFaqs, viewCounts]);
+  }, [audienceFaqs, viewCounts, audience]);
 
   const results = useMemo(() => {
     if (!searching) return { faqs: [] as HelpFaq[], items: [] as { section: HelpSection; text: string }[] };

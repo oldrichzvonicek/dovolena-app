@@ -566,7 +566,7 @@ export function CompanySettingsPanel() {
           <div>
             <div className="text-sm font-medium">Absence jen v rámci vlastního oddělení</div>
             <p className="mt-0.5 text-sm text-muted">
-              Zaměstnanci a manažeři uvidí v Týmovém kalendáři a widgetu „Kdo dnes chybí" absence jen kolegů ze svého oddělení. Přímé podřízené a lidi ve svém oddělení vidí manažer vždy, i když formálně patří jinam. Admin, HR a účetní vidí vždy vše.
+              Zaměstnanci a manažeři uvidí v Týmovém kalendáři a widgetu „Kdo dnes chybí“ absence jen kolegů ze svého oddělení. Přímé podřízené a lidi ve svém oddělení vidí manažer vždy, i když formálně patří jinam. Admin, HR a účetní vidí vždy vše.
             </p>
           </div>
           <input

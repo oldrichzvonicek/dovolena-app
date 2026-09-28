@@ -15,16 +15,19 @@ export function ICalExportBox() {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const features = useFeatures();
+  // useFeatures() returns a fresh object every render — depend on this one boolean, not the whole thing,
+  // or the effect would refetch on every re-render while the box is open and still waiting for a token.
+  const hasIcal = features.has("ical");
 
   useEffect(() => {
-    if (!open || !profile || token || !features.has("ical")) return;
+    if (!open || !profile || token || !hasIcal) return;
     createClient()
       .rpc("get_my_calendar_token")
       .then(({ data, error: err }) => {
         if (err) setError("Odkaz se nepodařilo načíst.");
         else setToken((data as string | null) ?? null);
       });
-  }, [open, profile, token]);
+  }, [open, profile, token, hasIcal]);
 
   if (!profile || features.loading) return null;
   if (!features.has("ical")) {

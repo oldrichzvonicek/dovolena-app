@@ -85,6 +85,8 @@ function LoginForm() {
       }
       if (legacyLink) setError("Tento registrační odkaz už neplatí. Požádejte správce firmy o nový.");
     } catch {}
+    // Jen při prvním načtení stránky — jinak by se "deaktivováno" hlásilo znovu při každém překreslení.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
