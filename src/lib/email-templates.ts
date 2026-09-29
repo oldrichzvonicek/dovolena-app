@@ -20,6 +20,8 @@ export interface EmailTemplate {
   cta?: { label: string; path: string };
   /** Věta v patičce — u provozních/právních e-mailů nejde vypnout. */
   optOut?: boolean;
+  /** Obchodní sdělení (úvodní série „Co Dodio umí“) — jiná patička, nejde o provozní e-mail. */
+  marketing?: boolean;
 }
 
 const hello = (v: Vars) => `Dobrý den${v.jmeno ? ` ${v.jmeno}` : ""},`;
@@ -332,6 +334,98 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     cta: { label: "Zobrazit fakturu", path: "/admin/settings?sekce=billing" },
     optOut: false,
   },
+  // ------------------------------------------------------------------ úvodní série „Co Dodio umí“ (adminům, dny 1 / 3 / 6 / 10 / 14 po založení firmy)
+  // Obchodní sdělení: před spuštěním je potřeba odhlašovací odkaz a vlastní kategorie (viz FOOTER_MARKETING).
+  {
+    key: "intro_1_requests",
+    name: "Co Dodio umí 1/5: Žádost jedním klikem",
+    when: "Den 1 po založení firmy.",
+    to: "Admin nově založené firmy",
+    live: false,
+    marketing: true,
+    vars: ["jmeno", "firma"],
+    subject: () => "Dovolená na pár kliknutí: jak funguje žádost v Dodiu",
+    paragraphs: (v) => [
+      hello(v),
+      `firma ${v.firma} je v Dodiu založená. V následujících dnech vám v pěti krátkých e-mailech ukážeme, co všechno aplikace umí. Začneme tím nejdůležitějším: žádostí o absenci.`,
+      "Zaměstnanec vybere typ a termín a Dodio za něj ohlídá zbytek: víkendy a státní svátky se neodečítají, zůstatek se počítá za správný rok a půlden jde zadat u jednodenního termínu. Systém také hlídá vaše pravidla: blokované termíny, minimální předstih nebo čerpání do mínusu.",
+      "Vybrané typy, třeba Home Office nebo krátká absence do nastaveného počtu dní, se schvalují automaticky. Schvalovatel tak řeší jen to, co opravdu vyžaduje jeho rozhodnutí.",
+      "Tip: na nástěnce najdete rychlé čipy „Dovolená“, „Home Office“ a „Sick Day“, které otevřou formulář rovnou s vybraným typem.",
+    ],
+    cta: { label: "Zkusit novou žádost", path: "/dashboard" },
+  },
+  {
+    key: "intro_2_calendar",
+    name: "Co Dodio umí 2/5: Týmový kalendář",
+    when: "Den 3 po založení firmy.",
+    to: "Admin nově založené firmy",
+    live: false,
+    marketing: true,
+    vars: ["jmeno"],
+    subject: () => "Kdo kdy chybí? Podívejte se do týmového kalendáře",
+    paragraphs: (v) => [
+      hello(v),
+      "dnes vám ukážeme týmový kalendář, místo, kde se sejdou všechny absence ve firmě.",
+      "Schválené absence jsou plnou barvou, čekající šrafované, státní svátky mají vlastní barvu. Kalendář jde filtrovat podle oddělení, typu a jména a přepínat mezi týdnem, dvěma týdny a měsícem. Termín na vlastním řádku stačí přetáhnout myší a rovnou se otevře formulář žádosti.",
+      "Kalendář si můžete přihlásit i do Google, Outlooku nebo Apple Kalendáře přes odkaz iCal v sekci Můj účet, takže absence kolegů uvidíte i v mobilu. iCal je součástí tarifu Starter a vyšších.",
+      "Tip: zapněte „Seskupit podle oddělení“ a hned uvidíte, kde se v týmu překrývá víc lidí najednou.",
+    ],
+    cta: { label: "Otevřít kalendář", path: "/calendar" },
+  },
+  {
+    key: "intro_3_approvals",
+    name: "Co Dodio umí 3/5: Schvalování bez zdržení",
+    when: "Den 6 po založení firmy.",
+    to: "Admin nově založené firmy",
+    live: false,
+    marketing: true,
+    vars: ["jmeno"],
+    subject: () => "Schvalování žádostí na jedno kliknutí, i z e-mailu",
+    paragraphs: (v) => [
+      hello(v),
+      "dobré rozhodnutí o dovolené potřebuje kontext a rychlost. Právě to Dodio schvalovatelům dává.",
+      "U každé žádosti je vidět varování: záporný zůstatek, překročená kapacita oddělení nebo konflikt s kolegou. K tomu náhled týdne s ostatními z oddělení. Více žádostí najednou schválíte nebo zamítnete zaškrtnutím a lištou dole. Zamítnutí vyžaduje důvod, který žadatel uvidí.",
+      "Žádost můžete schválit nebo zamítnout přímo z e-mailu, bez přihlášení do aplikace. V tarifu Pro navíc žádosti, které čekají příliš dlouho nebo je schvalovatel nepřítomen, automaticky přejdou na zástupce.",
+      "Tip: u lidí nastavte nadřízeného a výchozího zástupce v sekci Můj tým. Žádosti pak putují ke správnému člověku samy.",
+    ],
+    cta: { label: "Nastavit nadřízené a zástupce", path: "/team" },
+  },
+  {
+    key: "intro_4_planning",
+    name: "Co Dodio umí 4/5: Dovolená pod kontrolou",
+    when: "Den 10 po založení firmy.",
+    to: "Admin nově založené firmy",
+    live: false,
+    marketing: true,
+    vars: ["jmeno"],
+    subject: () => "Ať dovolená nepropadne: pravidla a připomínky v Dodiu",
+    paragraphs: (v) => [
+      hello(v),
+      "nejčastější starost s dovolenou zní: „Kolik mi ještě zbývá a nepropadne mi něco?“ Dodio na ni odpovídá samo.",
+      "V nastavení určíte, kolik dní se smí převést do dalšího roku a kdy převedená dovolená propadne. Zaměstnanci to vidí přímo na nástěnce u svého zůstatku. Nevyčerpanou dovolenou ke konci roku uvidíte v Analytice a jedním kliknutím pošlete připomínku vybraným lidem.",
+      "Chytré návrhy dovolené doporučí vhodné termíny podle toho, co zbývá a kdy je v týmu klid. Tarif Team navíc umí přiznat nárok automaticky podle odpracovaných let ve firmě.",
+      "Tip: v sekci Provoz & kalendář si nastavte i blokované termíny, například inventuru nebo uzávěrku, aby se do nich žádosti nedostávaly nepovšimnuty.",
+    ],
+    cta: { label: "Otevřít nastavení provozu", path: "/admin/settings" },
+  },
+  {
+    key: "intro_5_reports",
+    name: "Co Dodio umí 5/5: Podklady pro mzdy a přehledy",
+    when: "Den 14 po založení firmy.",
+    to: "Admin nově založené firmy",
+    live: false,
+    marketing: true,
+    vars: ["jmeno", "firma"],
+    subject: () => "Konec měsíce bez tabulek: podklady pro mzdy z Dodia",
+    paragraphs: (v) => [
+      hello(v),
+      `poslední e-mail k tomu, co Dodio umí, je pro ${v.firma} o přehledech.`,
+      "Analytika ukazuje absence podle typu a oddělení, kapacitu týmu a nadcházející absence a je součástí i tarifu Free. Podklady pro mzdy za zvolený měsíc a oddělení stáhnete jako CSV, XLSX nebo ODS a pošlete účetní. Exporty a role Účetní jsou v tarifu Starter a vyšších, historie změn (kdo, kdy a co změnil) v tarifu Team.",
+      "Free je trvale zdarma pro až 5 uživatelů. Až vám bude tým růst, tarify najdete porovnané v aplikaci.",
+      "Kdybyste si nevěděli rady, v Centru nápovědy jsou postupy krok za krokem a případně nám můžete napsat rovnou z aplikace.",
+    ],
+    cta: { label: "Porovnat tarify", path: "/admin/settings?sekce=billing" },
+  },
   // ------------------------------------------------------------------ právní a provozní
   {
     key: "terms_updated",
@@ -495,6 +589,8 @@ export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: {
 }
 
 export const FOOTER_NOTIFICATION = "Tato upozornění můžete vypnout v aplikaci u zvonečku notifikací.";
+// Obchodní sdělení: před ostrým spuštěním doplnit skutečný odhlašovací odkaz (a vlastní kategorii v Nastavení → E-maily).
+export const FOOTER_MARKETING = "Tento e-mail je součástí úvodní série o funkcích Dodia. Další e-maily z ní můžete kdykoli odhlásit odpovědí na tento e-mail.";
 export const FOOTER_TRANSACTIONAL = "Tento e-mail je provozní a nelze ho vypnout. Dodio — správa firemních absencí na pár kliknutí.";
 
 /** Vykreslí šablonu s proměnnými: předmět, prostý text a HTML. Chybějící proměnná se vypíše jako „[název]“. */
@@ -505,7 +601,7 @@ export function renderTemplate(key: string, vars: Vars, baseUrl: string) {
   const subject = t.subject(safe);
   const paragraphs = t.paragraphs(safe);
   const cta = t.cta ? { label: t.cta.label, url: vars.odkaz && t.key === "invite" ? vars.odkaz : `${baseUrl.replace(/\/$/, "")}${t.cta.path}` } : undefined;
-  const footer = t.optOut ? FOOTER_NOTIFICATION : FOOTER_TRANSACTIONAL;
+  const footer = t.marketing ? FOOTER_MARKETING : t.optOut ? FOOTER_NOTIFICATION : FOOTER_TRANSACTIONAL;
   return {
     subject,
     text: `${paragraphs.join("\n\n")}${cta ? `\n\n${cta.label}: ${cta.url}` : ""}\n\n${footer}`,
