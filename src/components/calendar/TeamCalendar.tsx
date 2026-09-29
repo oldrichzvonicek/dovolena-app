@@ -584,7 +584,22 @@ export function TeamCalendar() {
                         {days.map((d) => {
                           const iso = format(d, "yyyy-MM-dd");
                           const size = g.members.length;
-                          const away = new Set(requests.filter((r) => r.status === "approved" && reducesPresence(r.leave_type.key) && r.start_date <= iso && r.end_date >= iso && g.members.some((m) => m.id === r.profile_id)).map((r) => r.profile_id)).size;
+                          // Stejný filtr typu absence jako u jednotlivých řádků (leaveTypeFilter) — jinak číslo
+                          // u sbaleného oddělení počítalo úplně všechny nepřítomnosti, i když byl vybraný jen
+                          // jeden konkrétní typ (např. "Lékař"), a neodpovídalo tomu, co bylo vidět po rozbalení.
+                          const away = new Set(
+                            requests
+                              .filter(
+                                (r) =>
+                                  r.status === "approved" &&
+                                  reducesPresence(r.leave_type.key) &&
+                                  (leaveTypeFilter === "all" || r.leave_type.key === leaveTypeFilter) &&
+                                  r.start_date <= iso &&
+                                  r.end_date >= iso &&
+                                  g.members.some((m) => m.id === r.profile_id)
+                              )
+                              .map((r) => r.profile_id)
+                          ).size;
                           const nonWork = isWeekend(d) || isCzechHoliday(d);
                           const ratio = size > 0 ? away / size : 0;
                           return (
