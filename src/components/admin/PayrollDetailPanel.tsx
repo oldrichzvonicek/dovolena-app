@@ -9,6 +9,7 @@ import { AlertTriangle, FileArchive, FileSpreadsheet, FileText, Lock, LockOpen }
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
+import { buildPamicaXml } from "@/lib/pamica-export";
 import {
   DETAIL_HEADERS,
   PayrollPerson,
@@ -50,6 +51,7 @@ export function PayrollDetailPanel() {
   const [includeWorking, setIncludeWorking] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [pamicaMsg, setPamicaMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -151,6 +153,22 @@ export function PayrollDetailPanel() {
     triggerDownload(zip, `mzdovy-balicek-${month}.zip`);
   }
 
+  // Strukturovaný XML export pro mzdový systém PAMICA (Stormware) — podle oficiálního schématu dochazka.xsd,
+  // na rozdíl od univerzálního CSV/Excel podkladu jde importovat přímo bez ručního přepisování.
+  function downloadPamica() {
+    const { xml, skippedNoNumber, skippedNoCode } = buildPamicaXml(
+      people,
+      requests.map((r) => ({ ...r, half_day: r.half_day ?? false })),
+      month,
+      { workDays, hoursPerDay: hours }
+    );
+    triggerDownload(new Blob([xml], { type: "application/xml;charset=utf-8" }), `pamica-dochazka-${month}.xml`);
+    const notes: string[] = [];
+    if (skippedNoNumber.length > 0) notes.push(`bez osobního čísla vynecháni: ${skippedNoNumber.join(", ")}`);
+    if (skippedNoCode > 0) notes.push(`${skippedNoCode} ${skippedNoCode === 1 ? "absence" : "absencí"} bez kódu pro mzdy nebylo zahrnuto`);
+    setPamicaMsg(notes.length > 0 ? `XML staženo (${notes.join("; ")}).` : "XML staženo.");
+  }
+
   async function toggleClosure() {
     setBusy(true);
     setMessage(null);
@@ -176,7 +194,7 @@ export function PayrollDetailPanel() {
             text="Jeden řádek na každou schválenou absenci za měsíc: osobní číslo, jméno, od–do, pracovní dny, hodiny, typ a kód pro mzdy. Absence přes přelom měsíců se rozdělí. Soubor je ve formátu CSV (středník, desetinná čárka, diakritika) nebo Excel se dvěma listy (detail a souhrn). Po odeslání podkladů můžete měsíc uzavřít, aby se už nic nezměnilo."
           />
         </h2>
-        <p className="mt-1 text-sm text-muted">Podklad je univerzální (CSV/Excel). Až budeme znát importní formát vašeho mzdového systému, doplníme jeho šablonu.</p>
+        <p className="mt-1 text-sm text-muted">Univerzální podklad (CSV/Excel) pro ruční zpracování, nebo hotové XML přímo pro import do PAMICA.</p>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
@@ -192,6 +210,24 @@ export function PayrollDetailPanel() {
           <Button variant="secondary" onClick={downloadZip} disabled={loading || rows.length === 0} title="CSV i Excel za tento měsíc v jednom souboru">
             <FileArchive size={15} /> Stáhnout balíček (ZIP)
           </Button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setPamicaMsg(null);
+              downloadPamica();
+            }}
+            disabled={loading || rows.length === 0}
+          >
+            <FileText size={15} /> Stáhnout XML pro PAMICA
+          </Button>
+          <InfoTip
+            label="Co je XML pro PAMICA"
+            text="Strukturovaný soubor podle oficiálního formátu mzdového a personalistického systému PAMICA (Stormware) — jde nahrát přímo, bez ručního přepisování. Osoby bez osobního čísla a absence bez kódu pro mzdy se do souboru nezahrnou (viz upozornění výše)."
+          />
+          {pamicaMsg && <span className="text-sm text-muted">{pamicaMsg}</span>}
         </div>
 
         <label className="mt-3 flex items-center gap-2 text-sm">
