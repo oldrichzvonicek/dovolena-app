@@ -23,7 +23,7 @@ export function Card({ icon, title, hint, children, className }: { icon: React.R
 export type Tone = "danger" | "warning";
 export const TONE_BADGE: Record<Tone, string> = { danger: "bg-danger-light text-danger-dark", warning: "bg-warning-light text-warning-dark" };
 
-export const Row = ({ left, right, tone }: { left: string; right: string; tone?: Tone }) => (
+export const Row = ({ left, right, tone }: { left: React.ReactNode; right: string; tone?: Tone }) => (
   <div className="flex items-center justify-between gap-3 border-b border-line pb-1.5 last:border-0">
     <span className="min-w-0 truncate">{left}</span>
     {tone ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", TONE_BADGE[tone])}>{right}</span> : <span className="shrink-0 text-muted">{right}</span>}

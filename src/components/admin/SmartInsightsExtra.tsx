@@ -147,14 +147,25 @@ export function ExtraSummary({ extra, tab }: { extra: ExtraInsights; tab: "plan"
   );
 }
 
-/** Seznam jmen s možností rozbalit zbytek. */
-function Names({ ids, nameOf, limit = 6 }: { ids: string[]; nameOf: (id: string) => string; limit?: number }) {
+/** Seznam jmen s možností rozbalit zbytek; s `onSelect` je každé jméno klikatelné (otevře detail). */
+function Names({ ids, nameOf, limit = 6, onSelect }: { ids: string[]; nameOf: (id: string) => string; limit?: number; onSelect?: (id: string, name: string) => void }) {
   const [all, setAll] = useState(false);
-  const list = ids.map(nameOf).sort((a, b) => a.localeCompare(b, "cs"));
+  const list = ids.map((id) => ({ id, name: nameOf(id) })).sort((a, b) => a.name.localeCompare(b.name, "cs"));
   const shown = all ? list : list.slice(0, limit);
   return (
     <p className="text-xs">
-      {shown.join(", ")}
+      {shown.map((p, i) => (
+        <span key={p.id}>
+          {i > 0 && ", "}
+          {onSelect ? (
+            <button type="button" onClick={() => onSelect(p.id, p.name)} className="underline decoration-dotted underline-offset-2 hover:text-teal-dark">
+              {p.name}
+            </button>
+          ) : (
+            p.name
+          )}
+        </span>
+      ))}
       {list.length > limit && (
         <button type="button" onClick={() => setAll(!all)} className="ml-1.5 text-teal-dark underline underline-offset-2">
           {all ? "méně" : `a dalších ${list.length - limit}`}
@@ -164,8 +175,17 @@ function Names({ ids, nameOf, limit = 6 }: { ids: string[]; nameOf: (id: string)
   );
 }
 
+/** Jméno jako tlačítko pro otevření detailu absencí dané osoby. */
+function NameLink({ id, name, onSelect }: { id: string; name: string; onSelect: (id: string, name: string) => void }) {
+  return (
+    <button type="button" onClick={() => onSelect(id, name)} className="underline decoration-dotted underline-offset-2 hover:text-teal-dark">
+      {name}
+    </button>
+  );
+}
+
 /** Devět dalších karet. Vkládá se do mřížky karet Smart HR. */
-export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "plan" | "people" | "flow" }) {
+export function ExtraCards({ extra, group, onSelectPerson }: { extra: ExtraInsights; group: "plan" | "people" | "flow"; onSelectPerson: (id: string, name: string) => void }) {
   const { results: r, nameOf, dailyCost } = extra;
   const show = (key: string) => GROUPS[group].includes(key);
   return (
@@ -182,7 +202,7 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
               right={`${cz(r.curve.totalUnplanned)} ${dayWordCs(Math.round(r.curve.totalUnplanned))}${r.curve.weeksLeft > 0 ? ` · ≈ ${cz(r.curve.perWeek)} dne týdně do konce roku` : ""}`}
               tone={Number(format(new Date(), "M")) >= 9 ? "warning" : undefined}
             />
-            <Names ids={r.curve.unplanned.map((u) => u.id)} nameOf={nameOf} />
+            <Names ids={r.curve.unplanned.map((u) => u.id)} nameOf={nameOf} onSelect={onSelectPerson} />
           </>
         )}
       </Card>
@@ -192,7 +212,16 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
       <Card icon={<KeyRound size={17} className="text-teal-dark" />} title="Kolize vedoucích" hint="Kdy v příštích 90 dnech chybí vedoucí oddělení i jeho zástupce zároveň, a oddělení bez zástupce vedoucího.">
         {r.key.clashes.length === 0 && r.key.noDeputy.length === 0 && <Empty text="Žádné kolize ani chybějící zástupci." />}
         {r.key.clashes.slice(0, 6).map((c, i) => (
-          <Row key={i} left={`${c.dept}: ${nameOf(c.headId)} + ${nameOf(c.deputyId)}`} right={range(c.from, c.to)} tone="danger" />
+          <Row
+            key={i}
+            left={
+              <>
+                {c.dept}: <NameLink id={c.headId} name={nameOf(c.headId)} onSelect={onSelectPerson} /> + <NameLink id={c.deputyId} name={nameOf(c.deputyId)} onSelect={onSelectPerson} />
+              </>
+            }
+            right={range(c.from, c.to)}
+            tone="danger"
+          />
         ))}
         {r.key.noDeputy.slice(0, 6).map((d) => (
           <Row key={d.dept} left={`${d.dept}: chybí zástupce vedoucího`} right="doplnit" tone="warning" />
@@ -204,15 +233,33 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
       <Card icon={<Link2 size={17} className="text-teal-dark" />} title="Zástupy" hint="Kdo má určený zástup, kdo zastupuje víc kolegů a kdy v příštích 60 dnech chybí člověk i jeho zástup.">
         {r.subs.clashes.length === 0 && <Empty text="Nikdo nechybí zároveň se svým zástupem." />}
         {r.subs.clashes.slice(0, 6).map((c, i) => (
-          <Row key={i} left={`${nameOf(c.personId)} a zástup ${nameOf(c.substituteId)}`} right={range(c.from, c.to)} tone="danger" />
+          <Row
+            key={i}
+            left={
+              <>
+                <NameLink id={c.personId} name={nameOf(c.personId)} onSelect={onSelectPerson} /> a zástup <NameLink id={c.substituteId} name={nameOf(c.substituteId)} onSelect={onSelectPerson} />
+              </>
+            }
+            right={range(c.from, c.to)}
+            tone="danger"
+          />
         ))}
         {r.subs.overloaded.slice(0, 4).map((o) => (
-          <Row key={o.id} left={`${nameOf(o.id)} zastupuje ${o.covers.length} lidí`} right="přetížený zástup" tone="warning" />
+          <Row
+            key={o.id}
+            left={
+              <>
+                <NameLink id={o.id} name={nameOf(o.id)} onSelect={onSelectPerson} /> zastupuje {o.covers.length} lidí
+              </>
+            }
+            right="přetížený zástup"
+            tone="warning"
+          />
         ))}
         {r.subs.noSubstitute.length > 0 && (
           <>
             <Row left={`Bez určeného zástupu`} right={`${r.subs.noSubstitute.length}`} tone="warning" />
-            <Names ids={r.subs.noSubstitute} nameOf={nameOf} />
+            <Names ids={r.subs.noSubstitute} nameOf={nameOf} onSelect={onSelectPerson} />
           </>
         )}
       </Card>
@@ -258,7 +305,16 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
             ))}
             {r.decisions.byApprover.length > 0 && <div className="pt-1 text-[11px] font-medium uppercase tracking-wide text-muted">Podle schvalovatele</div>}
             {r.decisions.byApprover.slice(0, 5).map((a) => (
-              <Row key={a.approverId} left={`${nameOf(a.approverId)} (${a.decided})`} right={`${a.rejectedPct} %`} tone={a.rejectedPct > 10 ? "danger" : undefined} />
+              <Row
+                key={a.approverId}
+                left={
+                  <>
+                    <NameLink id={a.approverId} name={nameOf(a.approverId)} onSelect={onSelectPerson} /> ({a.decided})
+                  </>
+                }
+                right={`${a.rejectedPct} %`}
+                tone={a.rejectedPct > 10 ? "danger" : undefined}
+              />
             ))}
           </>
         )}
@@ -300,11 +356,16 @@ export function ExtraCards({ extra, group }: { extra: ExtraInsights; group: "pla
         {r.moves.joiners.length === 0 && r.moves.leavers.length === 0 && <Empty text="Za poslední dobu žádní nováčci ani odchody." />}
         {r.moves.joiners.length > 0 && <div className="text-[11px] font-medium uppercase tracking-wide text-muted">Nováčci</div>}
         {r.moves.joiners.slice(0, 6).map((j) => (
-          <Row key={j.id} left={nameOf(j.id)} right={j.days !== null ? `zbývá ${cz(Math.round(j.days * 10) / 10)} ${dayWordCs(Math.round(j.days))}` : "zůstatek nezadán"} />
+          <Row key={j.id} left={<NameLink id={j.id} name={nameOf(j.id)} onSelect={onSelectPerson} />} right={j.days !== null ? `zbývá ${cz(Math.round(j.days * 10) / 10)} ${dayWordCs(Math.round(j.days))}` : "zůstatek nezadán"} />
         ))}
         {r.moves.leavers.length > 0 && <div className="pt-1 text-[11px] font-medium uppercase tracking-wide text-muted">Odchody</div>}
         {r.moves.leavers.slice(0, 6).map((l) => (
-          <Row key={l.id} left={nameOf(l.id)} right={`${cz(l.remaining)} ${dayWordCs(Math.round(Math.abs(l.remaining)))}${l.amount !== null ? ` ≈ ${formatKc(l.amount)}` : dailyCost === null && l.remaining > 0 ? "" : ""}`} tone={l.remaining > 0 ? "warning" : "danger"} />
+          <Row
+            key={l.id}
+            left={<NameLink id={l.id} name={nameOf(l.id)} onSelect={onSelectPerson} />}
+            right={`${cz(l.remaining)} ${dayWordCs(Math.round(Math.abs(l.remaining)))}${l.amount !== null ? ` ≈ ${formatKc(l.amount)}` : dailyCost === null && l.remaining > 0 ? "" : ""}`}
+            tone={l.remaining > 0 ? "warning" : "danger"}
+          />
         ))}
         {r.moves.leavers.some((l) => l.remaining > 0) && dailyCost === null && <p className="text-xs text-muted">Odhad částky doplníte zadáním průměrných nákladů na den v kartě Závazek z dovolené.</p>}
       </Card>

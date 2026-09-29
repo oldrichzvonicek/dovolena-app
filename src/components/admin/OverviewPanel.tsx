@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DbDepartment } from "@/lib/supabase/types";
 import { LeaveColor } from "@/lib/supabase/types";
 import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationReport";
+import { EmployeeDetailModal } from "@/components/manager/EmployeeDetailModal";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { canSeeInsights } from "@/lib/access";
 import { reducesPresence } from "@/lib/leave-kinds";
@@ -29,9 +30,10 @@ interface State {
   absentToday: number;
   monthDays: number;
   byType: { label: string; color: LeaveColor; count: number; days: number }[];
-  byDepartment: { name: string; days: number; people: { name: string; days: number }[] }[];
+  byDepartment: { name: string; days: number; people: { id: string; name: string; days: number }[] }[];
   upcoming: {
     id: string;
+    profileId: string;
     name: string;
     department: string | null;
     start_date: string;
@@ -112,6 +114,7 @@ export function OverviewPanel() {
   const [section, setSection] = useState<"retro" | "plan">("retro");
   const [overlapFor, setOverlapFor] = useState<{ department: string; start: string; end: string } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
   // Okno "Nadcházející absence": počet dní dopředu (0 = do konce roku).
   const [upcomingDays, setUpcomingDays] = useState<number>(() => {
     try {
@@ -180,7 +183,7 @@ export function OverviewPanel() {
           supabase
             .from("leave_requests")
             .select(
-              "id, start_date, end_date, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(name, department_id, department:departments!profiles_department_id_fkey(name))"
+              "id, start_date, end_date, leave_type:leave_types(key, label, color), profile:profiles!leave_requests_profile_id_fkey(id, name, department_id, department:departments!profiles_department_id_fkey(name))"
             )
             .eq("status", "approved")
             .gte("start_date", today)
@@ -217,13 +220,17 @@ export function OverviewPanel() {
         byTypeMap.set(r.leave_type.label, cur);
       }
 
-      const byDeptMap = new Map<string, { days: number; people: Map<string, number> }>();
+      const byDeptMap = new Map<string, { days: number; people: Map<string, { id: string; name: string; days: number }> }>();
       for (const r of monthRows) {
         if (!reducesPresence(r.leave_type?.key)) continue;
         const name = r.profile?.department?.name ?? "Bez oddělení";
-        const cur = byDeptMap.get(name) ?? { days: 0, people: new Map<string, number>() };
+        const cur = byDeptMap.get(name) ?? { days: 0, people: new Map<string, { id: string; name: string; days: number }>() };
         cur.days += Number(r.working_days);
-        if (r.profile) cur.people.set(r.profile.name, (cur.people.get(r.profile.name) ?? 0) + Number(r.working_days));
+        if (r.profile) {
+          const p = cur.people.get(r.profile.id) ?? { id: r.profile.id, name: r.profile.name, days: 0 };
+          p.days += Number(r.working_days);
+          cur.people.set(r.profile.id, p);
+        }
         byDeptMap.set(name, cur);
       }
 
@@ -232,7 +239,7 @@ export function OverviewPanel() {
         start_date: string;
         end_date: string;
         leave_type: { key: string; label: string; color: LeaveColor } | null;
-        profile: { name: string; department_id: string | null; department: { name: string } | null } | null;
+        profile: { id: string; name: string; department_id: string | null; department: { name: string } | null } | null;
       };
 
       setState({
@@ -249,15 +256,14 @@ export function OverviewPanel() {
           .map(([name, v]) => ({
             name,
             days: v.days,
-            people: Array.from(v.people.entries())
-              .map(([n, days]) => ({ name: n, days }))
-              .sort((a, b) => b.days - a.days),
+            people: Array.from(v.people.values()).sort((a, b) => b.days - a.days),
           }))
           .sort((a, b) => b.days - a.days),
         upcoming: ((upcomingRequests as unknown as UpcomingReq[]) ?? [])
           .filter((r) => r.leave_type && r.profile && inDept(r.profile.department_id))
           .map((r) => ({
             id: r.id,
+            profileId: r.profile!.id,
             name: r.profile!.name,
             department: r.profile!.department?.name ?? null,
             start_date: r.start_date,
@@ -416,8 +422,10 @@ export function OverviewPanel() {
                   {openDept === d.name && (
                     <ul className="mt-2 space-y-1 rounded bg-paper px-3 py-2 text-xs">
                       {d.people.map((p) => (
-                        <li key={p.name} className="flex justify-between">
-                          <span>{p.name}</span>
+                        <li key={p.id} className="flex justify-between">
+                          <button type="button" onClick={() => setDetailFor({ id: p.id, name: p.name })} className="text-left underline decoration-dotted underline-offset-2 hover:text-teal-dark">
+                            {p.name}
+                          </button>
                           <span className="text-muted">
                             {formatNumber(p.days)} {dayWord(p.days)}
                           </span>
@@ -598,7 +606,9 @@ export function OverviewPanel() {
                         <div key={r.id} className="flex items-center justify-between px-4 py-2 text-sm">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-medium">{r.name}</span>
+                              <button type="button" onClick={() => setDetailFor({ id: r.profileId, name: r.name })} className="font-medium underline decoration-dotted underline-offset-2 hover:text-teal-dark">
+                                {r.name}
+                              </button>
                               {overlapCount(r) > 0 && (
                                 <button
                                   type="button"
@@ -637,6 +647,8 @@ export function OverviewPanel() {
       <Dialog open={overlapFor !== null} onOpenChange={(o) => !o && setOverlapFor(null)}>
         {overlapFor && <OverlapDetail info={overlapFor} upcoming={state?.upcoming ?? []} deptId={departments.find((d) => d.name === overlapFor.department)?.id ?? null} />}
       </Dialog>
+
+      {detailFor && <EmployeeDetailModal employee={detailFor} onClose={() => setDetailFor(null)} />}
     </div>
   );
 }

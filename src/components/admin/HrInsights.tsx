@@ -13,6 +13,7 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { Card, Empty, Row } from "@/components/admin/insight-ui";
 import { ExtraCards, ExtraSummary, useExtraInsights } from "@/components/admin/SmartInsightsExtra";
 import { LeadershipReport } from "@/components/admin/LeadershipReport";
+import { EmployeeDetailModal } from "@/components/manager/EmployeeDetailModal";
 import { createClient } from "@/lib/supabase/client";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS, dayWord } from "@/lib/working-days";
@@ -42,8 +43,8 @@ interface Data {
   speed: { rows: (ApprovalSpeedRow & { name: string })[]; overallMedianHours: number };
   liability: Liability;
   dailyCost: number | null;
-  overdrawn: { name: string; remaining: number }[];
-  forfeit: { name: string; days: number }[];
+  overdrawn: { id: string; name: string; remaining: number }[];
+  forfeit: { id: string; name: string; days: number }[];
   trend: MonthPoint[]; // 24 měsíců (prvních 12 = předchozí rok)
   recharge: ReturnType<typeof rechargeScore>;
   rotaPeople: RotaPerson[];
@@ -126,6 +127,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
   const [rechargeMin, setRechargeMin] = useState(5);
   const [rechargeOpen, setRechargeOpen] = useState<string | null>(null);
   const [tab, setTab] = useState<InsightTab>("plan");
+  const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
   const extra = useExtraInsights(profile?.company_id, !!profile && allowed && unlocked && !features.loading, departmentId);
 
   useEffect(() => {
@@ -223,8 +225,8 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
         if (b.total <= 0) continue;
         const rem = remainingOf(b);
         remainingList.push(rem);
-        if (rem < 0) overdrawn.push({ name: p.name, remaining: rem });
-        else if (maxCarry !== null && rem > maxCarry) forfeit.push({ name: p.name, days: rem - maxCarry });
+        if (rem < 0) overdrawn.push({ id: p.id, name: p.name, remaining: rem });
+        else if (maxCarry !== null && rem > maxCarry) forfeit.push({ id: p.id, name: p.name, days: rem - maxCarry });
       }
       overdrawn.sort((a, b) => a.remaining - b.remaining);
       forfeit.sort((a, b) => b.days - a.days);
@@ -435,10 +437,28 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
         <Card icon={<Scale size={17} className="text-teal-dark" />} title="Zůstatky" hint="V minusu a dny, které propadnou při přenosu">
           {data.overdrawn.length === 0 && data.forfeit.length === 0 && <Empty text="Všichni jsou v pořádku." />}
           {data.overdrawn.map((p) => (
-            <Row key={`o-${p.name}`} left={`${p.name} — v minusu`} right={`${formatNumber(p.remaining)} dní`} tone="danger" />
+            <Row
+              key={`o-${p.id}`}
+              left={
+                <button type="button" onClick={() => setDetailFor({ id: p.id, name: p.name })} className="underline decoration-dotted underline-offset-2 hover:text-teal-dark">
+                  {p.name} — v minusu
+                </button>
+              }
+              right={`${formatNumber(p.remaining)} dní`}
+              tone="danger"
+            />
           ))}
           {data.forfeit.map((p) => (
-            <Row key={`f-${p.name}`} left={`${p.name} — propadne při přenosu`} right={`${formatNumber(p.days)} ${dayWord(p.days)}`} tone="warning" />
+            <Row
+              key={`f-${p.id}`}
+              left={
+                <button type="button" onClick={() => setDetailFor({ id: p.id, name: p.name })} className="underline decoration-dotted underline-offset-2 hover:text-teal-dark">
+                  {p.name} — propadne při přenosu
+                </button>
+              }
+              right={`${formatNumber(p.days)} ${dayWord(p.days)}`}
+              tone="warning"
+            />
           ))}
         </Card>
         )}
@@ -506,12 +526,13 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
               </button>
             ))}
           </div>
-          <FairRota data={data} periodKey={periodKey} />
+          <FairRota data={data} periodKey={periodKey} onSelectPerson={(id, name) => setDetailFor({ id, name })} />
         </Card>
         )}
-        {extra && tab !== "report" && <ExtraCards extra={extra} group={tab} />}
+        {extra && tab !== "report" && <ExtraCards extra={extra} group={tab} onSelectPerson={(id, name) => setDetailFor({ id, name })} />}
         {tab === "report" && <LeadershipReport departmentId={departmentId} extra={extra} />}
       </div>
+      {detailFor && <EmployeeDetailModal employee={detailFor} onClose={() => setDetailFor(null)} />}
     </div>
   );
 }
@@ -573,7 +594,7 @@ function Seasonality({ points, series }: { points: MonthPoint[]; series: TrendSe
 }
 
 /** Po odděleních: jména seřazená tak, aby nahoře byli lidé, kteří loni hlavní období neměli. */
-function FairRota({ data, periodKey }: { data: Data; periodKey: string }) {
+function FairRota({ data, periodKey, onSelectPerson }: { data: Data; periodKey: string; onSelectPerson: (id: string, name: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   const period = MAIN_PERIODS.find((p) => p.key === periodKey) ?? MAIN_PERIODS[0];
   // sezóna: pokud už jsme po jejím konci, ukazujeme příští
@@ -612,7 +633,13 @@ function FairRota({ data, periodKey }: { data: Data; periodKey: string }) {
                   const noLast = r.lastSeason === 0 && r.thisSeason === 0;
                   return (
                     <div key={r.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className={cn("min-w-0 truncate", noLast && "font-medium")}>{r.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => onSelectPerson(r.id, r.name)}
+                        className={cn("min-w-0 truncate text-left underline decoration-dotted underline-offset-2 hover:text-teal-dark", noLast && "font-medium")}
+                      >
+                        {r.name}
+                      </button>
                       <span className="shrink-0 text-xs text-muted">
                         loni {formatNumber(r.lastSeason)} · letos {formatNumber(r.thisSeason)}
                         {noLast && <span className="ml-1.5 rounded-sm bg-teal-light px-1.5 py-0.5 text-teal-dark">bez loňska</span>}
