@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { addDays, format } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isAuthorizedCron } from "@/lib/email";
+import { appUrl, isAuthorizedCron, sendEmail } from "@/lib/email";
+import { signInviteToken } from "@/lib/invite-token";
+import { renderTemplate } from "@/lib/email-templates";
 import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
 import { DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
 import { hasFeature } from "@/lib/plans";
@@ -23,6 +25,7 @@ export async function GET(req: Request) {
   const now = new Date();
   const today = iso(now);
   let escalated = 0;
+  let reminded = 0;
   let digests = 0;
 
   const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, plan, addons, pending_plan, pending_plan_from, pending_plan_notified");
@@ -82,6 +85,43 @@ export async function GET(req: Request) {
       profile: { id: string; name: string; manager_id: string | null; department_id: string | null; company_id: string } | null;
       leave_type: { label: string } | null;
     };
+    // 1a) připomínka schvalovateli: žádost čeká víc než den (jednou; e-mail má tlačítka Schválit / Zamítnout). Starší než 14 dní
+    // se nepřipomínají, ať první běh po nasazení nezasype lidi historií. Eskalace na zástupce (Pro) přijde až později.
+    {
+      const mine = ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id && x.start_date >= today);
+      const fresh = mine.filter((x) => {
+        const h = (now.getTime() - new Date(x.created_at).getTime()) / 3600000;
+        return h >= 24 && h <= 24 * 14;
+      });
+      if (fresh.length > 0) {
+        const { data: already } = await supabase
+          .from("notifications")
+          .select("leave_request_id")
+          .eq("type", "request_created")
+          .like("title", "Připomínka:%")
+          .in("leave_request_id", fresh.map((x) => x.id));
+        const done = new Set((already ?? []).map((a) => a.leave_request_id as string));
+        for (const r of fresh.filter((x) => !done.has(x.id))) {
+          const p = r.profile!;
+          const dept = depts?.find((d) => d.id === p.department_id);
+          const approverId = p.manager_id ?? dept?.head_profile_id ?? null;
+          const approverHere = !!approverId && approverId !== p.id && ids.has(approverId) && !absentToday.has(approverId);
+          const targets = approverHere ? [approverId as string] : admins.map((a) => a.id).filter((x) => x !== p.id);
+          if (targets.length === 0) continue;
+          await supabase.from("notifications").insert(
+            targets.map((t) => ({
+              profile_id: t,
+              type: "request_created",
+              leave_request_id: r.id,
+              title: `Připomínka: žádost od ${p.name} čeká na vás`,
+              body: `${p.name} žádá o absenci (${r.leave_type?.label ?? "absence"}, ${formatRange(r.start_date, r.end_date)}) už déle než den a zatím se nikdo nevyjádřil. Stačí jedno kliknutí. Schválit nebo zamítnout můžete i přímo z tohoto e-mailu.`,
+            }))
+          );
+          reminded++;
+        }
+      }
+    }
+
     for (const r of ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id)) {
       const p = r.profile!;
       const dept = depts?.find((d) => d.id === p.department_id);
@@ -97,14 +137,16 @@ export async function GET(req: Request) {
       if (targets.length === 0) targets = admins.map((a) => a.id).filter((x) => x !== p.id && x !== approverId);
       if (targets.length === 0) continue;
 
-      const reason = approverAway ? "schvalovatel je dnes nepřítomen" : `čeká už ${Math.floor(ageHours)} h`;
+      const approverName = people.find((x) => x.id === approverId)?.name ?? "schvalovatele";
+      const waited = ageHours >= 48 ? `${Math.floor(ageHours / 24)} dny` : `${Math.max(1, Math.floor(ageHours))} h`;
+      const reason = approverAway ? "je dnes nepřítomen(a)" : `žádost čeká už ${waited}`;
       await supabase.from("notifications").insert(
         targets.map((t) => ({
           profile_id: t,
           type: "request_created",
           leave_request_id: r.id,
-          title: "Žádost čeká na schválení",
-          body: `${p.name} podal(a) žádost o absenci (${r.leave_type?.label ?? "absence"}) a čeká na rozhodnutí — zastupujete jejich schvalovatele (${reason}).`,
+          title: `Žádost čeká na vás: ${p.name}`,
+          body: `${p.name} žádá o absenci (${r.leave_type?.label ?? "absence"}, ${formatRange(r.start_date, r.end_date)}) a odpověď zatím nedostal(a). Zastupujete ${approverName} (${reason}), takže rozhodnout můžete vy.`,
         }))
       );
       await supabase.from("leave_requests").update({ escalated_at: now.toISOString() }).eq("id", r.id);
@@ -150,16 +192,16 @@ export async function GET(req: Request) {
 
       // Firma může jednotlivé druhy e-mailů vypnout (Nastavení → E-maily); chybějící hodnota = zapnuto.
       const emailSettings = ((company as { email_settings?: Record<string, boolean> | null }).email_settings ?? {}) as Record<string, boolean>;
-      const rows = people
+      const rows: { company_id: string; category: string; to_email: string; subject: string; body: string }[] = people
         .filter((p) => emailSettings.weekly_digest !== false && (p.role === "manager" || p.role === "admin") && p.email && p.email_notifications)
         .map((p) => ({
           company_id: company.id,
           category: "weekly_digest",
           to_email: p.email!,
           subject: "Týdenní přehled absencí — Dodio",
-          body: `Dobré ráno ${p.name.split(" ")[0]},\n\ntady je týdenní přehled — čekající žádosti: ${pendingCount}, absence tento týden: ${weekRows.length}.\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
+          body: `Dobré ráno ${p.name.split(" ")[0]},\n\n${pendingCount === 0 ? "nic nečeká na schválení" : `na schválení čeká ${pendingCount} ${pendingCount === 1 ? "žádost" : pendingCount < 5 ? "žádosti" : "žádostí"}`} a tento týden ${weekRows.length === 0 ? "nikdo nechybí" : `chybí ${weekRows.length} ${weekRows.length === 1 ? "absence" : weekRows.length < 5 ? "absence" : "absencí"}`}.${lines.length ? " Kdo a kdy:" : ""}${lines.length ? `\n\n${lines.join("\n")}` : ""}`,
         }));
-      if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
+      // Řádky týdenního přehledu se vloží až za HR částí: kdo dostává oba přehledy, dostane jeden e-mail.
 
       // HR digest (admins and people with the HR role): capacity risks, slow requests — only sent when there is something to act on.
       const hrRecipients = people.filter((p) => emailSettings.hr_digest !== false && (p.role === "admin" || p.staff_role === "hr") && p.email && p.email_notifications);
@@ -205,18 +247,60 @@ export async function GET(req: Request) {
 
           const digest = hrDigest({ capacityBreaches: breaches, liability: vacationLiability([], null, null), slowPending: slow, pendingTotal: companyPending.length, medianDecisionHours: speed.overallMedianHours });
           if (digest) {
-            await supabase.from("email_outbox").insert(hrRecipients.map((p) => ({ company_id: company.id, category: "hr_digest", to_email: p.email!, subject: digest.subject, body: digest.body })));
-            digests += hrRecipients.length;
+            const embedded = hrDigest({ capacityBreaches: breaches, liability: vacationLiability([], null, null), slowPending: slow, pendingTotal: companyPending.length, medianDecisionHours: speed.overallMedianHours }, { embedded: true });
+            const byEmail = new Map(rows.map((r) => [r.to_email, r]));
+            const separate = [];
+            for (const p of hrRecipients) {
+              const row = byEmail.get(p.email!);
+              if (row && embedded) row.body += `\n\n${embedded.body}`;
+              else separate.push({ company_id: company.id, category: "hr_digest", to_email: p.email!, subject: digest.subject, body: digest.body });
+            }
+            if (separate.length > 0) await supabase.from("email_outbox").insert(separate);
+            digests += separate.length;
           }
         } catch (e) {
           console.error("HR digest failed for company", company.id, e);
         }
       }
 
+      if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
       await supabase.from("companies").update({ digest_last_sent: today }).eq("id", company.id);
       digests += rows.length;
     }
   }
 
-  return NextResponse.json({ escalated, digestsQueued: digests, planChangesApplied: (applied.data as number | null) ?? 0 });
+  // Připomínka nedokončené pozvánky: pozvaný se do 3 dnů od odeslání nezaregistroval (jednou; starší než 14 dní se nepřipomínají).
+  let inviteReminders = 0;
+  try {
+    const { data: stale } = await supabase
+      .from("company_invites")
+      .select("id, email, name, company_id, invited_at")
+      .is("reminded_at", null)
+      .not("invited_at", "is", null)
+      .lte("invited_at", addDays(now, -3).toISOString())
+      .gte("invited_at", addDays(now, -14).toISOString())
+      .limit(200);
+    for (const inv of stale ?? []) {
+      const { data: co } = await supabase.from("companies").select("name").eq("id", inv.company_id).single();
+      const r = renderTemplate(
+        "invite_reminder",
+        {
+          jmeno: String(inv.name).split(" ")[0],
+          firma: (co?.name as string | undefined) ?? "vaše firma",
+          odkaz: `${appUrl()}/login?zvan=${encodeURIComponent(inv.email as string)}&t=${signInviteToken(inv.email as string)}`,
+        },
+        appUrl()
+      );
+      const res = await sendEmail(inv.email as string, r.subject, r.text, r.html);
+      // Bez klíče k Resendu (skipped) se nic neoznačuje, ať se připomínka pošle, až e-maily běží.
+      if (res.ok) {
+        await supabase.from("company_invites").update({ reminded_at: now.toISOString() }).eq("id", inv.id);
+        inviteReminders++;
+      }
+    }
+  } catch (e) {
+    console.error("Invite reminders failed", e);
+  }
+
+  return NextResponse.json({ escalated, reminded, inviteReminders, digestsQueued: digests, planChangesApplied: (applied.data as number | null) ?? 0 });
 }

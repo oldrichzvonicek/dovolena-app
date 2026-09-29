@@ -21,16 +21,16 @@ export const EMAIL_CATEGORIES: EmailCategory[] = [
   {
     key: "approver_requests",
     label: "Žádosti ke schválení",
-    description: "Schvalovatel dostane e-mail o nové žádosti (s tlačítky Schválit a Zamítnout), o žádosti v blokovaném termínu, o žádosti o zrušení absence a když se za něj žádost přeposílá zástupci.",
+    description: "Schvalovatel dostane e-mail o nové žádosti (s tlačítky Schválit a Zamítnout), o žádosti v blokovaném termínu, o žádosti o zrušení absence, o žádosti, která na rozhodnutí čeká déle než den (připomínka), a když se za schvalovatele žádost přeposílá zástupci.",
     hrCanChange: false,
-    templates: ["request_created", "request_blackout", "cancellation_requested", "escalation"],
+    templates: ["request_created", "request_blackout", "cancellation_requested", "request_reminder", "escalation"],
   },
   {
     key: "requester_decisions",
     label: "Vyřízení žádosti",
-    description: "Zaměstnanec dostane e-mail, že jeho žádost byla schválena nebo zamítnuta (i že byla vyřízena žádost o zrušení absence).",
+    description: "Zaměstnanec dostane e-mail, že jeho žádost byla schválena nebo zamítnuta (i že byla vyřízena žádost o zrušení absence). Kolega, který je u schválené absence uvedený jako zástup, se o tom také dozví.",
     hrCanChange: false,
-    templates: ["request_approved", "request_rejected", "cancellation_resolved"],
+    templates: ["request_approved", "request_rejected", "cancellation_resolved", "covering_assigned"],
   },
   {
     key: "weekly_digest",
@@ -96,5 +96,5 @@ export const STATUS_LABEL: Record<EmailStatus, string> = {
   failed: "Nedoručeno",
 };
 
-/** Šablony, které existují, ale ještě se neposílají (fakturace, právní e-maily …). */
-export const PLANNED_TEMPLATES = EMAIL_TEMPLATES.filter((t) => !t.live);
+/** Šablony, které existují, ale ještě se neposílají (fakturace, právní e-maily …); bez těch, které patří k vypnuté funkci. */
+export const PLANNED_TEMPLATES = EMAIL_TEMPLATES.filter((t) => !t.live && !t.dormant);

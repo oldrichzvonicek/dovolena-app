@@ -4,6 +4,7 @@ import { appUrl, sendEmail } from "@/lib/email";
 import { renderTemplate } from "@/lib/email-templates";
 import { allowRequest, tooManyRequests } from "@/lib/rate-limit";
 import { signInviteToken } from "@/lib/invite-token";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
   let sent = 0;
   let failed = 0;
   let skipped = 0;
+  const sentTo: string[] = [];
   for (const inv of invites ?? []) {
     const r = renderTemplate(
       "invite",
@@ -47,8 +49,19 @@ export async function POST(req: Request) {
     );
     const res = await sendEmail(inv.email as string, r.subject, r.text, r.html);
     if (res.skipped) skipped++;
-    else if (res.ok) sent++;
-    else failed++;
+    else if (res.ok) {
+      sent++;
+      sentTo.push(inv.email as string);
+    } else failed++;
+  }
+  // Zapamatujeme si, kdy pozvánka odešla — denní úloha z toho po pár dnech pošle jednu připomínku. Chyba (sloupec ještě
+  // není nasazený) odeslání nijak neovlivní.
+  if (sentTo.length > 0) {
+    try {
+      await createAdminClient().from("company_invites").update({ invited_at: new Date().toISOString(), reminded_at: null }).eq("company_id", me.company_id).in("email", sentTo);
+    } catch {
+      /* ignore */
+    }
   }
   return NextResponse.json({ sent, failed, skipped });
 }

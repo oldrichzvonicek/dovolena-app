@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, MessageCircleQuestion, PalmtreeIcon, Undo2, X } from "lucide-react";
+import { Bell, Check, MessageCircleQuestion, PalmtreeIcon, Undo2, UserCheck, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   NotificationRow,
@@ -21,6 +21,7 @@ const typeMeta: Record<NotificationType, { icon: typeof Bell; className: string;
   vacation_reminder: { icon: PalmtreeIcon, className: "bg-teal-light text-teal-dark", href: "/dashboard" },
   cancellation_requested: { icon: Undo2, className: "bg-warning-light text-warning-dark", href: "/approvals" },
   cancellation_resolved: { icon: Undo2, className: "bg-teal-light text-teal-dark", href: "/requests" },
+  covering_assigned: { icon: UserCheck, className: "bg-teal-light text-teal-dark", href: "/calendar" },
   help_question: { icon: MessageCircleQuestion, className: "bg-violet-light text-violet-dark", href: "/help" },
 };
 
