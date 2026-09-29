@@ -109,8 +109,13 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
         }
         return { ...s, teamAway: worst, teamSize: team.length };
       });
-      // Pohodlnější (menší vytížení týmu) a výhodnější (víc volna za den) nahoře
-      withLoad.sort((a, b) => a.teamAway / Math.max(1, a.teamSize) - b.teamAway / Math.max(1, b.teamSize) || b.offDays / b.take.length - a.offDays / a.take.length);
+      // Nejbližší termín nahoře především — bez tohohle vždy vyhrával nejúspornější poměr (1 den dovolené za
+      // 4 dny volna), i když šlo o termín přes rok dopředu, kdy v týmu logicky ještě nikdo nemá schválenou
+      // dovolenou (teamAway proto vychází 0 skoro pořád). Výsledkem bylo, že se pořád nahoře držel tentýž
+      // vzdálený návrh a bližší (i o dost výhodnější) příležitosti se k němu nikdy nedostaly.
+      withLoad.sort(
+        (a, b) => a.take[0].localeCompare(b.take[0]) || a.teamAway / Math.max(1, a.teamSize) - b.teamAway / Math.max(1, b.teamSize) || b.offDays / b.take.length - a.offDays / a.take.length
+      );
       // Celý seznam se uloží (ne jen zobrazený výřez) — po podání žádosti nebo kliknutí na "Zobrazit další"
       // se tak hned ukáže další návrh z fronty, místo aby seznam jen ubýval.
       setTips(withLoad);
