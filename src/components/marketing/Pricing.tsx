@@ -15,6 +15,7 @@ const FREE_FEATURES = [
   "Notifikace v appce a e-mailem",
   "Analytika a přehled kapacity",
   "Chytré návrhy dovolené",
+  "Role HR zdarma na jakémkoli tarifu",
   "GDPR ready",
 ];
 
@@ -22,12 +23,7 @@ const STARTER_ADDS = ["Exporty pro mzdy (CSV, Excel)", "iCal synchronizace kalen
 
 const TEAM_ADDS = ["Historie změn (audit log)", "Nárok podle odpracovaných let"];
 
-const PRO_ADDS = [
-  "Smart HR — predikce kapacity a trendy",
-  "Doplňková role HR",
-  "Eskalace schvalování a zástupy",
-  "Bez limitu uživatelů",
-];
+const PRO_ADDS = ["Smart HR — predikce kapacity a trendy", "Eskalace schvalování a zástupy", "Bez limitu uživatelů"];
 
 const PLAN_FEATURES: Record<PlanId, string[]> = {
   free: FREE_FEATURES,
@@ -106,7 +102,7 @@ export function Pricing() {
                 )}
               </div>
               <div className="text-sm text-dodio-ink-muted lg:text-[15px]">
-                {plan.forWhom} · {plan.usersLabel} uživatelů
+                {plan.forWhom} · {plan.usersLabel}
               </div>
               <div className="flex flex-wrap items-baseline gap-1.5">
                 <span className="font-dodio-display text-[26px] font-extrabold tracking-[-1px] lg:text-[38px]">
@@ -115,14 +111,7 @@ export function Pricing() {
                 {plan.perUnit && <span className="text-sm text-dodio-ink-muted">{plan.perUnit}</span>}
               </div>
               <div className="min-h-[40px] text-[13px] leading-5 text-dodio-ink-muted lg:text-sm">
-                {plan.id === "pro" ? (
-                  <>
-                    <strong className="font-semibold text-dodio-ink">+ {plan.extraUserPrice}</strong> za
-                    každého uživatele nad 30. {plan.exampleLine}
-                  </>
-                ) : (
-                  plan.note
-                )}
+                {plan.note}
               </div>
               <div className="flex flex-col gap-2 border-t border-dodio-border pt-4 text-[13px] leading-5 lg:text-sm">
                 {PLAN_FEATURES[plan.id].map((label) => (

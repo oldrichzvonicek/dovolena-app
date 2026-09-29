@@ -10,6 +10,7 @@ import { Pricing } from "@/components/marketing/Pricing";
 import { FAQ } from "@/components/marketing/FAQ";
 import { FinalCTA } from "@/components/marketing/FinalCTA";
 import { Footer } from "@/components/marketing/Footer";
+import { CookieBanner } from "@/components/marketing/CookieBanner";
 
 export default function LandingPage() {
   return (
@@ -28,6 +29,7 @@ export default function LandingPage() {
         <FinalCTA />
       </main>
       <Footer />
+      <CookieBanner />
     </div>
   );
 }

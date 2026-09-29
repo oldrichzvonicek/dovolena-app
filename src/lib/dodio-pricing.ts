@@ -3,6 +3,8 @@
 // a number of its own. Yearly billing is 10× the monthly price (2 months
 // free); everything derived below follows from that rule.
 
+import { SIGNUP_URL } from "./dodio-links";
+
 export type BillingPeriod = "monthly" | "yearly";
 
 export type PlanId = "free" | "starter" | "team" | "pro";
@@ -23,12 +25,18 @@ interface PlanDefinition {
 const YEARLY_MONTHS = 10;
 
 const PLAN_DEFINITIONS: PlanDefinition[] = [
-  { id: "free", name: "Free", usersLabel: "do 5", monthlyPrice: 0, forWhom: "Úplný začátek" },
-  { id: "starter", name: "Starter", usersLabel: "do 10", monthlyPrice: 290, forWhom: "Malý tým, podklady pro mzdy" },
+  { id: "free", name: "Free", usersLabel: "do 5 uživatelů", monthlyPrice: 0, forWhom: "Úplný začátek" },
+  {
+    id: "starter",
+    name: "Starter",
+    usersLabel: "do 10 uživatelů",
+    monthlyPrice: 290,
+    forWhom: "Malý tým, podklady pro mzdy",
+  },
   {
     id: "team",
     name: "Team",
-    usersLabel: "do 15",
+    usersLabel: "do 15 uživatelů",
     monthlyPrice: 590,
     forWhom: "Rostoucí firma",
     recommended: true,
@@ -36,7 +44,7 @@ const PLAN_DEFINITIONS: PlanDefinition[] = [
   {
     id: "pro",
     name: "Pro",
-    usersLabel: "bez limitu",
+    usersLabel: "bez limitu (30 v ceně, pak 39 Kč/měs. za dalšího)",
     monthlyPrice: 1190,
     forWhom: "Firma, která lidi opravdu řídí",
     extraUserMonthlyPrice: 39,
@@ -71,8 +79,6 @@ export interface PlanPricing {
   price: string;
   perUnit: "/ měs." | "/ rok" | "";
   note: string;
-  extraUserPrice?: string;
-  exampleLine?: string;
   ctaLabel: string;
   ctaHref: string;
 }
@@ -83,9 +89,6 @@ const CTA_LABEL: Record<PlanId, string> = {
   team: "Vybrat Team",
   pro: "Vybrat Pro",
 };
-
-/** Registration URL to fill in once the app's sign-up flow is live. */
-const SIGNUP_URL = "https://app.dodio.cz/login";
 
 export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
   return PLAN_DEFINITIONS.map((plan) => {
@@ -100,7 +103,7 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
         recommended: false,
         price: "0 Kč",
         perUnit: "",
-        note: "Bez platební karty. Stačí se zaregistrovat.",
+        note: "Pro mikrofirmy a startupy. Bez exportů pro mzdy.",
         ctaLabel: CTA_LABEL[plan.id],
         ctaHref: `${SIGNUP_URL}?plan=free`,
       };
@@ -111,10 +114,13 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
 
     if (plan.id === "pro") {
       const extraMonthly = plan.extraUserMonthlyPrice ?? 0;
-      const extraPrice = formatKc(priceForPeriod(extraMonthly, period));
       const exampleUsers = plan.exampleUserCount ?? 50;
       const exampleOverage = exampleUsers - 30;
       const exampleTotal = priceForPeriod(monthly, period) + exampleOverage * priceForPeriod(extraMonthly, period);
+      const note =
+        period === "yearly"
+          ? `Např. ${exampleUsers} lidí = ${formatKc(exampleTotal)} ${perUnit}.`
+          : `Ročně jen ${formatKc(monthly * YEARLY_MONTHS)} – 2 měsíce zdarma.`;
       return {
         id: plan.id,
         name: plan.name,
@@ -123,9 +129,7 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
         recommended: false,
         price,
         perUnit,
-        note: "",
-        extraUserPrice: `${extraPrice} ${perUnit}`,
-        exampleLine: `Např. ${exampleUsers} lidí = ${formatKc(exampleTotal)} ${perUnit}`,
+        note,
         ctaLabel: CTA_LABEL[plan.id],
         ctaHref: `${SIGNUP_URL}?plan=pro&billing=${period}`,
       };

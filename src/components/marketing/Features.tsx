@@ -53,6 +53,7 @@ export function Features() {
             title="Zaměstnanec"
             points={[
               "Žádost o dovolenou na pár kliknutí — typ, termín, případně zástup za sebe, odeslat.",
+              "Naplánovat si rok dopředu soukromě, bez odesílání ke schválení, a pak žádost podat jedním kliknutím.",
               "Zůstatek na první pohled — čerpáno, naplánováno, zbývá.",
               "Chytré návrhy appky, kdy si vzít pár dní navíc kolem svátku a mít dlouhé volno.",
               "Soukromí nemoci — kolegové vidí jen „Nepřítomen“, typ absence jen nadřízený a HR.",
@@ -77,7 +78,7 @@ export function Features() {
               "Vlastní typy absencí a pravidla čerpání přesně podle vaší firmy.",
               "Import zaměstnanců a hromadné akce — rozjezd za minuty, ne za týdny.",
               "Podklady pro mzdy jedním exportem, bez ručního sbírání.",
-              "Doplňkové role HR a Účetní — každý vidí jen to, co má.",
+              "Role HR zdarma na jakémkoli tarifu, Účetní jako doplněk — každý vidí jen to, co má.",
             ]}
           />
         </div>

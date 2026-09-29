@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/marketing/SiteHeader";
 import { Footer } from "@/components/marketing/Footer";
 import { Container } from "@/components/marketing/Container";
+import { CookieBanner } from "@/components/marketing/CookieBanner";
 
 export const metadata: Metadata = {
   title: "Ochrana osobních údajů – Dodio",
@@ -18,6 +19,7 @@ export default function PrivacyPage() {
         </Container>
       </main>
       <Footer />
+      <CookieBanner />
     </div>
   );
 }
