@@ -24,6 +24,7 @@ export default function AccountPage() {
   const [email, setEmail] = useState<string>("");
   const [department, setDepartment] = useState<string | null>(null);
   const [emailOn, setEmailOn] = useState(true);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [pwBusy, setPwBusy] = useState(false);
@@ -40,12 +41,22 @@ export default function AccountPage() {
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
     setPwError(null);
-    if (password.length < 8) return setPwError("Heslo musí mít aspoň 8 znaků.");
-    if (password !== confirm) return setPwError("Hesla se neshodují.");
+    if (!currentPassword) return setPwError("Zadejte současné heslo.");
+    if (password.length < 8) return setPwError("Nové heslo musí mít aspoň 8 znaků.");
+    if (password !== confirm) return setPwError("Nová hesla se neshodují.");
     setPwBusy(true);
-    const { error } = await createClient().auth.updateUser({ password });
+    const supabase = createClient();
+    // Kdokoli u odemčeného počítače by jinak mohl heslo změnit bez jeho znalosti — Supabase samo o sobě
+    // staré heslo při updateUser nevyžaduje (platná session stačí), proto se ověřuje ručně přihlášením.
+    const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+    if (reauthError) {
+      setPwBusy(false);
+      return setPwError("Současné heslo není správně.");
+    }
+    const { error } = await supabase.auth.updateUser({ password });
     setPwBusy(false);
     if (error) return setPwError(errorMessage(error));
+    setCurrentPassword("");
     setPassword("");
     setConfirm("");
     showToast("Heslo je změněné.");
@@ -95,6 +106,19 @@ export default function AccountPage() {
           <h2 className="font-display text-h2">Heslo</h2>
           <form onSubmit={changePassword} className="mt-3 space-y-3">
             <div>
+              <label htmlFor="current-password" className="mb-1.5 block text-sm font-medium">
+                Současné heslo
+              </label>
+              <input
+                id="current-password"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
               <label htmlFor="new-password" className="mb-1.5 block text-sm font-medium">
                 Nové heslo
               </label>
@@ -107,7 +131,7 @@ export default function AccountPage() {
               <input id="confirm-password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="w-full rounded border border-line px-3 py-2 text-sm" />
             </div>
             {pwError && <p className="text-sm text-danger">{pwError}</p>}
-            <Button type="submit" variant="primary" disabled={pwBusy || !password}>
+            <Button type="submit" variant="primary" disabled={pwBusy || !currentPassword || !password}>
               {pwBusy ? "Ukládám…" : "Změnit heslo"}
             </Button>
           </form>

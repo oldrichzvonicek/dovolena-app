@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchDepartments } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { safeCell } from "@/lib/csv";
+import { autoFitSheet } from "@/lib/xlsx-utils";
 import { DEFAULT_WORK_DAYS, daysWithin } from "@/lib/working-days";
 import { DbDepartment } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
@@ -102,14 +103,9 @@ export function ExportsPanel() {
   const toggleSort = (key: SortKey) => setSort((cur) => (cur.key === key ? { key, dir: cur.dir === 1 ? -1 : 1 } : { key, dir: key === "name" || key === "departmentName" ? 1 : -1 }));
 
   function handleExport() {
-    const sheetRows = filteredRows.map((r) => ({
-      Jméno: safeCell(r.name),
-      Oddělení: safeCell(r.departmentName),
-      "Vyčerpaná dovolená": r.vacationUsed,
-      "Sick Days": r.sickUsed,
-      "Home Office": r.homeOffice,
-    }));
-    const sheet = XLSX.utils.json_to_sheet(sheetRows);
+    const headers = ["Jméno", "Oddělení", "Vyčerpaná dovolená", "Sick Days", "Home Office"];
+    const table = filteredRows.map((r) => [safeCell(r.name), safeCell(r.departmentName), r.vacationUsed, r.sickUsed, r.homeOffice]);
+    const sheet = autoFitSheet(XLSX.utils.aoa_to_sheet([headers, ...table]), headers, table);
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet, "Podklady");
     const chosen = formats.find((f) => f.key === format)!;

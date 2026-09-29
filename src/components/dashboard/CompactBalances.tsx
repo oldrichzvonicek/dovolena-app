@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { HelpCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Balance, HomeOfficeYear, loadBalances, loadHomeOfficeYear, remainingOf } from "@/lib/balances";
 import { cn, formatNumber } from "@/lib/utils";
@@ -46,12 +47,28 @@ export function CompactBalances() {
         const total = c.total ?? 0;
         const usedPct = total > 0 ? Math.min(100, (c.used / total) * 100) : 0;
         const plannedPct = total > 0 ? Math.min(100 - usedPct, (c.planned / total) * 100) : 0;
-        // Zbývá je vždy plná syté barvy, ne vyčerpáno/plánováno — jinak pruh skoro celý zelený budil dojem
-        // "zbývá spousta", i když ve skutečnosti byl skoro celý nárok už vyčerpaný nebo naplánovaný.
+        // Zbývá je vždy nejsytější barva, ne vyčerpáno/plánováno — jinak pruh skoro celý zelený budil dojem
+        // "zbývá spousta", i když ve skutečnosti byl skoro celý nárok už vyčerpaný nebo naplánovaný. O trochu
+        // tlumenější než 100% syté (opacity-80): plný pruh v plné barvě u nuly vyčerpaného (např. "6 z 6 Sick
+        // Days") jinak reflexivně čte jako "pozor, vyčerpáno", přesně naopak, než co znamená.
         const remainingPct = Math.max(0, 100 - usedPct - plannedPct);
+        const remaining = c.remaining ?? total - c.used - c.planned;
+        const remainingPctOfTotal = total > 0 ? (remaining / total) * 100 : 0;
+        const low = c.remaining !== null && total > 0 && (remaining <= 2 || remainingPctOfTotal <= 20);
         return (
-          <div key={c.label} className="card px-4 py-2.5">
-            <div className="text-xs text-muted">{c.label}</div>
+          <div key={c.label} className={cn("card relative px-4 py-2.5", low && "border-warning/40")}>
+            <button
+              type="button"
+              aria-label={`Jak se počítá ${c.label}`}
+              title={`Roční nárok − vyčerpáno − naplánováno = zbývá.${c.note ? "" : " Nevyčerpaná dovolená se do limitu může převádět z loňska."}`}
+              className="absolute right-2 top-2 rounded p-1 text-muted hover:bg-paper hover:text-ink"
+            >
+              <HelpCircle size={13} />
+            </button>
+            <div className="flex items-center gap-1.5 pr-5 text-xs text-muted">
+              {c.label}
+              {low && <span className="rounded-sm bg-warning-light px-1.5 py-0.5 text-[10px] font-medium text-warning-dark">Dochází</span>}
+            </div>
             <div className="text-sm font-medium">
               {c.remaining !== null ? `${formatNumber(c.remaining)} z ${formatNumber(total)} dní zbývá` : `${formatNumber(c.used + c.planned)} dní letos`}
             </div>
@@ -59,12 +76,16 @@ export function CompactBalances() {
               <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-paper" role="img" aria-label={`${c.label}: vyčerpáno ${formatNumber(c.used)}, plánováno ${formatNumber(c.planned)}, zbývá ${formatNumber(c.remaining ?? 0)}`}>
                 <div className="bg-line" style={{ width: `${usedPct}%` }} />
                 <div className={c.color + " opacity-40"} style={{ width: `${plannedPct}%` }} />
-                <div className={c.color} style={{ width: `${remainingPct}%` }} />
+                <div className={c.color + " opacity-80"} style={{ width: `${remainingPct}%` }} />
               </div>
             )}
-            <div className={cn("flex flex-wrap gap-x-3 text-[11px] text-muted", total > 0 ? "mt-1.5" : "mt-1")}>
-              <span>Vyčerpáno: {formatNumber(c.used)}</span>
-              <span>Plánováno: {formatNumber(c.planned)}</span>
+            <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink/70", total > 0 ? "mt-1.5" : "mt-1")}>
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-line" /> Vyčerpáno: {formatNumber(c.used)}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className={cn("h-1.5 w-1.5 shrink-0 rounded-sm", c.color, "opacity-40")} /> Naplánováno: {formatNumber(c.planned)}
+              </span>
               {c.note && <span>{c.note}</span>}
             </div>
           </div>

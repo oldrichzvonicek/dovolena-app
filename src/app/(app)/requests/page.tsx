@@ -31,6 +31,8 @@ interface Row {
   rejection_reason: string | null;
   status: RequestStatus;
   cancellation_requested_at?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   leave_type: { id: string; key: string; label: string; color: LeaveColor };
   approver: { name: string } | null;
 }
@@ -76,8 +78,8 @@ export default function RequestsPage() {
          approver:profiles!leave_requests_approved_by_fkey(name)`;
     const query = (cols: string) =>
       supabase.from("leave_requests").select(cols).eq("profile_id", profile.id).order("start_date", { ascending: false });
-    // cancellation_requested_at needs the latest schema.sql; fall back so the page still works without it.
-    query(base + ", cancellation_requested_at").then(async ({ data, error }) => {
+    // cancellation_requested_at / start_time / end_time need the latest migrations; fall back so the page still works without them.
+    query(base + ", cancellation_requested_at, start_time, end_time").then(async ({ data, error }) => {
       const res = error ? await query(base) : { data };
       setRows((res.data as unknown as Row[]) ?? []);
       setLoading(false);
@@ -538,6 +540,8 @@ export default function RequestsPage() {
             working_days: editingRow.working_days,
             note: editingRow.note,
             covering_profile_id: editingRow.covering_profile_id,
+            start_time: editingRow.start_time,
+            end_time: editingRow.end_time,
           }}
           onSaved={() => {
             setEditingRow(null);
@@ -579,6 +583,7 @@ export default function RequestsPage() {
                 <div className="text-xs text-muted">
                   {formatNumber(Number(detailRow.working_days))} {dayWord(Number(detailRow.working_days))}
                   {detailRow.half_day && " · půlden"}
+                  {detailRow.start_time && detailRow.end_time && ` · ${detailRow.start_time.slice(0, 5)}–${detailRow.end_time.slice(0, 5)}`}
                 </div>
                 {yearSplit(detailRow) && <div className="mt-0.5 text-xs text-muted">{yearSplit(detailRow)}</div>}
               </div>

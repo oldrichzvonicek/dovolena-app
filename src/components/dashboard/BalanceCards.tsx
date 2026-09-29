@@ -10,14 +10,17 @@ import { HomeOfficeYear, loadBalances, loadHomeOfficeYear } from "@/lib/balances
 
 type Color = "teal" | "rust" | "moss";
 
-const solidClass: Record<Color, string> = { teal: "bg-teal", rust: "bg-rust", moss: "bg-moss" };
 const lightClass: Record<Color, string> = { teal: "bg-teal/40", rust: "bg-rust/40", moss: "bg-moss/40" };
+// O trochu tlumenější než plná syta barva — celý pruh naplno tmavou/syto červenou barvou (typicky u Sick
+// Days, kde 0 vyčerpáno = 100 % zbývá) čtenář reflexivně vyhodnotí jako "pozor, vyčerpáno", i když značí
+// pravý opak. Pořád nejsytější ze tří segmentů, jen ne na plnou váhu.
+const remainingClass: Record<Color, string> = { teal: "bg-teal/80", rust: "bg-rust/80", moss: "bg-moss/80" };
 
 /**
  * Three segments: already taken (neutral gray — done, nothing to look at), approved but still upcoming
- * (lighter tint), and what's actually left (solid color). The solid color deliberately marks "zbývá", not
- * "vyčerpáno" — a bar mostly filled in the brand color used to read as "plenty left" even when the used +
- * upcoming days had eaten almost the whole entitlement and only a sliver truly remained.
+ * (lighter tint), and what's actually left (the strongest color of the three). The color deliberately
+ * marks "zbývá", not "vyčerpáno" — a bar mostly filled in the brand color used to read as "plenty left"
+ * even when the used + upcoming days had eaten almost the whole entitlement and only a sliver truly remained.
  */
 function SegmentedBar({ used, upcoming, total, color }: { used: number; upcoming: number; total: number; color: Color }) {
   const usedPct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
@@ -27,7 +30,7 @@ function SegmentedBar({ used, upcoming, total, color }: { used: number; upcoming
     <div className="mt-3 flex h-1.5 w-full overflow-hidden rounded-full bg-paper">
       <div className="h-full bg-line" style={{ width: `${usedPct}%` }} />
       <div className={cn("h-full", lightClass[color])} style={{ width: `${upcomingPct}%` }} />
-      <div className={cn("h-full", solidClass[color])} style={{ width: `${remainingPct}%` }} />
+      <div className={cn("h-full", remainingClass[color])} style={{ width: `${remainingPct}%` }} />
     </div>
   );
 }
@@ -79,15 +82,14 @@ function BalanceCard({
         <span className="text-sm text-muted">{dayWord(remaining)} zbývá</span>
       </div>
       <SegmentedBar used={used} upcoming={upcoming} total={total} color={color} />
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+      {/* Jen dva doplňkové údaje — "zbývá" už je nahoře jako velké dominantní číslo, jeho opakování
+          tady v legendě bylo zbytečné a se třemi tečkami se na užších obrazovkách špatně četlo. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink/70">
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-sm bg-line" /> Vyčerpáno: {fmt(used)} {dayWord(used)}
+          <span className="h-2 w-2 shrink-0 rounded-sm bg-line" /> Vyčerpáno: {fmt(used)} {dayWord(used)}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className={cn("h-2 w-2 rounded-sm", lightClass[color])} /> Naplánováno: {fmt(upcoming)} {dayWord(upcoming)}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className={cn("h-2 w-2 rounded-sm", solidClass[color])} /> Zbývá: {fmt(remaining)} {dayWord(remaining)}
+          <span className={cn("h-2 w-2 shrink-0 rounded-sm", lightClass[color])} /> Naplánováno: {fmt(upcoming)} {dayWord(upcoming)}
         </span>
       </div>
       {explain && (
@@ -176,12 +178,12 @@ export function BalanceCards() {
             <span className="font-display text-3xl">{formatNumber(homeOffice.used)}</span>
             <span className="text-sm text-muted">{dayWord(homeOffice.used)} letos</span>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink/70">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-moss" /> Vyčerpáno: {formatNumber(homeOffice.taken)} {dayWord(homeOffice.taken)}
+              <span className="h-2 w-2 shrink-0 rounded-sm bg-moss" /> Vyčerpáno: {formatNumber(homeOffice.taken)} {dayWord(homeOffice.taken)}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-moss/40" /> Naplánováno: {formatNumber(homeOffice.planned)} {dayWord(homeOffice.planned)}
+              <span className="h-2 w-2 shrink-0 rounded-sm bg-moss/40" /> Naplánováno: {formatNumber(homeOffice.planned)} {dayWord(homeOffice.planned)}
             </span>
           </div>
           <div className="mt-2 text-[11px] text-muted">

@@ -42,6 +42,8 @@ function SettingsContent() {
   return (
     <div>
       <Header title={`Nastavení firmy — ${titles[active]}`} subtitle="Sekce nastavení najdete v menu vlevo" />
+      {/* Bez max-width tady — některé sekce jsou tabulky (Uživatelé, Historie změn), které širokou obrazovku
+          využijí; sekce s formulářem (Provoz & kalendář) si šířku omezuje sama, viz CompanySettingsPanel. */}
       <div className="p-4 sm:p-8">
         {active === "users" && <UsersPanel />}
         {active === "departments" && <DepartmentsPanel />}

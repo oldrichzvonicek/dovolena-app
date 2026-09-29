@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
-import { AlertTriangle, FileSpreadsheet, FileText, Lock, LockOpen } from "lucide-react";
+import { autoFitSheet } from "@/lib/xlsx-utils";
+import { createZip } from "@/lib/zip";
+import { AlertTriangle, FileArchive, FileSpreadsheet, FileText, Lock, LockOpen } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
@@ -47,6 +49,7 @@ export function PayrollDetailPanel() {
   const [tick, setTick] = useState(0);
   const [includeWorking, setIncludeWorking] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!profile) return;
@@ -98,27 +101,54 @@ export function PayrollDetailPanel() {
 
   const rows = useMemo(() => buildPayrollRows(requests, people, month, { workDays, hoursPerDay: hours, includeWorking }), [requests, people, month, workDays, hours, includeWorking]);
   const summary = useMemo(() => summarizePayroll(rows), [rows]);
+  const q = search.trim().toLocaleLowerCase("cs");
+  const visibleRows = q ? rows.filter((r) => `${r.firstName} ${r.lastName}`.toLocaleLowerCase("cs").includes(q) || r.typeLabel.toLocaleLowerCase("cs").includes(q)) : rows;
   const missingCode = Array.from(new Set(rows.filter((r) => !r.code).map((r) => r.typeLabel)));
   const missingNumber = Array.from(new Set(rows.filter((r) => !r.personalNumber).map((r) => `${r.firstName} ${r.lastName}`.trim())));
   const monthEnded = monthEndOf(month) < now;
   // Uzávěrku nejde spustit s neúplnými údaji pro mzdový systém (chybějící kódy nebo osobní čísla).
   const incomplete = rows.length > 0 && (missingCode.length > 0 || missingNumber.length > 0);
 
+  function csvText() {
+    return toCsv(DETAIL_HEADERS, detailToTable(rows));
+  }
+
+  function buildWorkbook() {
+    const book = XLSX.utils.book_new();
+    const detailTable = detailToTable(rows);
+    const summaryTable = summaryToTable(summary);
+    XLSX.utils.book_append_sheet(book, autoFitSheet(XLSX.utils.aoa_to_sheet([DETAIL_HEADERS, ...detailTable]), DETAIL_HEADERS, detailTable), "Detail");
+    XLSX.utils.book_append_sheet(book, autoFitSheet(XLSX.utils.aoa_to_sheet([SUMMARY_HEADERS, ...summaryTable]), SUMMARY_HEADERS, summaryTable), "Souhrn");
+    return book;
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function download(kind: "csv" | "xlsx") {
     if (kind === "csv") {
-      const blob = new Blob([toCsv(DETAIL_HEADERS, detailToTable(rows))], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `mzdovy-podklad-${month}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerDownload(new Blob([csvText()], { type: "text/csv;charset=utf-8" }), `mzdovy-podklad-${month}.csv`);
       return;
     }
-    const book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([DETAIL_HEADERS, ...detailToTable(rows)]), "Detail");
-    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([SUMMARY_HEADERS, ...summaryToTable(summary)]), "Souhrn");
-    XLSX.writeFile(book, `mzdovy-podklad-${month}.xlsx`);
+    XLSX.writeFile(buildWorkbook(), `mzdovy-podklad-${month}.xlsx`);
+  }
+
+  // Mzdový balíček: CSV i Excel podklad za zvolený měsíc v jednom staženém souboru — dřív si člověk musel
+  // oba formáty stahovat zvlášť, i když je v drtivé většině případů chtěl oba (CSV do mzdového systému,
+  // Excel pro sebe/kontrolu).
+  function downloadZip() {
+    const xlsxBytes = XLSX.write(buildWorkbook(), { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const zip = createZip([
+      { name: `mzdovy-podklad-${month}.csv`, data: new TextEncoder().encode(csvText()) },
+      { name: `mzdovy-podklad-${month}.xlsx`, data: new Uint8Array(xlsxBytes) },
+    ]);
+    triggerDownload(zip, `mzdovy-balicek-${month}.zip`);
   }
 
   async function toggleClosure() {
@@ -158,6 +188,9 @@ export function PayrollDetailPanel() {
           </Button>
           <Button variant="secondary" onClick={() => download("xlsx")} disabled={loading || rows.length === 0}>
             <FileSpreadsheet size={15} /> Stáhnout Excel (detail + souhrn)
+          </Button>
+          <Button variant="secondary" onClick={downloadZip} disabled={loading || rows.length === 0} title="CSV i Excel za tento měsíc v jednom souboru">
+            <FileArchive size={15} /> Stáhnout balíček (ZIP)
           </Button>
         </div>
 
@@ -264,8 +297,18 @@ export function PayrollDetailPanel() {
       </Dialog>
 
       <div className="card overflow-hidden">
-        <div className="border-b border-line p-5">
-          <h2 className="font-display text-h2">Náhled ({rows.length} {rows.length === 1 ? "řádek" : rows.length < 5 ? "řádky" : "řádků"})</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-5">
+          <h2 className="font-display text-h2">Náhled ({visibleRows.length} {visibleRows.length === 1 ? "řádek" : visibleRows.length < 5 ? "řádky" : "řádků"})</h2>
+          {rows.length > 0 && (
+            <div className="relative">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Hledat jméno nebo typ…" aria-label="Hledat jméno nebo typ"
+                className="w-56 rounded border border-line py-1.5 pl-3 pr-3 text-sm"
+              />
+            </div>
+          )}
         </div>
         {loading ? (
           <div className="p-5">
@@ -286,7 +329,7 @@ export function PayrollDetailPanel() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
+                {visibleRows.map((r, i) => (
                   <tr key={i} className="border-b border-line last:border-0">
                     <td className="px-3 py-2 text-xs tabular-nums">{r.personalNumber || "—"}</td>
                     <td className="px-3 py-2 font-medium">{r.lastName}</td>
@@ -299,6 +342,13 @@ export function PayrollDetailPanel() {
                     <td className="px-3 py-2 text-xs">{r.code || <span className="text-warning-dark">chybí</span>}</td>
                   </tr>
                 ))}
+                {visibleRows.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-3 py-6 text-center text-sm text-muted">
+                      Nic neodpovídá hledání.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

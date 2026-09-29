@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
 import { CalendarHeart } from "lucide-react";
@@ -40,11 +40,33 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [pick, setPick] = useState<Tip | null>(null);
   const [visible, setVisible] = useState(VISIBLE_DEFAULT);
+  // Datum, pro které se `tips` naposledy spočítaly — když si někdo nechá Dodio otevřené přes půlnoc
+  // (nebo přes víkend v pinnutém tabu), návrh spočítaný "na dnešek" by beze změny zůstal zobrazený
+  // i poté, co se z něj mezitím stal minulý den.
+  const loadedForRef = useRef<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Vrátí-li se uživatel do už otevřeného tabu jiný den, než pro který se `tips` naposledy počítaly,
+  // vynutí se přepočet — jinak by staré návrhy klidně přežily do dne, kdy je navrhovaný termín pryč.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const today = format(new Date(), "yyyy-MM-dd");
+      if (loadedForRef.current && loadedForRef.current !== today) setReloadKey((k) => k + 1);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, []);
 
   useEffect(() => {
     if (!profile) return;
     const supabase = createClient();
     const today = format(new Date(), "yyyy-MM-dd");
+    loadedForRef.current = today;
     // Celý rok dopředu, ať je z čeho vybírat i po odeslání pár žádostí — ne jen nejbližší svátky.
     const horizon = 365;
 
@@ -96,10 +118,15 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
       console.error("BridgeDays failed:", e);
       setTips([]);
     });
-  }, [profile]);
+  }, [profile, reloadKey]);
 
   if (!profile || !tips || tips.length === 0) return null;
-  const shown = tips.slice(0, visible);
+  // Pojistka navíc k přepočtu na visibilitychange: i kdyby se z nějakého důvodu nespustil (např.
+  // se stránka nikdy nedostala do "hidden" stavu), poslední den návrhu, který už uplynul, se prostě
+  // nezobrazí — bez toho hlásila appka termín, který už je pryč.
+  const todayNow = format(new Date(), "yyyy-MM-dd");
+  const fresh = tips.filter((t) => t.take[t.take.length - 1] >= todayNow);
+  const shown = fresh.slice(0, visible);
 
   return (
     <div className="card p-5">

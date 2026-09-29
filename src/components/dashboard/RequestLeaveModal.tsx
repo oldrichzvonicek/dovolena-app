@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DbBlackoutPeriod, DbCompany, DbLeaveType, DbProfile } from "@/lib/supabase/types";
 import { createLeaveRequest, fetchMaskedAbsences, updateLeaveRequest } from "@/lib/data";
 import { fetchBlackoutPeriods, fetchCompany } from "@/lib/admin-data";
-import { errorMessage } from "@/lib/utils";
+import { cn, errorMessage, formatNumber } from "@/lib/utils";
 import { hasOtherApprover } from "@/lib/approval-checks";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { reducesPresence } from "@/lib/leave-kinds";
@@ -27,9 +27,21 @@ export interface EditingRequest {
   working_days: number;
   note: string | null;
   covering_profile_id: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
 }
 
 type DurationMode = "full" | "half" | "hours";
+
+const timeToMinutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+};
+/** HH:MM `hours` after `start`, clamped to the same day (23:59 at the latest) — used only to seed a sensible default end time. */
+function addHoursToTime(start: string, hours: number): string {
+  const total = Math.min(23 * 60 + 59, timeToMinutes(start) + Math.round(hours * 60));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
 
 /** Pre-fills a fresh (create-mode) request — from the CTA's per-type shortcuts, or from "Duplikovat" / "Upravit a poslat znovu" on an existing request (which always creates a new one: a rejected/approved request can't be edited in place). */
 export interface PrefillRequest {
@@ -74,7 +86,10 @@ export function RequestLeaveModal({
 
   const [typeId, setTypeId] = useState<string>("");
   const [durationMode, setDurationMode] = useState<DurationMode>("full");
-  const [hoursValue, setHoursValue] = useState(4);
+  // Časové rozmezí, ne jen počet hodin — kolegové (zástup, tým) tak vidí, KDY přesně bude člověk pryč,
+  // ne jen kolik hodin to je.
+  const [hoursStart, setHoursStart] = useState("09:00");
+  const [hoursEnd, setHoursEnd] = useState("13:00");
   const [startDate, setStartDate] = useState(new Date().toLocaleDateString("sv-SE"));
   const [endDate, setEndDate] = useState(new Date().toLocaleDateString("sv-SE"));
   const [note, setNote] = useState("");
@@ -132,7 +147,15 @@ export function RequestLeaveModal({
         editingRequest.working_days !== countWorkingDays(editingRequest.start_date, editingRequest.end_date, company?.work_days)
       ) {
         setDurationMode("hours");
-        setHoursValue(Math.round(editingRequest.working_days * (company?.standard_daily_hours ?? 8) * 4) / 4);
+        if (editingRequest.start_time && editingRequest.end_time) {
+          setHoursStart(editingRequest.start_time.slice(0, 5));
+          setHoursEnd(editingRequest.end_time.slice(0, 5));
+        } else {
+          // Starší žádost bez uloženého rozmezí — dopočítá se aspoň orientační rozmezí od 9:00.
+          const hrs = Math.round(editingRequest.working_days * (company?.standard_daily_hours ?? 8) * 4) / 4;
+          setHoursStart("09:00");
+          setHoursEnd(addHoursToTime("09:00", hrs));
+        }
       } else {
         setDurationMode("full");
       }
@@ -146,6 +169,8 @@ export function RequestLeaveModal({
       }
       if (prefill?.leave_type_id) setTypeId(prefill.leave_type_id);
       setDurationMode(prefill?.half_day ? "half" : "full");
+      setHoursStart("09:00");
+      setHoursEnd("13:00");
       setStartDate(prefill?.start_date ?? initialDates?.start ?? today);
       setEndDate(prefill?.end_date ?? initialDates?.end ?? today);
       setNote(prefill?.note ?? "");
@@ -168,6 +193,8 @@ export function RequestLeaveModal({
   }, [selectedType, durationMode]);
 
   const dailyHours = company?.standard_daily_hours ?? 8;
+  // Zaokrouhleno na čtvrthodiny (stejně jako dřív číselné pole s step={0.25}).
+  const hoursValue = Math.max(0, Math.round(((timeToMinutes(hoursEnd) - timeToMinutes(hoursStart)) / 60) * 4) / 4);
 
   const workingDays = useMemo(() => {
     if (durationMode === "half") return 0.5;
@@ -327,6 +354,7 @@ export function RequestLeaveModal({
   async function handleSubmit() {
     if (!profile || !typeId || policyError) return;
     if (blackoutWarning && !overrideBlackout) return;
+    if (durationMode === "hours" && (hoursValue <= 0 || hoursValue > dailyHours)) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -339,6 +367,8 @@ export function RequestLeaveModal({
         // Zdravotní údaje neevidujeme: u nemoci a soukromých typů se poznámka neukládá.
         note: privateType ? undefined : note || undefined,
         covering_profile_id: coveringId || null,
+        start_time: durationMode === "hours" ? hoursStart : null,
+        end_time: durationMode === "hours" ? hoursEnd : null,
       };
       // Admin, nad kterým nikdo není (jediný schvalovatel ve firmě), si žádost schvaluje automaticky; jinak by čekala sama na sebe.
       const topApprover = !isEditing && profile.role === "admin" && !(await hasOtherApprover(profile.company_id, profile.id));
@@ -383,7 +413,14 @@ export function RequestLeaveModal({
           <Button
             variant="primary"
             onClick={handleSubmit}
-            disabled={submitting || !typeId || !!policyError || blockingOverlap.length > 0 || (!!blackoutWarning && !overrideBlackout)}
+            disabled={
+              submitting ||
+              !typeId ||
+              !!policyError ||
+              blockingOverlap.length > 0 ||
+              (!!blackoutWarning && !overrideBlackout) ||
+              (durationMode === "hours" && (hoursValue <= 0 || hoursValue > dailyHours))
+            }
           >
             {submitting ? "Odesílám…" : isEditing ? "Uložit změny" : blackoutWarning ? "Odeslat i přesto" : "Odeslat ke schválení"}
           </Button>
@@ -437,17 +474,32 @@ export function RequestLeaveModal({
               )}
             </div>
             {durationMode === "hours" && (
-              <div className="mt-2 flex items-center gap-2 text-sm">
-                <input
-                  type="number"
-                  min={0.25}
-                  max={dailyHours}
-                  step={0.25}
-                  value={hoursValue}
-                  onChange={(e) => setHoursValue(Number(e.target.value))}
-                  className="w-20 rounded border border-line px-2 py-1.5 text-center"
-                />
-                <span className="text-muted">hodin (ze standardního úvazku {dailyHours} h/den)</span>
+              <div className="mt-2 space-y-1.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted">Od</span>
+                  <input
+                    type="time"
+                    value={hoursStart}
+                    onChange={(e) => setHoursStart(e.target.value)}
+                    className="rounded border border-line px-2 py-1.5"
+                  />
+                  <span className="text-muted">do</span>
+                  <input
+                    type="time"
+                    value={hoursEnd}
+                    onChange={(e) => setHoursEnd(e.target.value)}
+                    className="rounded border border-line px-2 py-1.5"
+                  />
+                </div>
+                {/* Kolegům a zástupu se rozmezí ukazuje i jinde v appce (tým. kalendář, detail žádosti) —
+                    počet hodin je tu jen doplňkový přepočet, ne hlavní údaj k zadání. */}
+                <p className={cn("text-xs", hoursValue <= 0 || hoursValue > dailyHours ? "text-danger" : "text-muted")}>
+                  {hoursValue <= 0
+                    ? "Konec musí být později než začátek."
+                    : hoursValue > dailyHours
+                      ? `${formatNumber(hoursValue)} h přesahuje standardní úvazek (${dailyHours} h/den) — zkontrolujte časy.`
+                      : `${formatNumber(hoursValue)} hodin (ze standardního úvazku ${dailyHours} h/den)`}
+                </p>
               </div>
             )}
           </div>

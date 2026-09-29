@@ -63,6 +63,8 @@ interface RequestRow {
   note: string | null;
   status: "approved" | "pending";
   leave_type: { key: string; label: string; color: LeaveColor };
+  start_time?: string | null;
+  end_time?: string | null;
 }
 
 interface LegendType {

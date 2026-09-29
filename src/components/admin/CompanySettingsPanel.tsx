@@ -292,7 +292,10 @@ export function CompanySettingsPanel() {
   if (loading || !company) return <LoadingCard rows={8} />;
 
   return (
-    <div className="space-y-6">
+    // max-w tady, ne na stránce nadřazené všem sekcím Nastavení — tahle sekce je formulář (popisek + přepínač
+    // vedle sebe), který na širokém monitoru natahoval popisek daleko od ovládacího prvku; jiné sekce (Uživatelé,
+    // Historie změn) jsou tabulky, které širokou obrazovku využijí, a max-width by jim naopak škodil.
+    <div className="max-w-[900px] space-y-6">
       <SectionIndex sections={sections} active={activeSection} onActive={setActiveSection} />
 
       <div id="sec-obecne" className="card scroll-mt-24 p-5">

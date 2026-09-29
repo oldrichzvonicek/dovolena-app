@@ -67,6 +67,10 @@ export async function createLeaveRequest(payload: {
   note?: string;
   covering_profile_id?: string | null;
   status?: "pending" | "approved";
+  // Jen u hodinové absence: kdy přesně během dne bude člověk pryč (kvůli zastupování). Volitelné —
+  // sloupce v DB připouštějí null, staré řádky i formuláře bez zadaného rozmezí dál fungují beze změny.
+  start_time?: string | null;
+  end_time?: string | null;
 }) {
   const { error } = await supabase.from("leave_requests").insert(payload);
   if (error) throw error;
@@ -122,6 +126,8 @@ export async function updateLeaveRequest(
     working_days: number;
     note?: string | null;
     covering_profile_id?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
     }
 ) {
   const { error } = await supabase.from("leave_requests").update(payload).eq("id", id).eq("status", "pending");

@@ -11,6 +11,7 @@ import { loadBalances } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
 import { Settlement, settleVacation } from "@/lib/settlement";
 import { splitName, toCsv } from "@/lib/payroll";
+import { autoFitSheet } from "@/lib/xlsx-utils";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
 import { LoadingLines } from "@/components/ui/skeleton";
@@ -120,7 +121,7 @@ export function SettlementPanel() {
       return;
     }
     const book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([HEADERS, ...table]), "Vyrovnání");
+    XLSX.utils.book_append_sheet(book, autoFitSheet(XLSX.utils.aoa_to_sheet([HEADERS, ...table]), HEADERS, table), "Vyrovnání");
     XLSX.writeFile(book, `vyrovnani-dovolene-${year}.xlsx`);
   }
 

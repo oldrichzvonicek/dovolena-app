@@ -315,38 +315,58 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           className="lg:col-span-2"
           icon={<CalendarClock size={17} className="text-teal-dark" />}
           title="Předpověď kapacity na 13 týdnů"
-          hint="Nejvyšší podíl nepřítomných v oddělení v daném týdnu (schválené absence). Rámeček = navíc čekající žádosti; červeně = překročený limit oddělení."
+          hint="Nejvyšší podíl nepřítomných v oddělení v daném týdnu (schválené absence)."
         >
           {data.heat.length === 0 ? (
             <Empty text="Zatím není co předpovídat (oddělení mají méně než 2 lidi)." />
           ) : (
-            <div className="overflow-x-auto">
-              <div className="grid min-w-[640px] items-center gap-1" style={{ gridTemplateColumns: `130px repeat(${weekHeads.length}, minmax(34px, 1fr))` }}>
-                <span />
-                {weekHeads.map((w) => (
-                  <span key={w.weekStart} className="text-center text-[10px] text-muted" title={format(parseISO(w.weekStart), "d. M. yyyy", { locale: cs })}>
-                    {getISOWeek(parseISO(w.weekStart))}
-                  </span>
-                ))}
-                {data.heat.map((row) => (
-                  <div key={row.deptId} className="contents">
-                    <span className="truncate pr-2 text-xs" title={`${row.dept} (${row.size} lidí)`}>
-                      {row.dept}
-                    </span>
-                    {row.weeks.map((c) => (
-                      <div
-                        key={c.weekStart}
-                        className={cellClass(c.peakPct, c.breach, c.pendingPct)}
-                        title={`${row.dept}, týden od ${format(parseISO(c.weekStart), "d. M.", { locale: cs })}: chybí ${c.peakCount} z ${row.size} (${c.peakPct} %)${c.pendingPct > 0 ? `, s čekajícími +${c.pendingPct} %` : ""}`}
-                      >
-                        {c.peakPct > 0 ? c.peakPct : ""}
-                      </div>
-                    ))}
-                  </div>
-                ))}
+            <>
+              {/* Barvy samy o sobě neříkaly, jestli jde o % kapacity, chybějící lidi nebo něco jiného. */}
+              <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm bg-paper" /> Nikdo nechybí
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm bg-teal/20" /> Chybí někdo
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm bg-warning/50" /> Chybí 20 %+
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm bg-danger/70" /> Nad limitem oddělení
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm ring-2 ring-inset ring-warning/70" /> + čeká na schválení
+                </span>
               </div>
-              <p className="mt-2 text-[11px] text-muted">Čísla nahoře jsou týdny v roce, v buňkách procento chybějících.</p>
-            </div>
+              <div className="overflow-x-auto">
+                <div className="grid min-w-[640px] items-center gap-1" style={{ gridTemplateColumns: `130px repeat(${weekHeads.length}, minmax(34px, 1fr))` }}>
+                  <span />
+                  {weekHeads.map((w) => (
+                    <span key={w.weekStart} className="text-center text-[10px] text-muted" title={format(parseISO(w.weekStart), "d. M. yyyy", { locale: cs })}>
+                      {getISOWeek(parseISO(w.weekStart))}
+                    </span>
+                  ))}
+                  {data.heat.map((row) => (
+                    <div key={row.deptId} className="contents">
+                      <span className="truncate pr-2 text-xs" title={`${row.dept} (${row.size} lidí)`}>
+                        {row.dept}
+                      </span>
+                      {row.weeks.map((c) => (
+                        <div
+                          key={c.weekStart}
+                          className={cellClass(c.peakPct, c.breach, c.pendingPct)}
+                          title={`${row.dept}, týden od ${format(parseISO(c.weekStart), "d. M.", { locale: cs })}: chybí ${c.peakCount} z ${row.size} (${c.peakPct} %)${c.pendingPct > 0 ? `, s čekajícími +${c.pendingPct} %` : ""}`}
+                        >
+                          {c.peakPct > 0 ? c.peakPct : ""}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-muted">Čísla nahoře jsou týdny v roce, v buňkách procento chybějících.</p>
+              </div>
+            </>
           )}
         </Card>
         )}

@@ -71,6 +71,9 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
+  // Rychlé filtry na problematické účty — bez nich musel admin/manažer procházet celý seznam
+  // a jednotlivé červené odznaky dohledávat okem.
+  const [quickFilter, setQuickFilter] = useState<"all" | "overdrawn" | "no-manager">("all");
   const [editing, setEditing] = useState<{ id: string; field: EditableField } | null>(null);
   const [bookForId, setBookForId] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<Row | null>(null);
@@ -140,9 +143,14 @@ export default function TeamPage() {
     [departments, rows]
   );
 
+  const isOverdrawn = (r: Row) => r.vacationTotal - r.vacationUsed < 0;
+  const overdrawnCount = rows.filter(isOverdrawn).length;
+  const noManagerCount = rows.filter((r) => !r.manager_id).length;
+
   const visibleRows = rows
     .filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()))
-    .filter((r) => deptFilter === "all" || (deptFilter === "none" ? !r.department_id : r.department_id === deptFilter));
+    .filter((r) => deptFilter === "all" || (deptFilter === "none" ? !r.department_id : r.department_id === deptFilter))
+    .filter((r) => quickFilter === "all" || (quickFilter === "overdrawn" ? isOverdrawn(r) : !r.manager_id));
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -303,6 +311,30 @@ export default function TeamPage() {
                   {rows.some((r) => !r.department_id) && <SelectItem value="none">Bez oddělení</SelectItem>}
                 </SelectContent>
               </Select>
+              {overdrawnCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter((v) => (v === "overdrawn" ? "all" : "overdrawn"))}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium",
+                    quickFilter === "overdrawn" ? "border-danger bg-danger-light text-danger-dark" : "border-line bg-white text-muted hover:bg-paper"
+                  )}
+                >
+                  🔴 Přečerpaná dovolená ({overdrawnCount})
+                </button>
+              )}
+              {noManagerCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter((v) => (v === "no-manager" ? "all" : "no-manager"))}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium",
+                    quickFilter === "no-manager" ? "border-teal bg-teal-light text-teal-dark" : "border-line bg-white text-muted hover:bg-paper"
+                  )}
+                >
+                  Bez nadřízeného ({noManagerCount})
+                </button>
+              )}
               <span className="text-xs text-muted">
                 {visibleRows.length} z {rows.length}
               </span>
