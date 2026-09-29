@@ -14,6 +14,7 @@ import { DEFAULT_MINUTES_PER_REQUEST, estimateTimeSaved, forfeitRisk, reportText
 import { formatKc } from "@/lib/plans";
 import { showToast } from "@/lib/toast";
 import { cn, formatNumber } from "@/lib/utils";
+import { PrintPreviewModal } from "@/components/ui/print-preview-modal";
 import type { ExtraInsights } from "@/components/admin/SmartInsightsExtra";
 
 type Period = "month" | "quarter" | "year";
@@ -48,6 +49,7 @@ export function LeadershipReport({ departmentId, extra }: { departmentId: string
   const [data, setData] = useState<Loaded | null>(null);
   const [minutes, setMinutes] = useState<number | null>(null);
   const [askMinutes, setAskMinutes] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const now = useMemo(() => new Date(), []);
   const range = useMemo(() => bounds(period, now), [period, now]);
 
@@ -141,6 +143,124 @@ export function LeadershipReport({ departmentId, extra }: { departmentId: string
     }
   }
 
+  const reportCard = (
+    <div className="card space-y-5 p-6">
+      <div>
+        <h2 className="font-display text-h2">Přehled pro vedení</h2>
+        <p className="text-sm text-muted">
+          {data.company} · {range.label}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded border border-line p-4">
+          <div className="text-xs text-muted">Vyřízených žádostí</div>
+          <div className="mt-1 font-display text-3xl">{formatNumber(saved.requests)}</div>
+          <div className="mt-1 text-[11px] text-muted">schválených a zamítnutých</div>
+        </div>
+        <div className="rounded border border-line p-4">
+          <div className="text-xs text-muted">Odhad ušetřeného času</div>
+          <div className="mt-1 font-display text-3xl">{formatNumber(saved.hours)} h</div>
+          <div className="mt-1 text-[11px] text-muted">
+            {saved.requests} × {formatNumber(saved.minutesPerRequest)} min na žádost (odhad){saved.amount !== null ? `, asi ${formatKc(saved.amount)}` : ""}
+          </div>
+        </div>
+        <div className="rounded border border-line p-4">
+          <div className="text-xs text-muted">Medián doby schválení</div>
+          <div className="mt-1 font-display text-3xl">{data.medianHours !== null ? `${formatNumber(data.medianHours)} h` : "—"}</div>
+          <div className="mt-1 text-[11px] text-muted">naměřeno z historie rozhodnutí</div>
+        </div>
+      </div>
+
+      {askMinutes && (
+        <div className="no-print rounded border border-warning/40 bg-warning-light px-4 py-3 text-sm text-warning-dark">
+          Kolik minut vám v průměru ušetří vyřízení jedné žádosti v Dodiu proti e-mailu nebo papíru? Číslo je jen váš odhad a ukládá se v tomto prohlížeči.
+          <span className="ml-2 inline-flex flex-wrap items-center gap-1.5">
+            {[3, 6, 10, 15].map((m) => (
+              <button key={m} onClick={() => saveMinutes(m)} className="rounded border border-warning/60 bg-white px-2.5 py-0.5 text-xs font-medium hover:bg-warning/10">
+                {m} min
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
+      {!askMinutes && (
+        <p className="no-print text-xs text-muted">
+          Odhad počítá s {formatNumber(usedMinutes)} min na žádost.{" "}
+          <button className="underline hover:text-ink" onClick={() => setAskMinutes(true)}>
+            Změnit
+          </button>
+        </p>
+      )}
+
+      <div>
+        <h3 className="text-sm font-medium">Riziko propadnutí dovolené</h3>
+        {data.risk.totalDays === 0 ? (
+          <p className="mt-1 text-sm text-muted">✓ Při současných zůstatcích nepropadne žádná dovolená.</p>
+        ) : (
+          <>
+            <p className="mt-1 text-sm">
+              Propadne <strong>{formatNumber(data.risk.totalDays)} dní</strong> u {data.risk.people} {data.risk.people === 1 ? "člověka" : "lidí"}
+              {data.risk.amount !== null && (
+                <>
+                  , což je asi <strong>{formatKc(data.risk.amount)}</strong>
+                </>
+              )}
+              , pokud se do konce roku nic nezmění.
+            </p>
+            {data.risk.byDept.length > 0 && (
+              <table className="mt-2 w-full max-w-lg text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
+                    <th className="py-1.5 font-medium">Oddělení</th>
+                    <th className="py-1.5 text-right font-medium">Lidí</th>
+                    <th className="py-1.5 text-right font-medium">Dní</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.risk.byDept.map((d) => (
+                    <tr key={d.dept} className="border-b border-line last:border-0">
+                      <td className="py-1.5">{d.dept}</td>
+                      <td className="py-1.5 text-right tabular-nums">{d.people}</td>
+                      <td className="py-1.5 text-right tabular-nums">{formatNumber(d.days)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="mt-1 text-[11px] text-muted">Jen souhrny bez jmen. Jména jsou v kartě Zůstatky.</p>
+          </>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-sm font-medium">Zdraví plánování</h3>
+        <ul className="mt-1 space-y-0.5 text-sm">
+          <li>{collisions === 0 ? "✓ Žádné kapacitní kolize ani kolize zástupů v příštích dnech." : `⚠️ Kolize kapacity a zástupů v příštích dnech: ${collisions}.`}</li>
+          <li>{noSub === 0 ? "✓ Všichni mají určený zástup." : `Bez určeného zástupu: ${noSub}.`}</li>
+          {shortNotice !== null && <li>Žádosti s předstihem do 3 dnů: {shortNotice} %.</li>}
+        </ul>
+      </div>
+
+      {actions.length > 0 && (
+        <div className="rounded bg-paper px-4 py-3">
+          <h3 className="text-sm font-medium">Doporučené kroky</h3>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">
+            {actions.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+          {data.risk.atRiskPeople > 0 && (
+            <Link href="/admin/overview" className="no-print mt-2 inline-block text-sm font-medium text-teal-dark underline underline-offset-2">
+              Otevřít výzvu k vyčerpání (Analytika → Operativní plánování)
+            </Link>
+          )}
+        </div>
+      )}
+      <p className="text-[11px] text-muted">Ušetřený čas je odhad z uvedeného předpokladu, ostatní údaje vycházejí z dat v Dodiu. Vygenerováno {format(now, "d. M. yyyy", { locale: cs })}.</p>
+    </div>
+  );
+
   return (
     <div className="space-y-4 lg:col-span-2">
       <div className="no-print flex flex-wrap items-center gap-2">
@@ -155,127 +275,16 @@ export function LeadershipReport({ departmentId, extra }: { departmentId: string
           <button onClick={copySummary} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
             <Copy size={13} /> Kopírovat shrnutí do e-mailu
           </button>
-          <button onClick={() => window.print()} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
+          <button onClick={() => setPreviewOpen(true)} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
             <Printer size={13} /> Tisk / PDF
           </button>
         </div>
       </div>
 
-      <div className="card space-y-5 p-6">
-        <div>
-          <h2 className="font-display text-h2">Přehled pro vedení</h2>
-          <p className="text-sm text-muted">
-            {data.company} · {range.label}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded border border-line p-4">
-            <div className="text-xs text-muted">Vyřízených žádostí</div>
-            <div className="mt-1 font-display text-3xl">{formatNumber(saved.requests)}</div>
-            <div className="mt-1 text-[11px] text-muted">schválených a zamítnutých</div>
-          </div>
-          <div className="rounded border border-line p-4">
-            <div className="text-xs text-muted">Odhad ušetřeného času</div>
-            <div className="mt-1 font-display text-3xl">{formatNumber(saved.hours)} h</div>
-            <div className="mt-1 text-[11px] text-muted">
-              {saved.requests} × {formatNumber(saved.minutesPerRequest)} min na žádost (odhad){saved.amount !== null ? `, asi ${formatKc(saved.amount)}` : ""}
-            </div>
-          </div>
-          <div className="rounded border border-line p-4">
-            <div className="text-xs text-muted">Medián doby schválení</div>
-            <div className="mt-1 font-display text-3xl">{data.medianHours !== null ? `${formatNumber(data.medianHours)} h` : "—"}</div>
-            <div className="mt-1 text-[11px] text-muted">naměřeno z historie rozhodnutí</div>
-          </div>
-        </div>
-
-        {askMinutes && (
-          <div className="no-print rounded border border-warning/40 bg-warning-light px-4 py-3 text-sm text-warning-dark">
-            Kolik minut vám v průměru ušetří vyřízení jedné žádosti v Dodiu proti e-mailu nebo papíru? Číslo je jen váš odhad a ukládá se v tomto prohlížeči.
-            <span className="ml-2 inline-flex flex-wrap items-center gap-1.5">
-              {[3, 6, 10, 15].map((m) => (
-                <button key={m} onClick={() => saveMinutes(m)} className="rounded border border-warning/60 bg-white px-2.5 py-0.5 text-xs font-medium hover:bg-warning/10">
-                  {m} min
-                </button>
-              ))}
-            </span>
-          </div>
-        )}
-        {!askMinutes && (
-          <p className="no-print text-xs text-muted">
-            Odhad počítá s {formatNumber(usedMinutes)} min na žádost.{" "}
-            <button className="underline hover:text-ink" onClick={() => setAskMinutes(true)}>
-              Změnit
-            </button>
-          </p>
-        )}
-
-        <div>
-          <h3 className="text-sm font-medium">Riziko propadnutí dovolené</h3>
-          {data.risk.totalDays === 0 ? (
-            <p className="mt-1 text-sm text-muted">✓ Při současných zůstatcích nepropadne žádná dovolená.</p>
-          ) : (
-            <>
-              <p className="mt-1 text-sm">
-                Propadne <strong>{formatNumber(data.risk.totalDays)} dní</strong> u {data.risk.people} {data.risk.people === 1 ? "člověka" : "lidí"}
-                {data.risk.amount !== null && (
-                  <>
-                    , což je asi <strong>{formatKc(data.risk.amount)}</strong>
-                  </>
-                )}
-                , pokud se do konce roku nic nezmění.
-              </p>
-              {data.risk.byDept.length > 0 && (
-                <table className="mt-2 w-full max-w-lg text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                      <th className="py-1.5 font-medium">Oddělení</th>
-                      <th className="py-1.5 text-right font-medium">Lidí</th>
-                      <th className="py-1.5 text-right font-medium">Dní</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.risk.byDept.map((d) => (
-                      <tr key={d.dept} className="border-b border-line last:border-0">
-                        <td className="py-1.5">{d.dept}</td>
-                        <td className="py-1.5 text-right tabular-nums">{d.people}</td>
-                        <td className="py-1.5 text-right tabular-nums">{formatNumber(d.days)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <p className="mt-1 text-[11px] text-muted">Jen souhrny bez jmen. Jména jsou v kartě Zůstatky.</p>
-            </>
-          )}
-        </div>
-
-        <div>
-          <h3 className="text-sm font-medium">Zdraví plánování</h3>
-          <ul className="mt-1 space-y-0.5 text-sm">
-            <li>{collisions === 0 ? "✓ Žádné kapacitní kolize ani kolize zástupů v příštích dnech." : `⚠️ Kolize kapacity a zástupů v příštích dnech: ${collisions}.`}</li>
-            <li>{noSub === 0 ? "✓ Všichni mají určený zástup." : `Bez určeného zástupu: ${noSub}.`}</li>
-            {shortNotice !== null && <li>Žádosti s předstihem do 3 dnů: {shortNotice} %.</li>}
-          </ul>
-        </div>
-
-        {actions.length > 0 && (
-          <div className="rounded bg-paper px-4 py-3">
-            <h3 className="text-sm font-medium">Doporučené kroky</h3>
-            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">
-              {actions.map((a) => (
-                <li key={a}>{a}</li>
-              ))}
-            </ul>
-            {data.risk.atRiskPeople > 0 && (
-              <Link href="/admin/overview" className="no-print mt-2 inline-block text-sm font-medium text-teal-dark underline underline-offset-2">
-                Otevřít výzvu k vyčerpání (Analytika → Operativní plánování)
-              </Link>
-            )}
-          </div>
-        )}
-        <p className="text-[11px] text-muted">Ušetřený čas je odhad z uvedeného předpokladu, ostatní údaje vycházejí z dat v Dodiu. Vygenerováno {format(now, "d. M. yyyy", { locale: cs })}.</p>
-      </div>
+      <div className="no-print">{reportCard}</div>
+      <PrintPreviewModal open={previewOpen} onOpenChange={setPreviewOpen} title="Náhled tisku – Přehled pro vedení">
+        {reportCard}
+      </PrintPreviewModal>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { canSeeInsights } from "@/lib/access";
 import { reducesPresence } from "@/lib/leave-kinds";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { PrintPreviewModal } from "@/components/ui/print-preview-modal";
 import { useFeatures } from "@/lib/use-features";
 import { fetchAnalyticsDepartmentIds } from "@/lib/approval-scope";
 import { fetchAll } from "@/lib/fetch-all";
@@ -110,6 +111,7 @@ export function OverviewPanel() {
   // Dvě logické části: zpětné reporty (řízené obdobím) a operativní plánování (vždy od dneška dopředu).
   const [section, setSection] = useState<"retro" | "plan">("retro");
   const [overlapFor, setOverlapFor] = useState<{ department: string; start: string; end: string } | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   // Okno "Nadcházející absence": počet dní dopředu (0 = do konce roku).
   const [upcomingDays, setUpcomingDays] = useState<number>(() => {
     try {
@@ -319,6 +321,118 @@ export function OverviewPanel() {
         ).size
       : 0;
 
+  const retroReport =
+    state && kpis ? (
+      <div className="mt-6 space-y-6">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <Link href="/admin/settings" className="card p-5 transition-colors hover:border-teal/40">
+            <div className="text-sm text-muted">Zaměstnanci</div>
+            <div className="mt-1.5 font-display text-3xl">{state.employeeCount}</div>
+            <div className="mt-1 text-[11px] text-muted">Správa uživatelů →</div>
+          </Link>
+          <Link
+            href="/approvals"
+            className={cn("card p-5 transition-colors hover:border-teal/40", state.pendingCount > 0 && "border-warning/50 bg-warning-light/30")}
+          >
+            <div className="text-sm text-muted">Čeká na schválení</div>
+            <div className="mt-1.5 font-display text-3xl">{state.pendingCount}</div>
+            <div className="mt-1 text-[11px] text-muted">Otevřít Ke schválení →</div>
+          </Link>
+          <Link href="/calendar?filter=today" className="card p-5 transition-colors hover:border-teal/40">
+            <div className="text-sm text-muted">Absence dnes</div>
+            <div className="mt-1.5 font-display text-3xl">{state.absentToday}</div>
+            <div className="mt-1 text-[11px] text-muted">Zobrazit v kalendáři →</div>
+          </Link>
+          <div className="card p-5" title="Schválené pracovní dny absence v měsíci / počet zaměstnanců">
+            <div className="text-sm text-muted">Průměrná absence</div>
+            <div className="mt-1.5 flex items-baseline gap-1.5">
+              <span className="font-display text-3xl">{formatNumber(Math.round(kpis.avg * 10) / 10)}</span>
+              <span className="text-sm text-muted">{dayWord(Math.round(kpis.avg * 10) / 10)} / zam.</span>
+            </div>
+            <div className="mt-1 text-[11px] capitalize text-muted">{monthLabel}</div>
+          </div>
+          <div className="card p-5" title="1 − (dny absence / (zaměstnanci × pracovní dny měsíce))">
+            <div className="text-sm text-muted">Kapacita firmy</div>
+            <div className="mt-1.5 font-display text-3xl">{formatNumber(Math.round(kpis.presence))} %</div>
+            <div className="mt-1 text-[11px] text-muted">přítomnost v měsíci</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="card p-5">
+            <h2 className="font-display text-h2">Absence podle typu — {monthLabel}</h2>
+            {state.byType.length === 0 ? (
+              <p className="mt-4 text-sm text-muted">Za tento měsíc zatím žádné schválené absence.</p>
+            ) : (
+              <>
+                <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-paper">
+                  {state.byType.map((t) => (
+                    <div
+                      key={t.label}
+                      className={cn("h-full shrink-0", colorBg[t.color])}
+                      style={{ width: `${totalTypeDays > 0 ? (t.days / totalTypeDays) * 100 : 0}%` }}
+                      title={`${t.label}: ${formatNumber(t.days)} ${dayWord(t.days)}`}
+                    />
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-muted">Šířka pruhu odpovídá podílu na součtu osobodnů všech členů týmu (dny × lidé), ne počtu žádostí.</p>
+                <div className="mt-3 space-y-2.5">
+                  {state.byType.map((t) => (
+                    <div key={t.label} className="flex items-center gap-2 text-sm">
+                      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", colorBg[t.color])} />
+                      <span className="flex-1">{t.label}</span>
+                      <span className="text-muted">
+                        {t.count}× · {formatNumber(t.days)} {dayWord(t.days)}
+                        {totalTypeDays > 0 && <> · {Math.round((t.days / totalTypeDays) * 100)} %</>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="card p-5">
+            <h2 className="font-display text-h2">Absence podle oddělení</h2>
+            <div className="mt-4 space-y-2.5">
+              {state.byDepartment.length === 0 && <p className="text-sm text-muted">Zatím žádná data.</p>}
+              {state.byDepartment.map((d) => (
+                <div key={d.name} className="text-sm">
+                  <button
+                    onClick={() => setOpenDept((cur) => (cur === d.name ? null : d.name))}
+                    className="block w-full text-left"
+                    title="Kliknutím zobrazíte, kdo z oddělení čerpal nejvíc"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{d.name}</span>
+                      <span className="text-muted">
+                        {formatNumber(d.days)} {dayWord(d.days)}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-paper">
+                      <div className="h-full rounded-full bg-teal" style={{ width: `${(d.days / maxDeptDays) * 100}%` }} />
+                    </div>
+                  </button>
+                  {openDept === d.name && (
+                    <ul className="mt-2 space-y-1 rounded bg-paper px-3 py-2 text-xs">
+                      {d.people.map((p) => (
+                        <li key={p.name} className="flex justify-between">
+                          <span>{p.name}</span>
+                          <span className="text-muted">
+                            {formatNumber(p.days)} {dayWord(p.days)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
   return (
     <div className="space-y-8">
       <div className="no-print flex flex-wrap gap-1.5" role="tablist" aria-label="Část přehledu">
@@ -384,7 +498,7 @@ export function OverviewPanel() {
             >
               <Download size={13} /> Excel (CSV)
             </button>
-            <button onClick={() => window.print()} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
+            <button onClick={() => setPreviewOpen(true)} disabled={loading} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper disabled:cursor-not-allowed disabled:opacity-50">
               <Printer size={13} /> PDF (tisk)
             </button>
             </>)}
@@ -423,117 +537,14 @@ export function OverviewPanel() {
         {loading || !state || !kpis ? (
           <LoadingCard rows={6} className="mt-6" />
         ) : (
-          <div className="mt-6 space-y-6">
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-              <Link href="/admin/settings" className="card p-5 transition-colors hover:border-teal/40">
-                <div className="text-sm text-muted">Zaměstnanci</div>
-                <div className="mt-1.5 font-display text-3xl">{state.employeeCount}</div>
-                <div className="mt-1 text-[11px] text-muted">Správa uživatelů →</div>
-              </Link>
-              <Link
-                href="/approvals"
-                className={cn("card p-5 transition-colors hover:border-teal/40", state.pendingCount > 0 && "border-warning/50 bg-warning-light/30")}
-              >
-                <div className="text-sm text-muted">Čeká na schválení</div>
-                <div className="mt-1.5 font-display text-3xl">{state.pendingCount}</div>
-                <div className="mt-1 text-[11px] text-muted">Otevřít Ke schválení →</div>
-              </Link>
-              <Link href="/calendar?filter=today" className="card p-5 transition-colors hover:border-teal/40">
-                <div className="text-sm text-muted">Absence dnes</div>
-                <div className="mt-1.5 font-display text-3xl">{state.absentToday}</div>
-                <div className="mt-1 text-[11px] text-muted">Zobrazit v kalendáři →</div>
-              </Link>
-              <div className="card p-5" title="Schválené pracovní dny absence v měsíci / počet zaměstnanců">
-                <div className="text-sm text-muted">Průměrná absence</div>
-                <div className="mt-1.5 flex items-baseline gap-1.5">
-                  <span className="font-display text-3xl">{formatNumber(Math.round(kpis.avg * 10) / 10)}</span>
-                  <span className="text-sm text-muted">{dayWord(Math.round(kpis.avg * 10) / 10)} / zam.</span>
-                </div>
-                <div className="mt-1 text-[11px] capitalize text-muted">{monthLabel}</div>
-              </div>
-              <div className="card p-5" title="1 − (dny absence / (zaměstnanci × pracovní dny měsíce))">
-                <div className="text-sm text-muted">Kapacita firmy</div>
-                <div className="mt-1.5 font-display text-3xl">{formatNumber(Math.round(kpis.presence))} %</div>
-                <div className="mt-1 text-[11px] text-muted">přítomnost v měsíci</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="card p-5">
-                <h2 className="font-display text-h2">Absence podle typu — {monthLabel}</h2>
-                {state.byType.length === 0 ? (
-                  <p className="mt-4 text-sm text-muted">Za tento měsíc zatím žádné schválené absence.</p>
-                ) : (
-                  <>
-                    <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-paper">
-                      {state.byType.map((t) => (
-                        <div
-                          key={t.label}
-                          className={cn("h-full shrink-0", colorBg[t.color])}
-                          style={{ width: `${totalTypeDays > 0 ? (t.days / totalTypeDays) * 100 : 0}%` }}
-                          title={`${t.label}: ${formatNumber(t.days)} ${dayWord(t.days)}`}
-                        />
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[11px] text-muted">Šířka pruhu odpovídá podílu na součtu osobodnů všech členů týmu (dny × lidé), ne počtu žádostí.</p>
-                    <div className="mt-3 space-y-2.5">
-                      {state.byType.map((t) => (
-                        <div key={t.label} className="flex items-center gap-2 text-sm">
-                          <span className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", colorBg[t.color])} />
-                          <span className="flex-1">{t.label}</span>
-                          <span className="text-muted">
-                            {t.count}× · {formatNumber(t.days)} {dayWord(t.days)}
-                            {totalTypeDays > 0 && <> · {Math.round((t.days / totalTypeDays) * 100)} %</>}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="card p-5">
-                <h2 className="font-display text-h2">Absence podle oddělení</h2>
-                <div className="mt-4 space-y-2.5">
-                  {state.byDepartment.length === 0 && <p className="text-sm text-muted">Zatím žádná data.</p>}
-                  {state.byDepartment.map((d) => (
-                    <div key={d.name} className="text-sm">
-                      <button
-                        onClick={() => setOpenDept((cur) => (cur === d.name ? null : d.name))}
-                        className="block w-full text-left"
-                        title="Kliknutím zobrazíte, kdo z oddělení čerpal nejvíc"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span>{d.name}</span>
-                          <span className="text-muted">
-                            {formatNumber(d.days)} {dayWord(d.days)}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 w-full rounded-full bg-paper">
-                          <div className="h-full rounded-full bg-teal" style={{ width: `${(d.days / maxDeptDays) * 100}%` }} />
-                        </div>
-                      </button>
-                      {openDept === d.name && (
-                        <ul className="mt-2 space-y-1 rounded bg-paper px-3 py-2 text-xs">
-                          {d.people.map((p) => (
-                            <li key={p.name} className="flex justify-between">
-                              <span>{p.name}</span>
-                              <span className="text-muted">
-                                {formatNumber(p.days)} {dayWord(p.days)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <div className="no-print">{retroReport}</div>
         )}
         </>)}
       </div>
+
+      <PrintPreviewModal open={previewOpen} onOpenChange={setPreviewOpen} title={`Náhled tisku – Analytika – ${monthLabel}`}>
+        {retroReport ?? <p className="text-sm text-muted">Načítám…</p>}
+      </PrintPreviewModal>
 
       {/* Not scoped to the month/year switcher above — always "starting from today", so it's pulled visually apart with its own heading + divider rather than sitting right under the monthly cards. */}
       {state && section === "plan" && (
