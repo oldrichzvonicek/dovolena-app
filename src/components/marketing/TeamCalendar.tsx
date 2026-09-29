@@ -1,120 +1,161 @@
 import { Container } from "./Container";
 
+// 28. 9. – 11. 10. 2026 — two full weeks including weekends, matching how
+// the real team calendar actually shows the range (not just working days).
 const DAYS = [
-  { label: "Po", num: "26", holiday: false },
-  { label: "Út", num: "27", holiday: false },
-  { label: "Svátek", num: "28", holiday: true },
-  { label: "Čt", num: "29", holiday: false },
-  { label: "Pá", num: "30", holiday: false },
-  { label: "Po", num: "2", holiday: false, weekStart: true },
-  { label: "Út", num: "3", holiday: false },
-  { label: "St", num: "4", holiday: false },
-  { label: "Čt", num: "5", holiday: false },
-  { label: "Pá", num: "6", holiday: false },
-];
-
-const PEOPLE = [
-  { initials: "JN", name: "Jana Nováková", bg: "bg-[#E3F2EC]", fg: "text-dodio-teal-dark" },
-  { initials: "TD", name: "Tomáš Dvořák", bg: "bg-[#ECEAE3]", fg: "text-dodio-ink" },
-  { initials: "PH", name: "Petra Horáková", bg: "bg-[#FDF1DE]", fg: "text-dodio-warning-dark" },
-  { initials: "MS", name: "Martin Svoboda", bg: "bg-[#FBE4DA]", fg: "text-dodio-coral-dark" },
-  { initials: "LČ", name: "Lucie Černá", bg: "bg-[#E3F2EC]", fg: "text-dodio-teal-dark" },
+  { label: "po", num: "28" },
+  { label: "út", num: "29", today: true },
+  { label: "st", num: "30" },
+  { label: "čt", num: "1", weekStart: true },
+  { label: "pá", num: "2" },
+  { label: "so", num: "3", weekend: true },
+  { label: "ne", num: "4", weekend: true },
+  { label: "po", num: "5", weekStart: true },
+  { label: "út", num: "6" },
+  { label: "st", num: "7" },
+  { label: "čt", num: "8" },
+  { label: "pá", num: "9" },
+  { label: "so", num: "10", weekend: true },
+  { label: "ne", num: "11", weekend: true },
 ];
 
 const LEGEND = [
   { label: "Dovolená", swatch: "bg-dodio-teal" },
-  { label: "Nemoc", swatch: "bg-dodio-coral" },
-  { label: "Home office", swatch: "bg-dodio-border" },
-  { label: "Lékař", swatch: "border border-dodio-teal bg-[#E3F2EC]" },
-  { label: "Čeká na schválení", swatch: "border border-dashed border-[#B87718] bg-[#FDF1DE]" },
+  { label: "Lékař", swatch: "bg-dodio-coral" },
+  { label: "Náhradní volno", swatch: "bg-dodio-warning" },
+  { label: "Sick Day", swatch: "bg-dodio-danger" },
+  { label: "Home Office", swatch: "bg-[#4A7FC9]" },
+  { label: "Nepřítomen", swatch: "bg-dodio-border" },
+  { label: "Státní svátek", swatch: "bg-[#F3F0E8] border border-dodio-border" },
 ];
 
 export function TeamCalendar() {
   return (
     <section id="kalendar" className="scroll-mt-16 border-y border-dodio-border bg-dodio-surface-card font-dodio-sans lg:scroll-mt-24">
       <Container className="flex flex-col gap-8 py-14 lg:gap-10 lg:py-[104px]">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
-          <div className="flex max-w-[640px] flex-col gap-3.5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#0B7A60] lg:text-[13px]">
-              Týmový kalendář
-            </div>
-            <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
-              Celý tým na jeden pohled.
-            </h2>
-            <p className="m-0 text-[15px] leading-[23px] text-dodio-ink-muted lg:text-lg lg:leading-[28px]">
-              Než schválíte další volno, uvidíte, kdo už chybí. Státní svátky jsou vyznačené samy.
-            </p>
+        <div className="flex flex-col gap-3.5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[#0B7A60] lg:text-[13px]">
+            Týmový kalendář
           </div>
-          <div className="flex max-w-[420px] flex-wrap gap-4 text-[13px] text-dodio-ink-muted lg:justify-end">
-            {LEGEND.map((item) => (
-              <span key={item.label} className="flex items-center gap-1.5">
-                <span className={`h-2.5 w-3.5 rounded-[3px] ${item.swatch}`} />
-                {item.label}
-              </span>
-            ))}
+          <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
+            Celý tým na jeden pohled.
+          </h2>
+          <p className="m-0 max-w-[640px] text-[15px] leading-[23px] text-dodio-ink-muted lg:text-lg lg:leading-[28px]">
+            Filtrujte podle oddělení nebo typu absence, seskupte tým a uvidíte, kdo chybí, než schválíte
+            další volno.
+          </p>
+        </div>
+
+        {/* Filter bar — illustrative, matches the app's real controls */}
+        <div aria-hidden="true" className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-dodio-ink-muted">
+            <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-dodio-teal bg-dodio-teal">
+              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                <path d="M1.5 5l2.5 2.5 4.5-5" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            Seskupit podle oddělení
+          </label>
+          <span className="rounded-dodio-md border border-dodio-border bg-dodio-surface px-3.5 py-2 text-sm text-dodio-ink-muted">
+            Všechna oddělení
+          </span>
+          <span className="rounded-dodio-md border border-dodio-border bg-dodio-surface px-3.5 py-2 text-sm text-dodio-ink-muted">
+            Všechny absence
+          </span>
+          <span className="rounded-dodio-md border border-dodio-border bg-dodio-surface px-3.5 py-2 text-sm text-dodio-ink-muted">
+            Hledat zaměstnance…
+          </span>
+          <div className="ml-auto flex items-center gap-2 text-sm text-dodio-ink-muted">
+            <span>28. 9. – 11. 10. 2026</span>
+            <span className="rounded-dodio-sm border border-dodio-border px-2.5 py-1 text-xs font-semibold">Dnes</span>
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-dodio-lg border border-dodio-border">
-          <div className="grid min-w-[900px] grid-cols-[180px_repeat(10,minmax(64px,1fr))] grid-rows-[56px_repeat(5,64px)] relative bg-dodio-surface-card">
-            {/* holiday column background */}
-            <div className="col-start-4 col-end-5 row-start-1 row-end-7 border-x border-dodio-border bg-[#F3F0E8]" />
+        <div className="flex flex-wrap gap-4 text-[13px] text-dodio-ink-muted">
+          {LEGEND.map((item) => (
+            <span key={item.label} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-3.5 rounded-[3px] ${item.swatch}`} />
+              {item.label}
+            </span>
+          ))}
+        </div>
 
+        <div className="overflow-x-auto rounded-dodio-lg border border-dodio-border">
+          <div className="grid min-w-[1180px] grid-cols-[190px_repeat(14,minmax(56px,1fr))] grid-rows-[52px_60px_36px_56px_56px_56px_36px_56px_56px] relative bg-dodio-surface-card">
             {/* header row */}
-            <div className="col-start-1 flex items-center border-b border-dodio-border bg-[#FAF9F5] px-5 text-[13px] font-semibold text-dodio-ink-muted">
-              Říjen – listopad 2026
+            <div className="col-start-1 flex items-center border-b border-dodio-border bg-[#FAF9F5] px-4 text-[13px] font-semibold text-dodio-ink-muted">
+              Jméno
             </div>
             {DAYS.map((day, i) => (
               <div
                 key={`${day.label}-${day.num}`}
                 style={{ gridColumnStart: i + 2 }}
-                className={`row-start-1 flex flex-col items-center justify-center border-b text-xs ${
+                className={`row-start-1 flex flex-col items-center justify-center border-b text-[11px] ${
                   day.weekStart ? "border-l-2" : ""
-                } ${
-                  day.holiday
-                    ? "z-[1] border-dodio-border bg-[#FBE4DA] text-dodio-coral-dark"
-                    : "border-dodio-border bg-[#FAF9F5] text-dodio-ink-muted"
-                }`}
+                } border-dodio-border ${
+                  day.today ? "bg-[#E3F2EC]" : day.weekend ? "bg-[#F3F0E8]" : "bg-[#FAF9F5]"
+                } text-dodio-ink-muted`}
               >
                 <span>{day.label}</span>
-                <strong className={`text-[15px] ${day.holiday ? "" : "text-dodio-ink"}`}>{day.num}</strong>
+                <strong className={`text-sm ${day.today ? "text-dodio-teal-dark" : "text-dodio-ink"}`}>{day.num}</strong>
               </div>
             ))}
 
-            {/* people rows */}
-            {PEOPLE.map((person, i) => (
-              <div
-                key={person.initials}
-                style={{ gridRowStart: i + 2 }}
-                className={`col-start-1 flex items-center gap-2.5 px-5 text-[15px] font-medium ${
-                  i < PEOPLE.length - 1 ? "border-b border-[#EFEDE6]" : ""
-                }`}
-              >
-                <span className={`flex h-[30px] w-[30px] items-center justify-center rounded-full text-xs font-semibold ${person.bg} ${person.fg}`}>
-                  {person.initials}
-                </span>
-                {person.name}
+            {/* pinned "you" row */}
+            <div className="col-start-1 row-start-2 flex flex-col justify-center gap-0.5 border-b border-dodio-border bg-[#E3F2EC]/40 px-4">
+              <div className="text-sm font-semibold">
+                Oldřich Zvoníček <span className="font-normal text-dodio-ink-muted">(vy)</span>
               </div>
-            ))}
+              <div className="text-xs text-dodio-ink-muted">e-Commerce</div>
+            </div>
+            <div className="z-[2] col-start-5 col-end-6 row-start-2 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-teal text-xs font-semibold text-white">
+              Dovolená
+            </div>
+            <div className="z-[2] col-start-9 col-end-11 row-start-2 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-teal text-xs font-semibold text-white">
+              Dovolená
+            </div>
 
-            {/* absence bars */}
-            <div className="z-[2] col-start-7 col-end-12 row-start-2 mx-1.5 flex h-[34px] items-center self-center rounded-dodio-md bg-dodio-teal px-3 text-[13px] font-semibold text-white">
-              Dovolená · 5 dní
+            {/* Finance group */}
+            <div className="col-span-full col-start-1 row-start-3 flex items-center gap-2 border-b border-dodio-border bg-[#FAF9F5] px-4 text-xs font-semibold text-dodio-ink-muted">
+              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                <path d="M2 3.5l3 3 3-3" fill="none" stroke="#5F5E5A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Finance (6)
             </div>
-            <div className="z-[2] col-start-3 col-end-4 row-start-3 mx-1.5 flex h-[34px] items-center justify-center self-center rounded-dodio-md bg-dodio-border text-xs font-semibold text-dodio-ink">
-              HO
+            <div className="col-start-1 row-start-4 flex items-center gap-2.5 border-b border-[#EFEDE6] px-4 text-sm">
+              <span className="font-medium">Alena Králová</span>
             </div>
-            <div className="z-[2] col-start-5 col-end-6 row-start-3 mx-1.5 flex h-[34px] items-center justify-center self-center rounded-dodio-md bg-dodio-border text-xs font-semibold text-dodio-ink">
-              HO
+            <div className="col-start-1 row-start-5 flex items-center gap-2.5 border-b border-[#EFEDE6] px-4 text-sm">
+              <span className="font-medium">Ondřej Veselý</span>
             </div>
-            <div className="z-[2] col-start-5 col-end-7 row-start-4 mx-1.5 flex h-8 items-center self-center rounded-dodio-md border border-dashed border-[#B87718] bg-[#FDF1DE] px-3 text-[13px] font-semibold text-dodio-warning-dark">
-              Čeká · dovolená
+            <div className="z-[2] col-start-8 col-end-10 row-start-5 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-warning text-xs font-semibold text-dodio-warning-dark">
+              Náhradní volno
             </div>
-            <div className="z-[2] col-start-2 col-end-4 row-start-5 mx-1.5 flex h-[34px] items-center self-center rounded-dodio-md bg-dodio-coral px-3 text-[13px] font-semibold text-dodio-coral-dark">
-              Nepřítomen
+            <div className="col-start-1 row-start-6 flex items-center gap-2.5 px-4 text-sm">
+              <span className="font-medium">Veronika Sedláková</span>
             </div>
-            <div className="z-[2] col-start-7 col-end-8 row-start-6 mx-1.5 flex h-8 items-center justify-center self-center rounded-dodio-md border border-dodio-teal bg-[#E3F2EC] text-xs font-semibold text-dodio-teal-dark">
+            <div className="z-[2] col-start-10 col-end-11 row-start-6 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-coral text-xs font-semibold text-dodio-coral-dark">
               Lékař
+            </div>
+
+            {/* DPO group */}
+            <div className="col-span-full col-start-1 row-start-7 flex items-center gap-2 border-y border-dodio-border bg-[#FAF9F5] px-4 text-xs font-semibold text-dodio-ink-muted">
+              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                <path d="M2 3.5l3 3 3-3" fill="none" stroke="#5F5E5A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              DPO (5)
+            </div>
+            <div className="col-start-1 row-start-8 flex items-center gap-2.5 border-b border-[#EFEDE6] px-4 text-sm">
+              <span className="font-medium">David Kučera</span>
+            </div>
+            <div className="z-[2] col-start-9 col-end-12 row-start-8 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-[#4A7FC9] text-xs font-semibold text-white">
+              Home Office
+            </div>
+            <div className="col-start-1 row-start-9 flex items-center gap-2.5 px-4 text-sm">
+              <span className="font-medium">Roman Richter</span>
+            </div>
+            <div className="z-[2] col-start-2 col-end-6 row-start-9 mx-1 flex h-8 items-center self-center rounded-dodio-md bg-dodio-teal px-3 text-xs font-semibold text-white">
+              Dovolená
             </div>
           </div>
         </div>
