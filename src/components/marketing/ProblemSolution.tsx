@@ -1,4 +1,5 @@
 import { Container } from "./Container";
+import { CircleCheckIcon, CircleCrossIcon } from "./icons";
 
 const PAIRS = [
   {
@@ -37,17 +38,23 @@ export function ProblemSolution() {
               key={pair.problem}
               className="flex flex-col gap-4 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-6 lg:p-7"
             >
-              <div className="flex flex-col gap-1.5">
-                <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">Dnes</div>
-                <p className="m-0 text-[15px] leading-[23px] text-dodio-ink-muted lg:text-base lg:leading-[25px]">
-                  {pair.problem}
-                </p>
+              <div className="flex gap-2.5">
+                <CircleCrossIcon />
+                <div className="flex flex-col gap-1">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">Dnes</div>
+                  <p className="m-0 text-[15px] leading-[23px] text-dodio-ink-muted lg:text-base lg:leading-[25px]">
+                    {pair.problem}
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5 border-t border-dodio-border pt-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-dodio-teal-dark">S Dodiem</div>
-                <p className="m-0 text-[15px] font-medium leading-[23px] text-dodio-ink lg:text-base lg:leading-[25px]">
-                  {pair.solution}
-                </p>
+              <div className="flex gap-2.5 border-t border-dodio-border pt-4">
+                <CircleCheckIcon />
+                <div className="flex flex-col gap-1">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-dodio-teal-dark">S Dodiem</div>
+                  <p className="m-0 text-[15px] font-medium leading-[23px] text-dodio-ink lg:text-base lg:leading-[25px]">
+                    {pair.solution}
+                  </p>
+                </div>
               </div>
             </div>
           ))}

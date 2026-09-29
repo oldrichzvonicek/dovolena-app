@@ -47,10 +47,11 @@ export function Pricing() {
             Ceník
           </div>
           <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
-            Paušál podle velikosti týmu.
+            Do 5 lidí napořád zdarma.
           </h2>
           <p className="m-0 max-w-[600px] text-[15px] leading-[23px] text-dodio-ink-muted lg:text-lg lg:leading-[28px]">
-            Do 5 uživatelů zdarma, bez platební karty. Při roční platbě máte 2 měsíce zdarma.
+            Žádná zkušební lhůta, která vyprší — tarif Free zůstává zdarma, dokud tým neporoste. Bez platební
+            karty. Při roční platbě máte 2 měsíce zdarma.
           </p>
         </div>
 
@@ -100,6 +101,11 @@ export function Pricing() {
                     Doporučujeme
                   </span>
                 )}
+                {plan.id === "free" && (
+                  <span className="rounded-dodio-sm bg-[#FBE4DA] px-2.5 py-1 text-xs font-semibold text-dodio-coral-dark">
+                    Navždy zdarma
+                  </span>
+                )}
               </div>
               <div className="text-sm text-dodio-ink-muted lg:text-[15px]">
                 {plan.forWhom} · {plan.usersLabel}
@@ -123,11 +129,7 @@ export function Pricing() {
               </div>
               <a
                 href={plan.ctaHref}
-                className={`mt-auto rounded-dodio-md py-3.5 text-center text-base font-semibold no-underline ${
-                  plan.recommended
-                    ? "bg-dodio-teal-dark text-white hover:bg-dodio-teal"
-                    : "border border-dodio-border bg-white text-dodio-ink"
-                }`}
+                className="mt-auto rounded-dodio-md bg-dodio-teal-dark py-3.5 text-center text-base font-semibold text-white no-underline hover:bg-dodio-teal"
               >
                 {plan.ctaLabel}
               </a>

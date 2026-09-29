@@ -73,6 +73,20 @@ export function CheckIcon({ stroke = "#0F9D7C" }: { stroke?: string }) {
   );
 }
 
+export function CircleCrossIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="mt-0.5 shrink-0">
+      <circle cx="8" cy="8" r="8" fill="#F6E2DE" />
+      <path
+        d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6"
+        stroke="#8C2523"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function CircleCheckIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" className="mt-0.5 shrink-0">

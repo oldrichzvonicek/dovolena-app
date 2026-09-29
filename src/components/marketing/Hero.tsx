@@ -169,13 +169,18 @@ export function Hero() {
             Žádost na tři kliknutí, schválení jedním klikem přímo z e-mailu a podklady pro mzdy jedním
             exportem. Dodio hlídá zůstatky, české svátky i to, kdo dnes chybí.
           </p>
-          <div className="flex">
+          <div className="flex flex-col gap-2.5">
             <a
               href={SIGNUP_URL}
               className="w-full rounded-dodio-md bg-dodio-teal-dark px-6 py-4 text-center text-base font-semibold text-white no-underline hover:bg-dodio-teal sm:w-auto lg:px-[26px] lg:py-4 lg:text-[17px]"
             >
               Vyzkoušet zdarma
             </a>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-dodio-ink-muted">
+              <span>Bez platební karty</span>
+              <span aria-hidden="true">·</span>
+              <span>Založeno za 1 minutu</span>
+            </div>
           </div>
           <div className="hidden flex-wrap gap-6 text-sm text-dodio-ink-muted lg:flex">
             {BENEFITS.map((benefit) => (
