@@ -18,8 +18,24 @@ const QUESTIONS = [
     a: "Kolegové v týmovém kalendáři vidí jen „Nepřítomen“, ne že jde o nemoc. Konkrétní typ absence vidí jen nadřízený, admin, HR a účetní.",
   },
   {
+    q: "Jak appka zabezpečuje naše data?",
+    a: "Přístup je podle rolí (zaměstnanec, manažer, admin, HR, účetní) — každý vidí jen to, co má. Dvoufázové ověření je volitelné pro každého a povinné pro admina, HR a účetní. Data jsou hostovaná v EU.",
+  },
+  {
     q: "Musím appku vyzkoušet na kartu?",
     a: "Ne. Tarif Free je zdarma do 5 uživatelů bez zadávání platební karty — stačí se zaregistrovat.",
+  },
+  {
+    q: "Co když firma přeroste 30 lidí?",
+    a: "Nic se neděje — tarif Pro nemá horní limit uživatelů. Nad 30 lidí zaplatíte 39 Kč měsíčně za každého dalšího, appka zůstává stejná.",
+  },
+  {
+    q: "Co je Smart HR?",
+    a: "Nástroje pro řízení týmu navíc k evidenci — predikce kapacity oddělení, upozornění na nerovnoměrné čerpání dovolené v týmu a přehled, kdo si dovolenou skutečně vybírá. Součást tarifu Pro, nebo jako doplněk k nižším tarifům.",
+  },
+  {
+    q: "Potřebujeme něco instalovat?",
+    a: "Ne. Dodio běží celé v prohlížeči — funguje z počítače, tabletu i mobilu bez instalace.",
   },
   {
     q: "Jak dlouho trvá zavedení appky ve firmě?",
