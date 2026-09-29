@@ -246,7 +246,7 @@ export function EditEmployeeModal({
                     ["Zadá absenci za kohokoli ve firmě", true, false],
                     ["Vidí všechny absence, včetně nemoci", true, true],
                     ["Analytika a Exporty (podklady pro mzdy)", true, true],
-                    ["Cokoli upravuje či schvaluje", true, false],
+                    ["Schvaluje žádosti o absenci", false, false],
                   ].map(([label, hr, acc]) => (
                     <tr key={label as string}>
                       <td className="px-2 py-1.5">{label}</td>
