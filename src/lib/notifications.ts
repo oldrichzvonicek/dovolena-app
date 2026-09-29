@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
 
-export type NotificationType = "request_created" | "request_approved" | "request_rejected" | "vacation_reminder" | "help_question" | "cancellation_requested" | "cancellation_resolved";
+export type NotificationType = "request_created" | "request_approved" | "request_rejected" | "vacation_reminder" | "help_question" | "cancellation_requested" | "cancellation_resolved" | "covering_assigned";
 
 export interface NotificationRow {
   id: string;

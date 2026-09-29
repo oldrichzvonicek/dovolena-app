@@ -283,7 +283,7 @@ export interface DigestInput {
 }
 
 /** Text týdenního přehledu pro HR a adminy (e-mail). Vrací null, když není nic k řešení a nemá smysl obtěžovat. */
-export function hrDigest(input: DigestInput): { subject: string; body: string } | null {
+export function hrDigest(input: DigestInput, opts: { embedded?: boolean } = {}): { subject: string; body: string } | null {
   // Každá "sekce" je samostatný odstavec (oddělený prázdným řádkem) — jen tak se blok čistě
   // odrážkových řádků (bez nadpisu vmíchaného mezi ně) vykreslí v e-mailu jako skutečný seznam
   // (viz renderParagraph v email-templates.ts), ne jako jedna zeď textu s doslovnými "•".
@@ -298,7 +298,8 @@ export function hrDigest(input: DigestInput): { subject: string; body: string } 
   }
   if (paragraphs.length === 0) return null;
   const speedNote = input.medianDecisionHours > 0 ? ` Poslední žádosti se u vás řešily v mediánu ${input.medianDecisionHours} h.` : "";
-  const header = `Dobré ráno,\n\ntady je týdenní přehled pro HR.${speedNote}`;
+  // embedded = část připojená pod týdenní přehled pro manažery (člověk s oběma rolemi dostane jeden e-mail, ne dva).
+  const header = opts.embedded ? `A ještě pár věcí pro HR.${speedNote}` : `Dobré ráno,\n\ntady je týdenní přehled pro HR.${speedNote}`;
   return { subject: "Týdenní přehled pro HR — Dodio", body: [header, ...paragraphs].join("\n\n") };
 }
 
