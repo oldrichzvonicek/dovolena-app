@@ -223,15 +223,40 @@ export function EditEmployeeModal({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Žádná</SelectItem>
-                <SelectItem value="hr" disabled={!features.has("hr_insights") && employee.staff_role !== "hr"}>
-                  HR — správa lidí a nároků, vidí všechny absence{features.has("hr_insights") ? "" : " (doplněk Smart HR)"}
-                </SelectItem>
+                <SelectItem value="hr">HR — správa lidí, vidí všechny absence</SelectItem>
                 <SelectItem value="accountant" disabled={!features.has("accountant") && employee.staff_role !== "accountant"}>
                   Účetní — jen čtení absencí pro mzdy{features.has("accountant") ? "" : " (doplněk Účetní)"}
                 </SelectItem>
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-muted">Přidává práva k základní roli. Nastavuje jen admin. Role HR patří k Smart HR, role Účetní je od tarifu Starter v ceně.</p>
+            <p className="mt-1 text-xs text-muted">Přidává práva k základní roli (zaměstnanec/manažer/admin výše). Nastavuje jen admin. Role Účetní je od tarifu Starter v ceně, jinak jde o doplněk — role HR je zdarma na jakémkoli tarifu.</p>
+            <div className="mt-2 overflow-hidden rounded border border-line text-xs">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-paper text-left text-muted">
+                    <th className="px-2 py-1.5 font-medium">Co role přidává</th>
+                    <th className="px-2 py-1.5 text-center font-medium">HR</th>
+                    <th className="px-2 py-1.5 text-center font-medium">Účetní</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {[
+                    ["Spravuje lidi (oddělení, nadřízený, nároky, pozvánky)", true, false],
+                    ["Aktivuje a deaktivuje uživatele", true, false],
+                    ["Zadá absenci za kohokoli ve firmě", true, false],
+                    ["Vidí všechny absence, včetně nemoci", true, true],
+                    ["Analytika a Exporty (podklady pro mzdy)", true, true],
+                    ["Cokoli upravuje či schvaluje", true, false],
+                  ].map(([label, hr, acc]) => (
+                    <tr key={label as string}>
+                      <td className="px-2 py-1.5">{label}</td>
+                      <td className="px-2 py-1.5 text-center">{hr ? "✓" : "—"}</td>
+                      <td className="px-2 py-1.5 text-center">{acc ? "✓" : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div>

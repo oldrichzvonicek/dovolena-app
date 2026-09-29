@@ -17,8 +17,9 @@ export interface DecisionScope {
  * the person's manager, the head / deputy head of their department, or a standing substitute
  * (profiles.substitute_id) of such a manager or head. Admins may decide for everyone.
  */
-export async function fetchDecisionScope(me: { id: string; company_id: string; role: string }): Promise<DecisionScope> {
-  if (me.role === "admin") return { all: true, canDecide: () => true };
+export async function fetchDecisionScope(me: { id: string; company_id: string; role: string; staff_role?: string | null }): Promise<DecisionScope> {
+  // HR spravuje lidi napříč celou firmou (stejně jako admin), ne jen svůj tým.
+  if (me.role === "admin" || me.staff_role === "hr") return { all: true, canDecide: () => true };
   const supabase = createClient();
   const [{ data: depts }, { data: subFor }] = await Promise.all([
     supabase.from("departments").select("id, head_profile_id, deputy_head_profile_id").eq("company_id", me.company_id),

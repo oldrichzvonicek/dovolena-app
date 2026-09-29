@@ -23,7 +23,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded px-5 py-2.5 max-sm:min-h-11 text-body-strong transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-dark",
+        // disabled:opacity-50 alone read as "just a bit muted, maybe still clickable" — grayscale + a
+        // lower opacity + the not-allowed cursor make "you can't click this yet" unambiguous at a glance.
+        "inline-flex items-center justify-center gap-2 rounded px-5 py-2.5 max-sm:min-h-11 text-body-strong transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-dark",
         variantClasses[variant],
         className
       )}

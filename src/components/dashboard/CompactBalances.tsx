@@ -46,6 +46,9 @@ export function CompactBalances() {
         const total = c.total ?? 0;
         const usedPct = total > 0 ? Math.min(100, (c.used / total) * 100) : 0;
         const plannedPct = total > 0 ? Math.min(100 - usedPct, (c.planned / total) * 100) : 0;
+        // Zbývá je vždy plná syté barvy, ne vyčerpáno/plánováno — jinak pruh skoro celý zelený budil dojem
+        // "zbývá spousta", i když ve skutečnosti byl skoro celý nárok už vyčerpaný nebo naplánovaný.
+        const remainingPct = Math.max(0, 100 - usedPct - plannedPct);
         return (
           <div key={c.label} className="card px-4 py-2.5">
             <div className="text-xs text-muted">{c.label}</div>
@@ -54,8 +57,9 @@ export function CompactBalances() {
             </div>
             {total > 0 && (
               <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-paper" role="img" aria-label={`${c.label}: vyčerpáno ${formatNumber(c.used)}, plánováno ${formatNumber(c.planned)}, zbývá ${formatNumber(c.remaining ?? 0)}`}>
-                <div className={c.color} style={{ width: `${usedPct}%` }} />
+                <div className="bg-line" style={{ width: `${usedPct}%` }} />
                 <div className={c.color + " opacity-40"} style={{ width: `${plannedPct}%` }} />
+                <div className={c.color} style={{ width: `${remainingPct}%` }} />
               </div>
             )}
             <div className={cn("flex flex-wrap gap-x-3 text-[11px] text-muted", total > 0 ? "mt-1.5" : "mt-1")}>

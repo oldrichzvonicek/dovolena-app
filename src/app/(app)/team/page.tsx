@@ -23,6 +23,7 @@ import {
 } from "@/lib/admin-data";
 import { fetchLeaveTypes } from "@/lib/data";
 import { loadBalances } from "@/lib/balances";
+import { isHr } from "@/lib/access";
 import { DbDepartment, DbLeaveType } from "@/lib/supabase/types";
 import { cn, formatNumber } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
@@ -82,6 +83,9 @@ export default function TeamPage() {
 
   const year = new Date().getFullYear();
   const isAdmin = profile?.role === "admin";
+  // HR vidí (a smí zadat absenci) za celou firmu jako admin — viz fetchDecisionScope — ale nemá přístup
+  // k Upravit profil/roli ani k Nastavení firmy, takže tenhle přepínač je jen pro titulek a podtitulek.
+  const showFullCompany = isAdmin || isHr(profile);
 
   async function load() {
     if (!profile) return;
@@ -254,7 +258,7 @@ export default function TeamPage() {
 
   return (
     <div>
-      <Header title={isAdmin ? "Zaměstnanci" : "Můj tým"} subtitle={isAdmin ? "Přehled všech lidí ve firmě, jejich zůstatků a zařazení" : "Přehled členů týmu, jejich zůstatků a zařazení"} />
+      <Header title={showFullCompany ? "Zaměstnanci" : "Můj tým"} subtitle={showFullCompany ? "Přehled všech lidí ve firmě, jejich zůstatků a zařazení" : "Přehled členů týmu, jejich zůstatků a zařazení"} />
       <div className="space-y-6 p-4 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {isAdmin ? (

@@ -70,7 +70,7 @@ export const PLANS: Plan[] = [
     features: [
       "Bez horního limitu uživatelů",
       "Vše z tarifu Team",
-      "Smart HR a role HR",
+      "Smart HR",
       "Eskalace schvalování a zástupy",
       ...(CHAT_INTEGRATIONS_ENABLED ? ["Webhooky"] : []),
       "Webhooky",
@@ -126,7 +126,7 @@ export const ADDONS: Addon[] = [
     availableOn: ["free", "basic", "starter"],
     includedIn: ["pro"],
     info:
-      "Přehledy pro HR a vedení: předpověď kapacity týmu na 13 týdnů, trendy za 12 měsíců, anonymní nemocnost po odděleních (od 5 lidí), rychlost schvalování, závazek z nevyčerpané dovolené, dobití baterií a férové plánování Vánoc a léta. Součástí je role HR. Nemoc se nikdy neukazuje po jménech.",
+      "Přehledy pro HR a vedení: předpověď kapacity týmu na 13 týdnů, trendy za 12 měsíců, anonymní nemocnost po odděleních (od 5 lidí), rychlost schvalování, závazek z nevyčerpané dovolené, dobití baterií a férové plánování Vánoc a léta. Nemoc se nikdy neukazuje po jménech.",
   },
   {
     key: "accountant",
@@ -135,7 +135,7 @@ export const ADDONS: Addon[] = [
     yearly: 1000,
     availableOn: ["free"],
     includedIn: ["basic", "starter", "pro"],
-    info: "Role Účetní (jen čtení) a mzdové exporty: účetní stahuje podklady pro mzdy, ale nevidí typy citlivých absencí. Od tarifu Starter je v ceně.",
+    info: "Role Účetní (jen čtení) a mzdové exporty: účetní vidí absence včetně nemoci (mzdy to potřebují), ale nic neschvaluje ani neupravuje. Od tarifu Starter je v ceně.",
   },
 ];
 
@@ -247,7 +247,7 @@ const ALL_FEATURE_MATRIX: FeatureGroup[] = [
       { feature: "escalation", label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
       { feature: "seniority", label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, true, true] },
       { feature: "audit_log", label: "Historie změn", benefit: "Kdo, kdy a co změnil — u žádostí, lidí i nastavení.", values: [false, false, true, true] },
-      { feature: "hr_insights", label: "Smart HR a role HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
+      { feature: "hr_insights", label: "Smart HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
     ],
   },
 ];

@@ -284,18 +284,22 @@ export interface DigestInput {
 
 /** Text týdenního přehledu pro HR a adminy (e-mail). Vrací null, když není nic k řešení a nemá smysl obtěžovat. */
 export function hrDigest(input: DigestInput): { subject: string; body: string } | null {
-  const lines: string[] = [];
+  // Každá "sekce" je samostatný odstavec (oddělený prázdným řádkem) — jen tak se blok čistě
+  // odrážkových řádků (bez nadpisu vmíchaného mezi ně) vykreslí v e-mailu jako skutečný seznam
+  // (viz renderParagraph v email-templates.ts), ne jako jedna zeď textu s doslovnými "•".
+  const paragraphs: string[] = [];
   if (input.capacityBreaches.length > 0) {
-    lines.push("Riziko podkapacity v nejbližších týdnech:");
-    for (const c of input.capacityBreaches.slice(0, 5)) lines.push(`• ${c.dept} — týden od ${format(parseISO(c.weekStart), "d. M.")}: chybí ${c.count} z ${c.size} (${c.pct} %)`);
+    paragraphs.push("Riziko podkapacity v nejbližších týdnech:");
+    paragraphs.push(input.capacityBreaches.slice(0, 5).map((c) => `• ${c.dept} — týden od ${format(parseISO(c.weekStart), "d. M.")}: chybí ${c.count} z ${c.size} (${c.pct} %)`).join("\n"));
   }
-  if (input.slowPending > 0) lines.push(`Žádosti čekající déle než obvykle: ${input.slowPending} z ${input.pendingTotal}.`);
+  if (input.slowPending > 0) paragraphs.push(`Řešení trvalo déle než obvykle u ${input.slowPending} z ${input.pendingTotal} čekajících žádostí.`);
   if (input.liability.forfeitDays > 0) {
-    lines.push(`Dovolená, která propadne při převodu do dalšího roku: ${input.liability.forfeitDays} dní${input.liability.forfeitAmount !== null ? ` (asi ${input.liability.forfeitAmount.toLocaleString("cs-CZ")} Kč)` : ""}.`);
+    paragraphs.push(`Dovolená, která propadne při převodu do dalšího roku: ${input.liability.forfeitDays} dní${input.liability.forfeitAmount !== null ? ` (asi ${input.liability.forfeitAmount.toLocaleString("cs-CZ")} Kč)` : ""}.`);
   }
-  if (lines.length === 0) return null;
-  const header = `Dobré ráno,\n\nzde je týdenní přehled pro HR${input.medianDecisionHours > 0 ? ` (medián rozhodování o žádostech: ${input.medianDecisionHours} h)` : ""}.`;
-  return { subject: "Týdenní přehled pro HR — Dodio", body: `${header}\n\n${lines.join("\n")}` };
+  if (paragraphs.length === 0) return null;
+  const speedNote = input.medianDecisionHours > 0 ? ` Poslední žádosti se u vás řešily v mediánu ${input.medianDecisionHours} h.` : "";
+  const header = `Dobré ráno,\n\ntady je týdenní přehled pro HR.${speedNote}`;
+  return { subject: "Týdenní přehled pro HR — Dodio", body: [header, ...paragraphs].join("\n\n") };
 }
 
 // ------------------------------------------------------------------------------------------ trendy po měsících

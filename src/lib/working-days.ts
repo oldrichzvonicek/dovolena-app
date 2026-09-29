@@ -127,8 +127,12 @@ export function workingDaysPhrase(n: number): string {
 }
 
 export function formatRange(startISO: string, endISO: string): string {
-  const start = parseISO(startISO);
-  const end = parseISO(endISO);
+  // Defensive: a row should never have end < start, but if one slips through (bad import, manual SQL
+  // edit…) showing e.g. "31. 8. – 30. 8." looks like a bug in the app itself. Swapping here can't make
+  // a correct row wrong, and it hides an incorrect one instead of putting it on display.
+  const [startISO2, endISO2] = endISO < startISO ? [endISO, startISO] : [startISO, endISO];
+  const start = parseISO(startISO2);
+  const end = parseISO(endISO2);
   if (isSameDay(start, end)) return format(start, "d. M. yyyy");
   return `${format(start, "d. M.")} – ${format(end, "d. M. yyyy")}`;
 }

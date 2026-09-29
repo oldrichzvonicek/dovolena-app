@@ -454,7 +454,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Jak nastavím roli HR nebo Účetní?",
-    a: "V Nastavení firmy → Uživatelé u člověka klikněte na Upravit a vyberte „Doplňková role“. HR spravuje lidi (oddělení, nadřízený, datum nástupu, nároky, pozvánky), vidí všechny absence včetně nemoci, Analytiku, Exporty a Historii změn. Účetní jen čte absence a nároky pro mzdy (Exporty, Analytika). Ani jedna role nespravuje firmu, fakturaci ani role a neschvaluje žádosti.",
+    a: "V Nastavení firmy → Uživatelé u člověka klikněte na Upravit a vyberte „Doplňková role“. HR spravuje lidi (oddělení, nadřízený, datum nástupu, nároky, pozvánky), aktivuje a deaktivuje uživatele, zadá absenci za kohokoli ve firmě (i v „Můj tým“, který HR vidí za celou firmu), vidí všechny absence včetně nemoci, Analytiku, Exporty a Historii změn — role HR je zdarma na jakémkoli tarifu. Účetní jen čte absence a nároky pro mzdy (Exporty, Analytika), od tarifu Starter v ceně. Ani jedna role nespravuje firmu, fakturaci ani role (zaměstnanec/manažer/admin) a neschvaluje žádosti.",
     section: "Nastavení firmy (admin)",
     roles: ["admin"],
   },

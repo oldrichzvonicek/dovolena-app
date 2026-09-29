@@ -38,6 +38,7 @@ import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { DbDepartment, DbLeaveType, Role } from "@/lib/supabase/types";
 import { errorMessage } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { isHr } from "@/lib/access";
 
 const roleLabel: Record<Role, string> = {
   employee: "Zaměstnanec",
@@ -80,8 +81,9 @@ export function UsersPanel() {
   const [autoApplied, setAutoApplied] = useState(false);
   // Z karty "Začínáme": rovnou vyfiltruje a vybere lidi bez schvalovatele, ať je jasné, na koho kliknout a co dál.
   const autoApprover = useSearchParams().get("akce") === "schvalovatel";
-  // HR správuje lidi, ale roli, deaktivaci, mazání a registrační odkaz nastavuje jen admin.
+  // HR správuje lidi včetně (de)aktivace, ale roli, mazání a registrační odkaz nastavuje jen admin.
   const isAdmin = profile?.role === "admin";
+  const canManagePeople = isAdmin || isHr(profile);
   const features = useFeatures();
   const plan = features.plan;
 
@@ -460,7 +462,7 @@ export function UsersPanel() {
           <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => setBulk("entitlement")}>
             Upravit nárok
           </Button>
-          <Button variant="danger" className={isAdmin ? "px-3 py-1.5 text-sm" : "hidden"} onClick={bulkDeactivate} disabled={bulkApplying}>
+          <Button variant="danger" className={canManagePeople ? "px-3 py-1.5 text-sm" : "hidden"} onClick={bulkDeactivate} disabled={bulkApplying}>
             Deaktivovat vybrané
           </Button>
           <button onClick={() => setSelected(new Set())} className="ml-auto flex items-center gap-1 text-sm text-teal-dark hover:underline">
@@ -632,7 +634,7 @@ export function UsersPanel() {
                           >
                             <Pencil size={12} /> Upravit
                           </button>
-                          {isAdmin && r.id !== profile?.id && r.employee.active !== false && (
+                          {canManagePeople && r.id !== profile?.id && r.employee.active !== false && (
                             <button
                               onClick={() => handleToggleActive(r, false)}
                               disabled={deletingId === r.id}
@@ -641,7 +643,7 @@ export function UsersPanel() {
                               <UserX size={12} /> Deaktivovat
                             </button>
                           )}
-                          {isAdmin && r.id !== profile?.id && r.employee.active === false && (
+                          {canManagePeople && r.id !== profile?.id && r.employee.active === false && (
                             <button
                               onClick={() => handleToggleActive(r, true)}
                               disabled={deletingId === r.id}

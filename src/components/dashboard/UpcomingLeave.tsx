@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Pencil, Undo2, X } from "lucide-react";
+import { KebabMenu, KebabItem } from "@/components/shared/KebabMenu";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { LeaveBadge } from "@/components/ui/badge";
@@ -138,26 +139,20 @@ export function UpcomingLeave() {
                       >
                         <Pencil size={12} /> Upravit
                       </button>
-                      <button
-                        onClick={() => handleCancel(r.id)}
-                        disabled={busyId === r.id}
-                        className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-danger/40 hover:bg-danger-light hover:text-danger disabled:opacity-50"
-                      >
-                        <X size={12} /> {busyId === r.id ? "Ruším…" : "Zrušit"}
-                      </button>
+                      <KebabMenu
+                        items={[{ label: busyId === r.id ? "Ruším…" : "Zrušit žádost", icon: <X size={13} />, onClick: () => handleCancel(r.id), danger: true } satisfies KebabItem]}
+                      />
                     </>
                   )}
                   {canCancelApproved &&
                     (cancellationPending ? (
-                      <span className="rounded-sm bg-warning-light px-2 py-1 text-xs font-medium text-warning-dark">⏳ Žádost o zrušení odeslána</span>
+                      <span className="rounded-sm bg-warning-light px-2 py-1 text-xs font-medium text-warning-dark">⏳ Zrušení odesláno</span>
                     ) : (
-                      <button
-                        onClick={() => handleRequestCancellation(r)}
-                        disabled={busyId === r.id}
-                        className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-danger/40 hover:bg-danger-light hover:text-danger disabled:opacity-50"
-                      >
-                        <Undo2 size={12} /> Požádat o zrušení
-                      </button>
+                      // Schválených řádků bývá víc než jeden — plnohodnotné tlačítko v každém by na obrazovce
+                      // dělalo zbytečný vizuální hluk. "..." nabídne stejnou akci, jen míň nápadně.
+                      <KebabMenu
+                        items={[{ label: busyId === r.id ? "Ruším…" : "Požádat o zrušení", icon: <Undo2 size={13} />, onClick: () => handleRequestCancellation(r), danger: true } satisfies KebabItem]}
+                      />
                     ))}
                 </span>
               </li>

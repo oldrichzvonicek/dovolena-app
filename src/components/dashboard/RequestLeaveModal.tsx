@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Plus, AlertTriangle } from "lucide-react";
 import { showToast } from "@/lib/toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -452,35 +453,51 @@ export function RequestLeaveModal({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        {durationMode === "full" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Od</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setStartDate(v);
+                  if (v > endDate) setEndDate(v);
+                }}
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Do</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEndDate(v);
+                  if (v < startDate) setStartDate(v);
+                }}
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+        ) : (
+          // Půlden a hodiny se vždy vážou k jednomu dni — pole "Do" by jen zabíralo místo
+          // a matlo (bylo natvrdo stejné jako "Od", jen v disabled stavu).
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Od</label>
+            <label className="mb-1.5 block text-sm font-medium">Datum</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => {
-                const v = e.target.value;
-                setStartDate(v);
-                if (v > endDate) setEndDate(v);
+                setStartDate(e.target.value);
+                setEndDate(e.target.value);
               }}
               className="w-full rounded border border-line px-3 py-2 text-sm"
             />
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Do</label>
-            <input
-              type="date"
-              value={endDate}
-              disabled={durationMode !== "full"}
-              onChange={(e) => {
-                const v = e.target.value;
-                setEndDate(v);
-                if (v < startDate) setStartDate(v);
-              }}
-              className="w-full rounded border border-line px-3 py-2 text-sm disabled:bg-paper"
-            />
-          </div>
-        </div>
+        )}
 
         <div className="rounded bg-paper px-3 py-2 text-sm text-ink">
           Celkem: <span className="font-medium">{workingDaysPhrase(workingDays)}</span>{" "}
@@ -498,7 +515,16 @@ export function RequestLeaveModal({
                   {o.label} {formatRange(o.start_date, o.end_date)} ({o.status === "approved" ? "schváleno" : "čeká na schválení"})
                 </span>
               ))}
-              . Ve stejný den nejde mít dvě absence. Zvolte jiný termín, nebo původní žádost upravte či zrušte v Moje žádosti.
+              . Ve stejný den nejde mít dvě absence. Zvolte jiný termín, nebo{" "}
+              {blockingOverlap.map((o, i) => (
+                <span key={o.id}>
+                  {i > 0 && ", "}
+                  <Link href={`/requests?open=${o.id}`} className="font-medium underline underline-offset-2 hover:no-underline">
+                    upravte žádost z {formatRange(o.start_date, o.end_date)}
+                  </Link>
+                </span>
+              ))}
+              .
             </span>
           </div>
         )}
@@ -520,20 +546,17 @@ export function RequestLeaveModal({
         )}
 
         {conflict && conflict.teamCount > 0 && (
-          <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning-light px-3 py-2 text-sm text-ink">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning-dark" />
-            <span>
-              Ve stejném termínu chybí <strong>{conflict.teamCount} z {conflict.teamSize}</strong> členů vašeho
-              týmu: {conflict.names.slice(0, 3).join(", ")}
-              {conflict.names.length > 3 ? ` a další` : ""}.
-            </span>
-          </div>
+          // Kompaktní řádek, ne celý alert box — tohle je jen kontext k rozhodnutí, ne blokující chyba,
+          // a se dvěma dalšími boxy (kolize, blokovaný termín) už by upozornění bylo příliš mnoho.
+          <p className="flex items-center gap-1.5 text-xs text-warning-dark" title={`${conflict.names.slice(0, 3).join(", ")}${conflict.names.length > 3 ? " a další" : ""}`}>
+            <AlertTriangle size={13} className="shrink-0" />
+            Ve stejném termínu chybí {conflict.teamCount} z {conflict.teamSize} členů týmu: {conflict.names.slice(0, 3).join(", ")}
+            {conflict.names.length > 3 ? " a další" : ""}.
+          </p>
         )}
 
         {privateType ? (
-          <p className="rounded border border-line bg-paper px-3 py-2 text-sm text-muted">
-            U nemoci a soukromých absencí žádné důvody ani zdravotní údaje neevidujeme — stačí odeslat termín.
-          </p>
+          <p className="text-xs text-muted">U nemoci a soukromých absencí žádné důvody ani zdravotní údaje neevidujeme — stačí odeslat termín.</p>
         ) : (
           <div>
             <label className="mb-1.5 block text-sm font-medium">Poznámka pro manažera (volitelné)</label>

@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { useOnDataChanged } from "@/lib/events";
 import { fetchDecisionScope } from "@/lib/approval-scope";
-import { allowedSettingsSections, canSeeInsights, canSeeReports, canSeeSettings } from "@/lib/access";
+import { allowedSettingsSections, canSeeInsights, canSeeReports, canSeeSettings, isHr } from "@/lib/access";
 import { AppLockup } from "@/components/shared/AppLockup";
 
 export const TOGGLE_NAV_EVENT = "dodio:toggle-nav";
@@ -228,6 +228,8 @@ export function Sidebar() {
               {adminNav.filter((item) => item.href !== "/admin/insights" || canSeeInsights(profile)).map((item) => (
                 <NavLink key={item.href} {...item} active={pathname === item.href} locked={isLocked((item as { feature?: FeatureKey }).feature)} />
               ))}
+              {/* HR vidí Zaměstnance i mimo sekci Manažer (nemá Ke schválení, tam se neschvaluje) — smí za celou firmu, viz fetchDecisionScope. */}
+              {!isManager && isHr(profile) && <NavLink href="/team" label="Zaměstnanci" icon={Users} active={pathname === "/team"} />}
             </div>
             {canSeeSettings(profile) && (
             <button

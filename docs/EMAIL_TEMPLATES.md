@@ -17,9 +17,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 - **Proměnné:** `{zadatel}`, `{typ}`, `{termin}`
 - **Předmět (ukázka):** Nová žádost o absenci
 
-> Petr Novák žádá o absenci: Dovolená, 12. 10. – 16. 10. 2026.
-> 
-> Žádost čeká na vaše schválení.
+> Petr Novák podal(a) žádost o absenci (Dovolená, 12. 10. – 16. 10. 2026) a čeká na vaše rozhodnutí.
 > 
 > Otevřít žádosti ke schválení: https://app.dodio.cz/approvals
 > 
@@ -32,9 +30,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 - **Proměnné:** `{zadatel}`, `{typ}`, `{termin}`, `{blokace}`
 - **Předmět (ukázka):** ⚠️ Žádost v blokovaném termínu
 
-> Petr Novák přesto podal(a) žádost o absenci (Dovolená, 12. 10. – 16. 10. 2026) v blokovaném termínu „Inventura“.
-> 
-> Rozhodněte prosím, zda ji schválíte.
+> Petr Novák podal(a) žádost o absenci (Dovolená, 12. 10. – 16. 10. 2026), i když termín spadá do blokovaného období „Inventura“. Posuďte prosím, zda ji přesto schválíte.
 > 
 > Otevřít žádosti ke schválení: https://app.dodio.cz/approvals
 > 
@@ -47,9 +43,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 - **Proměnné:** `{typ}`, `{termin}`
 - **Předmět (ukázka):** Žádost schválena
 
-> Vaše žádost o absenci (Dovolená, 12. 10. – 16. 10. 2026) byla schválena.
-> 
-> Příjemný odpočinek!
+> Dobrá zpráva: vaše žádost o absenci (Dovolená, 12. 10. – 16. 10. 2026) je schválená.
 > 
 > Zobrazit moje žádosti: https://app.dodio.cz/requests
 > 
@@ -62,11 +56,9 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 - **Proměnné:** `{typ}`, `{termin}`, `{duvod}`
 - **Předmět (ukázka):** Žádost zamítnuta
 
-> Vaše žádost o absenci (Dovolená, 12. 10. – 16. 10. 2026) byla zamítnuta.
+> Vaše žádost o absenci (Dovolená, 12. 10. – 16. 10. 2026) bohužel nebyla schválena.
 > 
 > Důvod: V tomto týdnu je v týmu jen jeden člověk.
-> 
-> Můžete ji upravit a poslat znovu.
 > 
 > Upravit a poslat znovu: https://app.dodio.cz/requests
 > 
@@ -79,7 +71,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 - **Proměnné:** `{zadatel}`, `{typ}`, `{termin}`
 - **Předmět (ukázka):** Žádost o zrušení absence
 
-> Petr Novák žádá o zrušení schválené absence: Dovolená, 12. 10. – 16. 10. 2026.
+> Petr Novák žádá o zrušení schválené absence (Dovolená, 12. 10. – 16. 10. 2026).
 > 
 > Rozhodnout o zrušení: https://app.dodio.cz/dashboard
 > 
@@ -105,7 +97,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 - **Proměnné:** `{zadatel}`, `{typ}`, `{duvod}`
 - **Předmět (ukázka):** Žádost čeká na schválení
 
-> Petr Novák — Dovolená (V tomto týdnu je v týmu jen jeden člověk.). Zastupujete schvalovatele.
+> Petr Novák podal(a) žádost o absenci (Dovolená) a čeká na rozhodnutí — zastupujete jejich schvalovatele (V tomto týdnu je v týmu jen jeden člověk.).
 > 
 > Otevřít žádosti ke schválení: https://app.dodio.cz/approvals
 > 
@@ -120,10 +112,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 
 > Dobré ráno Jano,
 > 
-> zde je přehled na tento týden.
-> 
-> Čeká na schválení: 2
-> Absence tento týden: 5
+> tady je týdenní přehled — čekající žádosti: 2, absence tento týden: 5.
 > 
 > • Petr Novák — Dovolená (12. 10. – 16. 10.)
 > 
@@ -140,11 +129,13 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 
 > Dobré ráno,
 > 
-> zde je týdenní přehled pro HR.
+> tady je týdenní přehled pro HR.
+> 
+> Riziko podkapacity v nejbližších týdnech:
 > 
 > • Obchod — týden od 2. 11.: chybí 2 z 5 (40 %)
 > 
-> Žádosti čekající na schválení: 2
+> Řešení trvalo déle než obvykle u 2 čekajících žádostí.
 > 
 > Otevřít Analytiku: https://app.dodio.cz/admin/overview
 > 
@@ -157,9 +148,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 - **Proměnné:** —
 - **Předmět (ukázka):** Nevyčerpaná dovolená
 
-> Do konce roku vám zbývá nevyčerpaná dovolená.
-> 
-> Naplánujte si ji včas, ať vám nepropadne.
+> Do konce roku vám zbývá nevyčerpaná dovolená — naplánujte si ji včas, ať nepropadne.
 > 
 > Naplánovat dovolenou: https://app.dodio.cz/calendar
 > 
@@ -187,9 +176,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 - **Proměnné:** `{jmeno}`, `{email}`
 - **Předmět (ukázka):** Nový uživatel čeká na schválení
 
-> Jano (jana@firma.cz) se zaregistroval(a) přes registrační odkaz.
-> 
-> Do schválení se dotyčný nepřihlásí a nic ve firmě neuvidí.
+> Jano (jana@firma.cz) se zaregistroval(a) přes registrační odkaz a čeká na vaše schválení. Do té doby se nepřihlásí a nic ve firmě neuvidí.
 > 
 > Schválit nebo odmítnout: https://app.dodio.cz/admin/settings?sekce=users
 > 

@@ -13,14 +13,21 @@ type Color = "teal" | "rust" | "moss";
 const solidClass: Record<Color, string> = { teal: "bg-teal", rust: "bg-rust", moss: "bg-moss" };
 const lightClass: Record<Color, string> = { teal: "bg-teal/40", rust: "bg-rust/40", moss: "bg-moss/40" };
 
-/** Three segments: already taken (solid), approved but still upcoming (lighter), and what's left (background). */
+/**
+ * Three segments: already taken (neutral gray — done, nothing to look at), approved but still upcoming
+ * (lighter tint), and what's actually left (solid color). The solid color deliberately marks "zbývá", not
+ * "vyčerpáno" — a bar mostly filled in the brand color used to read as "plenty left" even when the used +
+ * upcoming days had eaten almost the whole entitlement and only a sliver truly remained.
+ */
 function SegmentedBar({ used, upcoming, total, color }: { used: number; upcoming: number; total: number; color: Color }) {
   const usedPct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
   const upcomingPct = total > 0 ? Math.min(100 - usedPct, (upcoming / total) * 100) : 0;
+  const remainingPct = Math.max(0, 100 - usedPct - upcomingPct);
   return (
     <div className="mt-3 flex h-1.5 w-full overflow-hidden rounded-full bg-paper">
-      <div className={cn("h-full", solidClass[color])} style={{ width: `${usedPct}%` }} />
+      <div className="h-full bg-line" style={{ width: `${usedPct}%` }} />
       <div className={cn("h-full", lightClass[color])} style={{ width: `${upcomingPct}%` }} />
+      <div className={cn("h-full", solidClass[color])} style={{ width: `${remainingPct}%` }} />
     </div>
   );
 }
@@ -74,10 +81,13 @@ function BalanceCard({
       <SegmentedBar used={used} upcoming={upcoming} total={total} color={color} />
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
         <span className="flex items-center gap-1.5">
-          <span className={cn("h-2 w-2 rounded-sm", solidClass[color])} /> Vyčerpáno: {fmt(used)} {dayWord(used)}
+          <span className="h-2 w-2 rounded-sm bg-line" /> Vyčerpáno: {fmt(used)} {dayWord(used)}
         </span>
         <span className="flex items-center gap-1.5">
           <span className={cn("h-2 w-2 rounded-sm", lightClass[color])} /> Naplánováno: {fmt(upcoming)} {dayWord(upcoming)}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className={cn("h-2 w-2 rounded-sm", solidClass[color])} /> Zbývá: {fmt(remaining)} {dayWord(remaining)}
         </span>
       </div>
       {explain && (

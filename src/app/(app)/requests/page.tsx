@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, LayoutGrid, Pencil, RefreshCw, Search, Table2, Undo2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Eye, LayoutGrid, Pencil, RefreshCw, Search, Table2, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { LeaveBadge, StatusBadge } from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dayWord, daysWithin, DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
@@ -46,6 +48,11 @@ export default function RequestsPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [editingRow, setEditingRow] = useState<Row | null>(null);
   const [resubmitRow, setResubmitRow] = useState<Row | null>(null);
+  const [detailRow, setDetailRow] = useState<Row | null>(null);
+  // Odkaz z kolizní hlášky ve formuláři (?open=ID): rovnou otevře akci pro danou žádost, ať uživatel
+  // nemusí danou žádost v seznamu sám dohledávat.
+  const openParam = useSearchParams().get("open");
+  const openedOnce = useRef<string | null>(null);
   const [yearFilter, setYearFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
@@ -82,6 +89,16 @@ export default function RequestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
   useOnDataChanged(load);
+
+  useEffect(() => {
+    if (!openParam || openedOnce.current === openParam) return;
+    const r = rows.find((x) => x.id === openParam);
+    if (!r) return;
+    openedOnce.current = openParam; // jen jednou, ať se modal nevrací při dalším načtení seznamu
+    if (r.status === "pending") setEditingRow(r);
+    else if (r.status === "rejected") setResubmitRow(r);
+    else setDetailRow(r);
+  }, [openParam, rows]);
 
   // Pro rozpad dní u žádostí přesahujících Silvestra (viz daysWithin níže) — bez toho by se počítalo s Po–Pá napevno.
   useEffect(() => {
@@ -124,7 +141,7 @@ export default function RequestsPage() {
   const shownRows = filteredRows.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   // Prázdné sloupce (většinou nikdo zástup ani poznámku nevyplní) se v tabulce vůbec nezobrazí.
   const showCoverCol = filteredRows.some((r) => r.covering_profile_id);
-  const showNoteCol = filteredRows.some((r) => r.note || (r.status === "rejected" && r.rejection_reason));
+  const showNoteCol = filteredRows.some((r) => r.note);
 
   /** Rozpad dní přes přelom roku (30. 12. – 6. 1. → kolik z toho je letos a kolik napřesrok), kvůli ročním limitům. */
   function yearSplit(r: Row): string | null {
@@ -162,6 +179,17 @@ export default function RequestsPage() {
     const canCancelApproved = r.status === "approved" && r.end_date >= todayISO;
     const dangerBtn = "flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-danger/40 hover:bg-danger-light hover:text-danger disabled:opacity-50";
     const items: { key: string; node: React.ReactNode; menu: KebabItem }[] = [];
+    const detailItem = {
+      key: "detail",
+      node: (
+        <button onClick={() => setDetailRow(r)} className={btn}>
+          <Eye size={12} /> Detail
+        </button>
+      ),
+      menu: { label: "Zobrazit detail", icon: <Eye size={13} />, onClick: () => setDetailRow(r) },
+    };
+    // Schválené žádosti mají jen menu ••• (žádný primární knoflík) — detail tam patří první, ať je hned vidět.
+    if (r.status === "approved") items.push(detailItem);
 
     if (r.status === "pending") {
       items.push({
@@ -182,18 +210,20 @@ export default function RequestsPage() {
         ),
         menu: { label: "Zrušit žádost", icon: <X size={13} />, onClick: () => handleCancel(r.id), danger: true },
       });
+      // Za primárním tlačítkem, ne před ním — jinak by "Detail" ukradlo místo "Upravit" jako viditelný knoflík.
+      items.push(detailItem);
     }
     if (r.status === "rejected") {
       items.push({
         key: "resubmit",
-        // Kratší text v tabulce, ať má tlačítko stejnou šířku jako "Upravit" u čekajících — celá věta zůstává v kartách a v menu •••.
         node: (
           <button onClick={() => setResubmitRow(r)} className={btn}>
-            <RefreshCw size={12} /> {compact ? "Upravit" : "Upravit a poslat znovu"}
+            <RefreshCw size={12} /> Znovu požádat
           </button>
         ),
-        menu: { label: "Upravit a poslat znovu", icon: <RefreshCw size={13} />, onClick: () => setResubmitRow(r) },
+        menu: { label: "Znovu požádat", icon: <RefreshCw size={13} />, onClick: () => setResubmitRow(r) },
       });
+      items.push(detailItem);
     }
     if (r.status === "approved") {
       items.push({
@@ -244,7 +274,9 @@ export default function RequestsPage() {
   return (
     <div>
       <Header title="Moje žádosti" subtitle="Historie vašich absencí a stav schválení" />
-      <div className="max-w-4xl p-4 sm:p-8">
+      {/* max-w-4xl tu dřív tabulku (Termín/Stav/Zástup/Poznámka/Akce) na širokém monitoru zbytečně
+          mačkalo do úzkého pruhu vlevo — tahle stránka je datová tabulka, ne článek na čtení. */}
+      <div className="max-w-[1400px] p-4 sm:p-8">
         <CompactBalances />
 
 
@@ -313,16 +345,18 @@ export default function RequestsPage() {
               <button
                 onClick={() => setView("cards")}
                 aria-label="Karty"
+                aria-pressed={view === "cards"}
                 title="Karty"
-                className={cn("p-2", view === "cards" ? "bg-teal-light text-teal-dark" : "text-muted hover:bg-paper")}
+                className={cn("p-2", view === "cards" ? "bg-teal-dark text-white" : "bg-white text-muted hover:bg-paper")}
               >
                 <LayoutGrid size={15} />
               </button>
               <button
                 onClick={() => setView("table")}
                 aria-label="Kompaktní tabulka"
+                aria-pressed={view === "table"}
                 title="Kompaktní tabulka"
-                className={cn("border-l border-line p-2", view === "table" ? "bg-teal-light text-teal-dark" : "text-muted hover:bg-paper")}
+                className={cn("border-l border-line p-2", view === "table" ? "bg-teal-dark text-white" : "bg-white text-muted hover:bg-paper")}
               >
                 <Table2 size={15} />
               </button>
@@ -399,9 +433,9 @@ export default function RequestsPage() {
         )}
 
         {filteredRows.length > 0 && view === "table" && (
-          <div className="card max-h-[75vh] overflow-auto">
+          <div className="card overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-paper">
+              <thead className="bg-paper">
                 <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-muted">
                   <th className="px-4 py-2.5 font-medium">Typ</th>
                   <th className="px-3 py-2.5 font-medium">Termín</th>
@@ -415,8 +449,6 @@ export default function RequestsPage() {
               <tbody>
                 {shownRows.map((r) => {
                   const split = yearSplit(r);
-                  // Zamítnutí patří obsahově k poznámce (proč), ne pod stavový odznak — tam jen krátký odznak s tooltipem.
-                  const noteText = r.status === "rejected" && r.rejection_reason ? `Důvod zamítnutí: ${r.rejection_reason}` : r.note;
                   return (
                     <tr key={r.id} className="border-b border-line align-top last:border-0">
                       <td className="px-4 py-2">
@@ -437,9 +469,9 @@ export default function RequestsPage() {
                         </td>
                       )}
                       {showNoteCol && (
-                        <td className={cn("max-w-[220px] px-3 py-2 text-xs", r.status === "rejected" && r.rejection_reason ? "text-danger" : "text-muted")}>
-                          <span className="line-clamp-2" title={noteText ?? undefined}>
-                            {noteText || "—"}
+                        <td className="max-w-[220px] px-3 py-2 text-xs text-muted">
+                          <span className="line-clamp-2" title={r.note ?? undefined}>
+                            {r.note || "—"}
                           </span>
                         </td>
                       )}
@@ -533,6 +565,51 @@ export default function RequestsPage() {
           }}
         />
       )}
+
+      <Dialog open={!!detailRow} onOpenChange={(o) => !o && setDetailRow(null)}>
+        {detailRow && (
+          <DialogContent title="Detail žádosti">
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <LeaveBadge type={detailRow.leave_type} />
+                <StatusBadge status={detailRow.status} />
+              </div>
+              <div>
+                <div className="font-medium">{formatRange(detailRow.start_date, detailRow.end_date)}</div>
+                <div className="text-xs text-muted">
+                  {formatNumber(Number(detailRow.working_days))} {dayWord(Number(detailRow.working_days))}
+                  {detailRow.half_day && " · půlden"}
+                </div>
+                {yearSplit(detailRow) && <div className="mt-0.5 text-xs text-muted">{yearSplit(detailRow)}</div>}
+              </div>
+              {detailRow.approver && (
+                <div className="text-xs text-muted">
+                  {detailRow.status === "rejected" ? "Zamítl" : "Schválil"}: <span className="text-ink">{detailRow.approver.name}</span>
+                </div>
+              )}
+              {detailRow.status === "rejected" && detailRow.rejection_reason && (
+                <div className="rounded border border-danger/20 bg-danger-light px-3 py-2 text-xs text-danger">
+                  <span className="font-medium">Důvod zamítnutí:</span> {detailRow.rejection_reason}
+                </div>
+              )}
+              {detailRow.note && (
+                <div>
+                  <div className="text-xs font-medium text-muted">Poznámka</div>
+                  <p className="mt-0.5 whitespace-pre-wrap text-sm">{detailRow.note}</p>
+                </div>
+              )}
+              {detailRow.covering_profile_id && (
+                <div className="text-xs text-muted">
+                  Zástup: <span className="text-ink">{coverNames[detailRow.covering_profile_id] ?? "…"}</span>
+                </div>
+              )}
+              {detailRow.status === "approved" && detailRow.cancellation_requested_at && (
+                <p className="rounded-sm bg-warning-light px-3 py-2 text-xs font-medium text-warning-dark">⏳ Žádost o zrušení odeslána, čeká na rozhodnutí.</p>
+              )}
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }

@@ -6,7 +6,9 @@ type Who = Pick<DbProfile, "role" | "staff_role"> | null | undefined;
 /**
  * Who sees what (the database enforces the same rules — this only decides which screens and menu items are offered):
  *  - admin:      everything
- *  - HR:         Analytika, Exporty, Nastavení → Uživatelé (invite, departments/manager/hire date/entitlements), E-maily (jen přehled pro HR a připomínky) and Historie změn
+ *  - HR:         Analytika, Exporty, Nastavení → Uživatelé (invite, departments/manager/hire date/entitlements,
+ *                aktivace/deaktivace), E-maily (jen přehled pro HR a připomínky), Historie změn, Můj tým
+ *                (za celou firmu) a zadání absence za kohokoli — ale ne Ke schválení (neschvaluje žádosti)
  *  - accountant: Analytika and Exporty, read only
  *  - manager:    Analytika, ale jen za svá oddělení (bez Exportů)
  */

@@ -104,7 +104,7 @@ export async function GET(req: Request) {
           type: "request_created",
           leave_request_id: r.id,
           title: "Žádost čeká na schválení",
-          body: `${p.name} — ${r.leave_type?.label ?? "absence"} (${reason}). Zastupujete schvalovatele.`,
+          body: `${p.name} podal(a) žádost o absenci (${r.leave_type?.label ?? "absence"}) a čeká na rozhodnutí — zastupujete jejich schvalovatele (${reason}).`,
         }))
       );
       await supabase.from("leave_requests").update({ escalated_at: now.toISOString() }).eq("id", r.id);
@@ -157,7 +157,7 @@ export async function GET(req: Request) {
           category: "weekly_digest",
           to_email: p.email!,
           subject: "Týdenní přehled absencí — Dodio",
-          body: `Dobré ráno ${p.name.split(" ")[0]},\n\nzde je přehled na tento týden.\n\nČeká na schválení: ${pendingCount}\nAbsence tento týden: ${weekRows.length}\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
+          body: `Dobré ráno ${p.name.split(" ")[0]},\n\ntady je týdenní přehled — čekající žádosti: ${pendingCount}, absence tento týden: ${weekRows.length}.\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
         }));
       if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
 

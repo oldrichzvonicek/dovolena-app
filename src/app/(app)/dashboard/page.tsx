@@ -48,18 +48,22 @@ export default function DashboardPage() {
   return (
     <div key={refreshKey}>
       <Header title={`Vítejte zpět, ${firstName}`} subtitle={subtitle} />
+      {/* Nástěnka nemá tabulku, která by potřebovala plnou šířku širokoúhlého monitoru — bez max-width
+          zůstávaly texty a tlačítka v kartách (Chytré návrhy dovolené apod.) na opačných koncích obrazovky. */}
       <div className="p-4 pb-0 sm:p-8 sm:pb-0">
-        <div className="space-y-6">
+        <div className="mx-auto max-w-[1400px] space-y-6">
           <OnboardingChecklist />
           {mine}
         </div>
       </div>
 
       <section aria-labelledby="team-overview-heading" className="mt-8 border-t border-line bg-teal-light/30 px-4 py-6 sm:px-8 sm:py-8">
-        <h2 id="team-overview-heading" className="mb-5 flex items-center gap-2 font-display text-h2">
-          <Users size={18} className="text-teal-dark" /> {isManager ? "Týmový přehled a agenda manažera" : "Týmový přehled"}
-        </h2>
-        {team}
+        <div className="mx-auto max-w-[1400px]">
+          <h2 id="team-overview-heading" className="mb-5 flex items-center gap-2 font-display text-h2">
+            <Users size={18} className="text-teal-dark" /> {isManager ? "Týmový přehled a agenda manažera" : "Týmový přehled"}
+          </h2>
+          {team}
+        </div>
       </section>
     </div>
   );

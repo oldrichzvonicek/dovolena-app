@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { canSeeAnalytics, canSeeInsights, canSeeReports, canSeeSettings } from "@/lib/access";
+import { canSeeAnalytics, canSeeInsights, canSeeReports, canSeeSettings, isHr } from "@/lib/access";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { HelpDrawer } from "@/components/layout/HelpDrawer";
@@ -35,10 +35,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const insightsArea = pathname.startsWith("/admin/insights");
   const exportsArea = pathname.startsWith("/admin/exports");
   const settingsArea = pathname.startsWith("/admin/settings");
+  // HR spravuje lidi (aktivace/deaktivace, zadání absence za kohokoli) — smí i do Můj tým / Zaměstnanci,
+  // ale ne do Ke schválení (schvalování žádostí zůstává jen manažerům a adminovi).
+  const isHrStaff = isHr(profile);
   const forbidden =
     !!profile &&
     ((adminArea && !isAdmin && !(analyticsArea && canSeeAnalytics(profile)) && !(insightsArea && canSeeInsights(profile)) && !(exportsArea && canSeeReports(profile)) && !(settingsArea && canSeeSettings(profile))) ||
-      ((pathname.startsWith("/approvals") || pathname.startsWith("/team")) && !isManager));
+      (pathname.startsWith("/approvals") && !isManager) ||
+      (pathname.startsWith("/team") && !isManager && !isHrStaff));
 
   useEffect(() => {
     if (forbidden) router.replace("/dashboard");

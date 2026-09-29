@@ -10,12 +10,13 @@ import { leaveIconFor, LeaveTypeIcon } from "@/components/shared/LeaveTypeIcon";
 import { emitDataChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
-/** Nejčastější druhy absence, které se nabízejí rovnou v rozbalovací části tlačítka. */
+/** Tyhle tři se řadí první (nejčastější), zbytek aktivních typů firmy následuje v pořadí sort_order. */
 const QUICK_KEYS = ["dovolena", "home_office", "sick"];
 
 /**
  * Jediné místo pro založení žádosti: velké tlačítko „Nová žádost“ otevře formulář, šipka vedle něj nabídne
- * nejčastější druhy absence (Dovolená, Home Office, Sick Day) a formulář se otevře rovnou s nimi.
+ * rovnou výběr konkrétního typu — všechny aktivní typy firmy, ne jen tři nejčastější (dřív menu ukazovalo
+ * jen Dovolenou/Home Office/Sick Day a typy jako Lékař nebo Náhradní volno v něm chyběly úplně).
  */
 export function NewRequestSplit() {
   const primary = true; // jediný vzhled na celém webu: výrazné teal tlačítko vpravo v záhlaví každé stránky
@@ -50,7 +51,9 @@ export function NewRequestSplit() {
     };
   }, [menuOpen]);
 
-  const quick = QUICK_KEYS.map((k) => types.find((t) => t.key === k)).filter((t): t is DbLeaveType => !!t);
+  const known = QUICK_KEYS.map((k) => types.find((t) => t.key === k)).filter((t): t is DbLeaveType => !!t);
+  const rest = types.filter((t) => !QUICK_KEYS.includes(t.key));
+  const quick = [...known, ...rest];
 
   function openWith(id?: string) {
     setTypeId(id);
@@ -84,7 +87,7 @@ export function NewRequestSplit() {
         )}
       </div>
       {menuOpen && (
-        <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-48 rounded border border-line bg-white p-1 shadow-lg">
+        <div role="menu" className="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded border border-line bg-white p-1 shadow-lg">
           {quick.map((t) => {
             const icon = leaveIconFor(t.key);
             return (
