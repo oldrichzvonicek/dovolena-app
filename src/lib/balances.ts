@@ -29,6 +29,8 @@ interface ReqRow {
   end_date: string;
   working_days: number;
   leave_type: { counts_against: string } | null;
+  /** Soukromý návrh (leave_plans), ne skutečná žádost — vždy počítán jako "naplánováno", nikdy jako "vyčerpáno". */
+  isDraft?: boolean;
 }
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + Number(x), 0);
@@ -75,8 +77,10 @@ export function computeBalance(
 
   return {
     total: sum(curEnts.map((e) => e.total_days)) + carryover,
-    used: sum(curEnts.map((e) => e.opening_used_days)) + sum(catReqs.filter((r) => r.end_date < today).map((r) => inYear(r, year))),
-    upcoming: sum(catReqs.filter((r) => r.end_date >= today).map((r) => inYear(r, year))),
+    used: sum(curEnts.map((e) => e.opening_used_days)) + sum(catReqs.filter((r) => !r.isDraft && r.end_date < today).map((r) => inYear(r, year))),
+    // Návrhy (leave_plans) se počítají jako "naplánováno" vždycky, bez ohledu na datum — je to plán do
+    // budoucna z podstaty věci, i kdyby si někdo výjimečně naplánoval den, který mezitím uplynul.
+    upcoming: sum(catReqs.filter((r) => r.isDraft || r.end_date >= today).map((r) => inYear(r, year))),
     carryover,
   };
 }
@@ -96,19 +100,32 @@ export async function loadBalances(companyId: string, opts: { profileId?: string
     .select("id, profile_id, start_date, end_date, working_days, leave_type:leave_types(counts_against)")
     .eq("status", "approved")
     .gte("start_date", `${year - 1}-01-01`);
+  // Soukromé návrhy (leave_plans) — jen vlastní, RLS ostatní stejně nepustí. Bez company/profileId filtru
+  // (celofiremní přehledy) je zbytečné je vůbec dotazovat, žádné cizí návrhy se nevrátí.
+  let planQ = opts.profileId
+    ? supabase
+        .from("leave_plans")
+        .select("id, profile_id, start_date, end_date, working_days, leave_type:leave_types(counts_against)")
+        .eq("profile_id", opts.profileId)
+    : null;
   if (opts.profileId) {
     entQ = entQ.eq("profile_id", opts.profileId);
     reqQ = reqQ.eq("profile_id", opts.profileId);
   }
 
-  const [{ data: ents }, { data: reqs }, { data: company }] = await Promise.all([
+  const [{ data: ents }, { data: reqs }, { data: company }, plansRes] = await Promise.all([
     entQ,
     reqQ,
     supabase.from("companies").select("max_carryover_days, carryover_expiry_md, work_days").eq("id", companyId).single(),
+    // leave_plans potřebuje novou migraci — dokud ji uživatel nespustí, tabulka ještě neexistuje a dotaz
+    // vrátí error místo dat; stejně jako jinde v appce se to řeší tím, že chybějící `data` (null) níž prostě
+    // spadne na `?? []`, ne zvlášť ošetřeným catch — supabase-js dotaz při chybě nezamítá promise, jen vrátí {error}.
+    planQ ?? Promise.resolve({ data: [] as unknown[] }),
   ]);
 
   const entRows = (ents as unknown as EntRow[]) ?? [];
-  const reqRows = ((reqs as unknown as ReqRow[]) ?? []).filter((r) => r.id !== opts.excludeRequestId);
+  const planRows = ((plansRes.data as unknown as ReqRow[]) ?? []).map((r) => ({ ...r, isDraft: true }));
+  const reqRows = [...((reqs as unknown as ReqRow[]) ?? []), ...planRows].filter((r) => r.id !== opts.excludeRequestId);
   const carry = {
     max: company?.max_carryover_days !== null && company?.max_carryover_days !== undefined ? Number(company.max_carryover_days) : null,
     expiryMD: (company?.carryover_expiry_md as string | null) ?? null,

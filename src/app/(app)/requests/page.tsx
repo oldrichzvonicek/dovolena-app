@@ -13,6 +13,7 @@ import { dayWord, daysWithin, DEFAULT_WORK_DAYS, formatRange } from "@/lib/worki
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
 import { KebabMenu, KebabItem } from "@/components/shared/KebabMenu";
 import { CompactBalances } from "@/components/dashboard/CompactBalances";
+import { MyLeavePlans } from "@/components/dashboard/MyLeavePlans";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { cancelLeaveRequest, requestLeaveCancellation } from "@/lib/data";
@@ -280,7 +281,9 @@ export default function RequestsPage() {
           mačkalo do úzkého pruhu vlevo — tahle stránka je datová tabulka, ne článek na čtení. */}
       <div className="max-w-[1400px] p-4 sm:p-8">
         <CompactBalances />
-
+        <div className="mb-4">
+          <MyLeavePlans />
+        </div>
 
         {rows.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center gap-2">
