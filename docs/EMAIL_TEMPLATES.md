@@ -291,7 +291,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 > 
 > ve firmě máte 5 z 15 uživatelů, které zahrnuje tarif Starter.
 > 
-> Po dosažení limitu nepůjde přidat další lidi. Doporučujeme přejít na tarif Pro.
+> Až tým poroste, doporučujeme přejít na tarif Pro, ať máte pro všechny místo a k dispozici všechny funkce.
 > 
 > Porovnat tarify: https://app.dodio.cz/admin/settings?sekce=billing
 > 
@@ -308,7 +308,7 @@ Zdroj pravdy je `src/lib/email-templates.ts` (kód i testy). Tento soubor je z n
 > 
 > ve firmě máte 5 uživatelů, tarif Starter jich zahrnuje 15.
 > 
-> Aby bylo možné přidávat další lidi, vyberte prosím vyšší tarif.
+> Vyberte prosím tarif, který odpovídá počtu lidí ve firmě. Aplikace vám zatím běží beze změny.
 > 
 > Zvolit tarif: https://app.dodio.cz/admin/settings?sekce=billing
 > 

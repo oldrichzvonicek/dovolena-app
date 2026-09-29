@@ -96,5 +96,5 @@ export const STATUS_LABEL: Record<EmailStatus, string> = {
   failed: "Nedoručeno",
 };
 
-/** Šablony, které existují, ale ještě se neposílají (fakturace, právní e-maily …). */
-export const PLANNED_TEMPLATES = EMAIL_TEMPLATES.filter((t) => !t.live);
+/** Šablony, které existují, ale ještě se neposílají (fakturace, právní e-maily …); bez těch, které patří k vypnuté funkci. */
+export const PLANNED_TEMPLATES = EMAIL_TEMPLATES.filter((t) => !t.live && !t.dormant);

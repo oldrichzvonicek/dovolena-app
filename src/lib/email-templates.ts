@@ -20,6 +20,8 @@ export interface EmailTemplate {
   cta?: { label: string; path: string };
   /** Věta v patičce — u provozních/právních e-mailů nejde vypnout. */
   optOut?: boolean;
+  /** Patří k funkci, která je teď vypnutá (CHAT_INTEGRATIONS_ENABLED) — nepočítá se mezi „připravené k zapojení“. */
+  dormant?: boolean;
   /** Obchodní sdělení (úvodní série „Co Dodio umí“) — jiná patička, nejde o provozní e-mail. */
   marketing?: boolean;
 }
@@ -265,7 +267,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     paragraphs: (v) => [
       hello(v),
       `ve firmě máte ${v.pocet} z ${v.limit} uživatelů, které zahrnuje tarif ${v.tarif}.`,
-      `Po dosažení limitu nepůjde přidat další lidi. Doporučujeme přejít na tarif ${v.dalsi_tarif}.`,
+      `Až tým poroste, doporučujeme přejít na tarif ${v.dalsi_tarif}, ať máte pro všechny místo a k dispozici všechny funkce.`,
     ],
     cta: { label: "Porovnat tarify", path: "/admin/settings?sekce=billing" },
     optOut: false,
@@ -278,7 +280,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: false,
     vars: ["jmeno", "tarif", "pocet", "limit"],
     subject: (v) => `Limit tarifu ${v.tarif} je překročen`,
-    paragraphs: (v) => [hello(v), `ve firmě máte ${v.pocet} uživatelů, tarif ${v.tarif} jich zahrnuje ${v.limit}.`, "Aby bylo možné přidávat další lidi, vyberte prosím vyšší tarif."],
+    paragraphs: (v) => [hello(v), `ve firmě máte ${v.pocet} uživatelů, tarif ${v.tarif} jich zahrnuje ${v.limit}.`, "Vyberte prosím tarif, který odpovídá počtu lidí ve firmě. Aplikace vám zatím běží beze změny."],
     cta: { label: "Zvolit tarif", path: "/admin/settings?sekce=billing" },
     optOut: false,
   },
@@ -480,6 +482,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     when: "Odeslání do Slacku / Teams selže opakovaně (např. smazaný webhook).",
     to: "Admini",
     live: false,
+    dormant: true,
     vars: ["jmeno", "integrace", "chyba"],
     subject: (v) => `Integrace „${v.integrace}“ nefunguje`,
     paragraphs: (v) => [hello(v), `zprávy do kanálu „${v.integrace}“ se nedaří odeslat (${v.chyba}).`, "Nejčastěji byl webhook smazán nebo vypnut. Vytvořte prosím nový a vložte jeho adresu do integrace."],
