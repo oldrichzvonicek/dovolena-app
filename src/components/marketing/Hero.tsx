@@ -187,11 +187,6 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Mobile: only the chat approval card, per spec */}
-        <div className="lg:hidden">
-          <ApprovalChatCard />
-        </div>
-
         {/* Desktop: overview card + overlapping chat approval card */}
         <div className="relative hidden h-[560px] lg:block">
           <div className="absolute right-0 top-0">
