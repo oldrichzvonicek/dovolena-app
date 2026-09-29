@@ -104,7 +104,7 @@ export function TeamCalendar() {
             {/* pinned "you" row */}
             <div className="col-start-1 row-start-2 flex flex-col justify-center gap-0.5 border-b border-dodio-border bg-[#E3F2EC]/40 px-4">
               <div className="text-sm font-semibold">
-                Oldřich Zvoníček <span className="font-normal text-dodio-ink-muted">(vy)</span>
+                Jana Nováková <span className="font-normal text-dodio-ink-muted">(vy)</span>
               </div>
               <div className="text-xs text-dodio-ink-muted">e-Commerce</div>
             </div>
@@ -143,7 +143,7 @@ export function TeamCalendar() {
               <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
                 <path d="M2 3.5l3 3 3-3" fill="none" stroke="#5F5E5A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              DPO (5)
+              Obchod (5)
             </div>
             <div className="col-start-1 row-start-8 flex items-center gap-2.5 border-b border-[#EFEDE6] px-4 text-sm">
               <span className="font-medium">David Kučera</span>
