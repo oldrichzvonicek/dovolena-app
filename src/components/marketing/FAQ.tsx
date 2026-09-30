@@ -1,4 +1,5 @@
 import { Container } from "./Container";
+import { CONTACT_EMAIL } from "@/lib/dodio-links";
 
 const CATEGORIES = [
   {
@@ -23,6 +24,10 @@ const CATEGORIES = [
       {
         q: "Jak dlouho trvá zavedení Dodia ve firmě?",
         a: "Pár minut. Zaregistrujete se, nastavíte typy absencí a nároky, pošlete týmu registrační odkaz — žádný konzultant ani zavádění na týdny.",
+      },
+      {
+        q: "Jak složitý je přechod z Excelu do Dodio?",
+        a: "Stačí naimportovat seznam zaměstnanců ze souboru a rovnou můžete schvalovat — žádné ruční zakládání účtů jeden po druhém.",
       },
     ],
   },
@@ -70,6 +75,10 @@ const CATEGORIES = [
         q: "Co je Smart HR?",
         a: "Nástroje pro řízení týmu navíc k evidenci — predikce kapacity oddělení, upozornění na nerovnoměrné čerpání dovolené v týmu a přehled, kdo si dovolenou skutečně vybírá. Součást tarifu Pro, nebo jako doplněk k nižším tarifům.",
       },
+      {
+        q: "Jsme vázáni dlouhodobou smlouvou?",
+        a: "Ne. Vybíráte si měsíční nebo roční platbu (roční vychází levněji) a tarif si kdykoli upravíte podle velikosti týmu.",
+      },
     ],
   },
 ];
@@ -83,8 +92,15 @@ export function FAQ() {
             Časté otázky
           </div>
           <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
-            Než se zeptáte.
+            Vše, co potřebujete vědět před vyzkoušením.
           </h2>
+          <p className="m-0 text-[15px] leading-[24px] text-dodio-ink-muted">
+            Nenašli jste odpověď na svůj dotaz? Napište nám na{" "}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="font-medium text-dodio-teal-dark no-underline hover:underline">
+              {CONTACT_EMAIL}
+            </a>
+            .
+          </p>
         </div>
         <div className="flex flex-col gap-8 lg:gap-10">
           {CATEGORIES.map((category) => (
