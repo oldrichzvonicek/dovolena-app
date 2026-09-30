@@ -56,7 +56,7 @@ const BALANCE_TILES: BalanceTile[] = [
     unit: "dne zbývá",
     usedPct: 16,
     plannedPct: 66,
-    caption: "Vyč. 4 · Napl. 16,5",
+    caption: "Čerpáno 4 · Naplánováno 16,5",
   },
   {
     label: "Sick Days",
@@ -64,13 +64,13 @@ const BALANCE_TILES: BalanceTile[] = [
     unit: "dní zbývá",
     usedPct: 0,
     plannedPct: 0,
-    caption: "Vyč. 0 · Napl. 0",
+    caption: "Čerpáno 0 · Naplánováno 0",
   },
   {
     label: "Home Office letos",
     value: "22",
     unit: "dní letos",
-    caption: "Vyč. 4 · Napl. 18",
+    caption: "Čerpáno 4 · Naplánováno 18",
     note: "bez limitu",
   },
 ];
