@@ -34,6 +34,14 @@ export function Footer() {
             <a href="/kalkulacka-pracovnich-dnu" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Kalkulačka pracovních dnů
             </a>
+            <a href="/navody" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Návody
+            </a>
+            {/* Decorative until there's a real status page to link and monitor — no live data behind the dot. */}
+            <span className="flex items-center gap-1.5 text-dodio-ink-muted">
+              <span className="h-1.5 w-1.5 rounded-full bg-dodio-teal" aria-hidden="true" />
+              Dodio status
+            </span>
           </div>
           <div className="flex flex-col gap-3">
             <div className="font-semibold text-dodio-ink">Kontakt</div>
