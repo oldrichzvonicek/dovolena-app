@@ -4,7 +4,7 @@ import { CheckIcon } from "./icons";
 import { DodioMark } from "./DodioLogo";
 import { SIGNUP_URL } from "@/lib/dodio-links";
 
-const BENEFITS = ["Celé v češtině", "Zdarma do 5 lidí", "Exporty do CSV a Excelu"];
+const BENEFITS = ["Čeština", "Česká pravidla", "Exporty"];
 
 function ApprovalChatCard({ className = "" }: { className?: string }) {
   // Illustrative app preview, not a real control surface — the whole card
@@ -202,7 +202,7 @@ export function Hero() {
             Pro malé a střední české firmy
           </div>
           <h1 className="m-0 font-dodio-display text-[40px] font-extrabold leading-[44px] tracking-[-1px] text-dodio-ink lg:text-[68px] lg:leading-[72px] lg:tracking-[-2px]">
-            Absence bez tabulek, e-mailů a zbytečné administrativy.
+            Absence bez tabulek, e-mailů a administrativy.
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
             Dodio sjednotí žádosti o dovolenou, schvalování a přehled absencí na jednom místě.
@@ -215,8 +215,6 @@ export function Hero() {
               Vyzkoušet zdarma
             </a>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-dodio-ink-muted">
-              <span>Do 5 lidí zdarma</span>
-              <span aria-hidden="true">·</span>
               <span>Bez platební karty</span>
               <span aria-hidden="true">·</span>
               <span>Nastavení za pár minut</span>
