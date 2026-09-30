@@ -59,8 +59,8 @@ export function Pricing() {
             Do 5 lidí napořád zdarma.
           </h2>
           <p className="m-0 max-w-[600px] text-[15px] leading-[23px] text-dodio-ink-muted lg:text-lg lg:leading-[28px]">
-            Žádná zkušební lhůta, která vyprší — tarif Free zůstává zdarma, dokud tým neporoste. Bez platební
-            karty. Při roční platbě máte 2 měsíce zdarma.
+            Začněte zdarma a plaťte, až Dodio používá celý váš tým — žádná zkušební lhůta, která vyprší.
+            Bez platební karty. Při roční platbě máte 2 měsíce zdarma.
           </p>
         </div>
 

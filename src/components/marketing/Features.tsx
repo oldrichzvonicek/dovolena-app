@@ -114,12 +114,13 @@ interface PersonaRowProps {
   iconBg: string;
   icon: ReactNode;
   title: string;
+  lead: string;
   points: string[];
   illustration: ReactNode;
   reverse?: boolean;
 }
 
-function PersonaRow({ iconBg, icon, title, points, illustration, reverse }: PersonaRowProps) {
+function PersonaRow({ iconBg, icon, title, lead, points, illustration, reverse }: PersonaRowProps) {
   return (
     <div
       className={`flex flex-col items-center gap-8 lg:gap-14 ${
@@ -134,6 +135,9 @@ function PersonaRow({ iconBg, icon, title, points, illustration, reverse }: Pers
           </div>
           <h3 className="m-0 font-dodio-display text-[19px] font-bold lg:text-[22px]">{title}</h3>
         </div>
+        <p className="m-0 font-dodio-display text-lg font-bold leading-[25px] text-dodio-ink lg:text-xl lg:leading-[27px]">
+          {lead}
+        </p>
         <div className="flex flex-col gap-3">
           {points.map((point) => (
             <div key={point} className="flex items-start gap-2.5">
@@ -168,6 +172,7 @@ export function Features() {
             iconBg="bg-[#E3F2EC]"
             icon={<EmployeeIcon />}
             title="Zaměstnanec"
+            lead="Požádám o volno během pár sekund a hned vidím, kdy je schválené."
             illustration={<RequestIllustration />}
             points={[
               "Naplánovat si rok dopředu soukromě, bez odesílání ke schválení, a pak žádost podat jedním kliknutím.",
@@ -180,6 +185,7 @@ export function Features() {
             iconBg="bg-[#FBE4DA]"
             icon={<ManagerIcon />}
             title="Manažer"
+            lead="Vidím, kdo bude chybět, a žádosti schválím na jednom místě."
             illustration={<ApprovalIllustration />}
             reverse
             points={[
@@ -192,6 +198,7 @@ export function Features() {
             iconBg="bg-[#ECEAE3]"
             icon={<HRIcon />}
             title="HR & Admin"
+            lead="Mám evidenci bez ručního přepisování — všechno na jednom místě."
             illustration={<ExportIllustration />}
             points={[
               "Vlastní typy absencí a pravidla čerpání přesně podle vaší firmy.",

@@ -20,6 +20,7 @@ const POINTS = [
     rest: " – funguje z počítače, tabletu i mobilu, stačí prohlížeč. Žádná instalace, přístup odkudkoli.",
   },
   { strong: "Data hostovaná v EU", rest: " a Dodio celé v češtině." },
+  { strong: "GDPR ready", rest: " – zpracování osobních údajů odpovídá evropské legislativě." },
 ];
 
 export function Security() {

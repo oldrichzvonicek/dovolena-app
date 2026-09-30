@@ -21,9 +21,9 @@ export default function LandingPage() {
         <Hero />
         <Features />
         <ProblemSolution />
+        <Integrations />
         <TeamCalendar />
         <SmartHR />
-        <Integrations />
         <Security />
         <Pricing />
         <LeadMagnet />

@@ -30,8 +30,12 @@ export function Integrations() {
             Postavené pro Česko
           </div>
           <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
-            Česká pravidla od začátku.
+            Software, který rozumí českému pracovnímu prostředí.
           </h2>
+          <p className="m-0 max-w-[520px] text-[15px] leading-[23px] text-dodio-ink-muted lg:text-lg lg:leading-[28px]">
+            Dodio počítá s českými pravidly, svátky i způsobem evidence absencí. Nemusíte nic
+            přizpůsobovat softwaru vytvořenému pro jiný trh — je to naopak.
+          </p>
           <div className="flex flex-col gap-4 pt-2">
             {CZECH_POINTS.map((point) => (
               <div key={point.strong} className="flex gap-3.5">

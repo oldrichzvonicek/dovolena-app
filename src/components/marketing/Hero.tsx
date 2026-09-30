@@ -202,11 +202,11 @@ export function Hero() {
             Pro malé a střední české firmy
           </div>
           <h1 className="m-0 font-dodio-display text-[40px] font-extrabold leading-[44px] tracking-[-1px] text-dodio-ink lg:text-[68px] lg:leading-[72px] lg:tracking-[-2px]">
-            Správa firemních absencí na pár kliknutí.
+            Absence bez tabulek, e-mailů a zbytečné administrativy.
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
-            Žádost na tři kliknutí, schválení dvěma kliky přímo z e-mailu a podklady pro mzdy jedním
-            exportem. Dodio hlídá zůstatky, české svátky i to, kdo dnes chybí.
+            Dodio je jednoduchý nástroj pro správu dovolených a absencí pro české firmy. Zaměstnanci
+            požádají, vedoucí schválí dvěma kliky z e-mailu a všichni mají okamžitý přehled o týmu.
           </p>
           <div className="flex flex-col gap-2.5">
             <a

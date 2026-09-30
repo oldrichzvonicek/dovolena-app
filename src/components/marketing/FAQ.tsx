@@ -43,6 +43,10 @@ const CATEGORIES = [
     title: "Ceny a plány",
     questions: [
       {
+        q: "Kolik Dodio stojí?",
+        a: "Do 5 lidí napořád zdarma. Placené tarify začínají na 290 Kč/měsíc a rostou podle velikosti týmu — přesné ceny najdete v ceníku výše.",
+      },
+      {
         q: "Musím Dodio vyzkoušet na kartu?",
         a: "Ne. Tarif Free je zdarma do 5 uživatelů bez zadávání platební karty — stačí se zaregistrovat.",
       },

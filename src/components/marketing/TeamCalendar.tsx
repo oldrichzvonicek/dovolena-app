@@ -41,8 +41,7 @@ export function TeamCalendar() {
             Celý tým na jeden pohled.
           </h2>
           <p className="m-0 max-w-[640px] text-[15px] leading-[23px] text-dodio-ink-muted lg:text-lg lg:leading-[28px]">
-            Filtrujte podle oddělení nebo typu absence, seskupte tým a uvidíte, kdo chybí, než schválíte
-            další volno.
+            Vidíte, kdo chybí, kdo žádá o dovolenou a co čeká na schválení — na jednom místě, hned teď.
           </p>
         </div>
 
