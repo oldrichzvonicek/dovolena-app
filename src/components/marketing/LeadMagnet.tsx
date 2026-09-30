@@ -7,27 +7,24 @@ import { Container } from "./Container";
 export function LeadMagnet() {
   return (
     <section className="font-dodio-sans">
-      <Container className="pb-14 lg:pb-[112px]">
-        <div className="flex flex-col gap-6 rounded-dodio-xl border border-dodio-border bg-dodio-surface-card p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-12 lg:p-[56px_64px]">
-          <div className="flex flex-col gap-2.5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#0B7A60] lg:text-[13px]">
-              Ještě se nerozhodli?
-            </div>
-            <h3 className="m-0 max-w-[480px] font-dodio-display text-2xl font-extrabold leading-[30px] text-dodio-ink lg:text-[32px] lg:leading-[38px]">
-              Stáhněte si Excel šablonu pro evidenci dovolené 2027 zdarma.
+      <Container className="pb-8 lg:pb-12">
+        <div className="flex flex-col gap-4 rounded-dodio-lg bg-[#EAF3EF] p-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6 lg:p-7">
+          <div className="flex flex-col gap-1">
+            <h3 className="m-0 font-dodio-display text-lg font-bold text-dodio-ink lg:text-xl">
+              Ještě to řešíte v Excelu?
             </h3>
-            <p className="m-0 max-w-[480px] text-[15px] leading-[23px] text-dodio-ink-muted">
-              Pošleme vám ji na e-mail. Žádný závazek, žádná platební karta.
+            <p className="m-0 max-w-[440px] text-sm leading-[21px] text-dodio-ink-muted">
+              Dáme vám aspoň naši šablonu pro evidenci dovolené, ať v tom máte pořádek, než se rozhodnete.
             </p>
           </div>
-          <div aria-hidden="true" className="flex w-full flex-col gap-2.5 sm:flex-row lg:w-auto">
+          <div aria-hidden="true" className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row">
             <input
               type="email"
               disabled
               placeholder="vas@email.cz"
-              className="h-12 flex-1 rounded-dodio-md border border-dodio-border bg-dodio-surface px-4 text-sm text-dodio-ink placeholder:text-dodio-ink-muted lg:w-64"
+              className="h-11 flex-1 rounded-dodio-md border border-dodio-border bg-white px-4 text-sm text-dodio-ink placeholder:text-dodio-ink-muted sm:w-56"
             />
-            <span className="flex h-12 items-center justify-center whitespace-nowrap rounded-dodio-md bg-dodio-teal-dark px-6 text-sm font-semibold text-white">
+            <span className="flex h-11 items-center justify-center whitespace-nowrap rounded-dodio-md bg-dodio-teal-dark px-5 text-sm font-semibold text-white">
               Poslat šablonu
             </span>
           </div>
