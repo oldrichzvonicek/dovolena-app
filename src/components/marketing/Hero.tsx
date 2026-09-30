@@ -183,6 +183,8 @@ export function Hero() {
               <span>Bez platební karty</span>
               <span aria-hidden="true">·</span>
               <span>Založeno za 1 minutu</span>
+              <span aria-hidden="true">·</span>
+              <span>Pro týmy do 5 lidí zdarma</span>
             </div>
           </div>
           <div className="hidden flex-wrap gap-6 text-sm text-dodio-ink-muted lg:flex">

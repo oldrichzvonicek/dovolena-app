@@ -18,8 +18,8 @@ export default function LandingPage() {
       <SiteHeader />
       <main>
         <Hero />
-        <ProblemSolution />
         <Features />
+        <ProblemSolution />
         <TeamCalendar />
         <SmartHR />
         <Integrations />

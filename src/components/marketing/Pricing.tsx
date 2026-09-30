@@ -91,19 +91,21 @@ export function Pricing() {
               className={`flex flex-col gap-4 rounded-dodio-lg p-6 lg:gap-4 lg:p-7 ${
                 plan.recommended
                   ? "border-2 border-dodio-teal bg-white shadow-[0_24px_48px_-28px_rgba(8,80,65,0.45)] lg:gap-4"
-                  : "border border-dodio-border bg-dodio-surface"
+                  : plan.id === "free"
+                    ? "border-2 border-dodio-teal-dark bg-white"
+                    : "border border-dodio-border bg-dodio-surface"
               }`}
             >
+              {plan.id === "free" && (
+                <div className="-mx-6 -mt-6 rounded-t-[14px] bg-dodio-teal-dark px-6 py-2 text-center text-xs font-semibold text-white lg:-mx-7 lg:-mt-7">
+                  Pro malé týmy navždy zdarma
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <div className="font-dodio-display text-xl font-bold lg:text-[22px]">{plan.name}</div>
                 {plan.recommended && (
                   <span className="rounded-dodio-sm bg-[#E3F2EC] px-2.5 py-1 text-xs font-semibold text-dodio-teal-dark">
                     Doporučujeme
-                  </span>
-                )}
-                {plan.id === "free" && (
-                  <span className="rounded-dodio-sm bg-[#FBE4DA] px-2.5 py-1 text-xs font-semibold text-dodio-coral-dark">
-                    Navždy zdarma
                   </span>
                 )}
               </div>
