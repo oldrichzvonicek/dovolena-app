@@ -46,6 +46,9 @@ export function Footer() {
           </div>
           <div className="flex flex-col gap-3">
             <div className="font-semibold text-dodio-ink">Kontakt a právo</div>
+            <a href="/kontakt" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Kontakt
+            </a>
             <a href={`mailto:${CONTACT_EMAIL}`} className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               {CONTACT_EMAIL}
             </a>
