@@ -129,7 +129,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-lg border border-line bg-white shadow-[0_8px_30px_rgba(22,35,59,0.12)]">
+        <div className="popover-surface absolute right-0 top-full z-50 mt-2 w-80">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <span className="text-sm font-medium">Notifikace</span>
             {unreadCount > 0 && (

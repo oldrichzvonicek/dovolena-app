@@ -405,7 +405,7 @@ export function PendingApprovals() {
       </div>
 
       {selected.size > 0 && (
-        <div className="sticky bottom-4 z-30 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-white px-4 py-3 shadow-[0_8px_30px_rgba(22,35,59,0.18)]">
+        <div className="popover-surface sticky bottom-4 z-30 mt-4 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="text-sm">
             <span className="font-medium">Vybráno {selected.size}</span>
             {selectedWarnings > 0 && <span className="ml-2 text-warning-dark">⚠️ {selectedWarnings} z vybraných má varování</span>}

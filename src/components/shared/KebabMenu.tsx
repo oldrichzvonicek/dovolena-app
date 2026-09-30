@@ -63,7 +63,7 @@ export function KebabMenu({ items, label = "Další akce", icon, className }: { 
         <div
           ref={menuRef}
           role="menu"
-          className="fixed z-50 min-w-[190px] rounded-lg border border-line bg-white py-1 shadow-[0_8px_30px_rgba(22,35,59,0.14)]"
+          className="popover-surface fixed z-50 min-w-[190px] py-1"
           style={{ top: pos.top, right: pos.right }}
         >
           {items.map((it) => (

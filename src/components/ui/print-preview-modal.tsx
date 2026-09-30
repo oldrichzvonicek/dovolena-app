@@ -27,7 +27,7 @@ export function PrintPreviewModal({
         <DialogPrimitive.Overlay className="no-print fixed inset-0 z-40 bg-ink/30" />
         <DialogPrimitive.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-line bg-white shadow-[0_8px_30px_rgba(22,35,59,0.12)]",
+            "fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-line bg-surface shadow-[0_8px_30px_rgba(22,35,59,0.16)]",
             "print:static print:z-auto print:m-0 print:h-auto print:max-h-none print:w-auto print:max-w-none print:translate-x-0 print:translate-y-0 print:rounded-none print:border-0 print:shadow-none"
           )}
         >

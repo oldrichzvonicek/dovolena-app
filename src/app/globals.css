@@ -131,6 +131,16 @@ h3,
   border-radius: 16px;
 }
 
+/* Elevated surface for anything floating above the page with no flow context to read its edge against —
+   popovers, dropdown menus, tooltips, dialogs, a sticky action bar. Same surface/border/radius as .card plus
+   a shadow; dřív se stín (a často i bg-white bez tmavého protějšku) na každém místě ručně kopíroval zvlášť. */
+.popover-surface {
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-line));
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(22, 35, 59, 0.16);
+}
+
 ::selection {
   background: rgb(var(--c-teal-light));
 }

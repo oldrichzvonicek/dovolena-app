@@ -101,7 +101,7 @@ export function ProductTour() {
       ) : (
         <div className="absolute inset-0 bg-ink/55" />
       )}
-      <div className="absolute w-80 rounded-lg border border-line bg-white p-4 shadow-[0_8px_30px_rgba(22,35,59,0.25)]" style={tipStyle}>
+      <div className="popover-surface absolute w-80 p-4" style={tipStyle}>
         <div className="text-[11px] uppercase tracking-wide text-muted">
           Krok {index + 1} z {available.length}
         </div>

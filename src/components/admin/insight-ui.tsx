@@ -93,7 +93,7 @@ export function Bars({ items, unit = "", axisUnit, nameOf, limit = 12, highlight
       </div>
       {axis && <p className="mt-1 pl-11 text-[10px] text-muted">Osa Y: {axis}</p>}
       {cur && (
-        <div className="pointer-events-none absolute left-11 top-0 z-20 max-w-[260px] rounded-lg border border-line bg-white p-2.5 text-xs shadow-[0_8px_30px_rgba(22,35,59,0.16)]" role="tooltip">
+        <div className="popover-surface pointer-events-none absolute left-11 top-0 z-20 max-w-[260px] p-2.5 text-xs" role="tooltip">
           <div className="font-medium">
             {cur.label}: {cur.value}
             {unit}

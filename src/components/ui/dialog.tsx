@@ -24,7 +24,7 @@ export function DialogContent({
       <DialogPrimitive.Overlay className="fixed inset-0 bg-ink/30 z-40" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-line bg-white p-4 shadow-[0_8px_30px_rgba(22,35,59,0.12)] sm:max-h-[85vh] sm:w-full sm:p-6",
+          "popover-surface fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col p-4 sm:max-h-[85vh] sm:w-full sm:p-6",
           className
         )}
       >
@@ -35,7 +35,7 @@ export function DialogContent({
           </DialogPrimitive.Close>
         </div>
         <div className="min-h-0 overflow-y-auto">{children}</div>
-        {footer && <div className="mt-3 shrink-0 border-t border-line bg-white pt-3">{footer}</div>}
+        {footer && <div className="mt-3 shrink-0 border-t border-line bg-surface pt-3">{footer}</div>}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

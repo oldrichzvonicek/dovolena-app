@@ -339,7 +339,7 @@ export function WhoIsOutToday() {
       )}
       {tip && (
         <div
-          className="pointer-events-none fixed z-50 w-60 rounded-lg border border-line bg-white p-3 text-sm shadow-[0_8px_30px_rgba(22,35,59,0.16)]"
+          className="popover-surface pointer-events-none fixed z-50 w-60 p-3 text-sm"
           style={{ left: Math.min(tip.x + 14, window.innerWidth - 256), top: tip.y + 14 }}
         >
           <div className="font-medium">{tip.name}</div>

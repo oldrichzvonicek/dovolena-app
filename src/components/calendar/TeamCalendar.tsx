@@ -513,7 +513,7 @@ export function TeamCalendar() {
             <HelpCircle size={14} />
           </button>
           {marksOpen && (
-            <div className="absolute right-0 top-full z-30 mt-1 w-64 space-y-1.5 rounded-lg border border-line bg-white p-3 shadow-[0_8px_30px_rgba(22,35,59,0.12)]" role="dialog" aria-label="Značky v kalendáři">
+            <div className="popover-surface absolute right-0 top-full z-30 mt-1 w-64 space-y-1.5 p-3" role="dialog" aria-label="Značky v kalendáři">
               <div className="flex items-center gap-2"><span className={cn("h-2.5 w-6 shrink-0 rounded-sm bg-ink/50", hatch)} /> Šrafování = čeká na schválení</div>
               <div className="flex items-center gap-2"><span className="h-2.5 w-6 shrink-0 rounded-sm border-x-2 border-sky bg-sky/20" /> Dnešní den (modrý sloupec)</div>
               <div className="flex items-center gap-2"><span className="h-2.5 w-6 shrink-0 rounded-sm bg-ink/10" /> Víkend</div>
@@ -626,7 +626,7 @@ export function TeamCalendar() {
 
       {hover && (
         <div
-          className="pointer-events-none fixed z-50 w-64 rounded-lg border border-line bg-white p-3 text-sm shadow-[0_8px_30px_rgba(22,35,59,0.16)]"
+          className="popover-surface pointer-events-none fixed z-50 w-64 p-3 text-sm"
           style={{ left: Math.min(hover.x + 14, window.innerWidth - 280), top: hover.y + 14 }}
         >
           <div className="text-xs text-muted">{hover.name}</div>

@@ -76,7 +76,7 @@ export function ICalExportBox() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white p-4 shadow-[0_8px_30px_rgba(22,35,59,0.12)]">
+        <div className="popover-surface absolute right-0 top-full z-50 mt-2 w-96 max-w-[calc(100vw-2rem)] p-4">
           <p className="text-xs text-muted">
             Vlož odkaz jako „přihlásit se ke kalendáři podle URL“ v Google Kalendáři nebo Outlooku — nové schválené absence se
             budou promítat automaticky. Odkaz je tajný, nesdílejte ho.
