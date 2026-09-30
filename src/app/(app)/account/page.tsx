@@ -1,17 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { MfaSetup } from "@/components/account/MfaSetup";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Avatar } from "@/components/ui/avatar";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { showToast } from "@/lib/toast";
 import { errorMessage } from "@/lib/utils";
 import { ICalExportPanel } from "@/components/calendar/ICalExportPanel";
+
+// Jen rastrové obrázky (SVG může nést skripty). Přípona se odvozuje z typu souboru, ne z jeho názvu — stejný
+// vzor jako uploadCompanyLogo v admin-data.ts, jen jedna fotka na osobu místo na firmu.
+const AVATAR_EXT_BY_TYPE: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+
+async function uploadAvatar(userId: string, file: File): Promise<string> {
+  const ext = AVATAR_EXT_BY_TYPE[file.type];
+  if (!ext) throw new Error("Fotka musí být obrázek PNG, JPG nebo WebP.");
+  if (file.size > 2_000_000) throw new Error("Fotka může mít nejvýše 2 MB.");
+  const supabase = createClient();
+  const path = `${userId}/avatar.${ext}`;
+  const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true, contentType: file.type });
+  if (uploadError) throw uploadError;
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  const url = `${data.publicUrl}?v=${Date.now()}`; // cache-bust so a re-upload shows immediately
+  const { error } = await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId);
+  if (error) throw error;
+  return url;
+}
+
+async function deleteAvatar(userId: string) {
+  const supabase = createClient();
+  const { data: files, error: listError } = await supabase.storage.from("avatars").list(userId);
+  if (listError) throw listError;
+  if (files && files.length > 0) {
+    const { error: removeError } = await supabase.storage.from("avatars").remove(files.map((f) => `${userId}/${f.name}`));
+    if (removeError) throw removeError;
+  }
+  const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", userId);
+  if (error) throw error;
+}
 
 const roleLabel = (role: string, staff: string | null) => {
   const base = role === "admin" ? "Admin" : role === "manager" ? "Manažer" : "Zaměstnanec";
@@ -29,6 +61,8 @@ export default function AccountPage() {
   const [confirm, setConfirm] = useState("");
   const [pwBusy, setPwBusy] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -75,6 +109,36 @@ export default function AccountPage() {
     showToast(next ? "E-mailová upozornění jsou zapnutá." : "E-mailová upozornění jsou vypnutá. V aplikaci se zobrazují dál.", "info");
   }
 
+  async function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // ať jde znovu vybrat i stejný soubor (např. po neúspěchu)
+    if (!file || !profile) return;
+    setAvatarBusy(true);
+    try {
+      await uploadAvatar(profile.id, file);
+      await refreshProfile();
+      showToast("Fotka je nahraná.");
+    } catch (err) {
+      showToast(errorMessage(err), "error");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  async function removeAvatar() {
+    if (!profile) return;
+    setAvatarBusy(true);
+    try {
+      await deleteAvatar(profile.id);
+      await refreshProfile();
+      showToast("Fotka je odebraná.");
+    } catch (err) {
+      showToast(errorMessage(err), "error");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
   async function signOutEverywhere() {
     if (!(await confirmDialog("Odhlásit se ze všech zařízení včetně tohoto?", { confirmLabel: "Odhlásit ze všech", danger: true }))) return;
     await createClient().auth.signOut({ scope: "global" });
@@ -89,7 +153,22 @@ export default function AccountPage() {
       <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">
         <div className="card p-5">
           <h2 className="font-display text-h2">Profil</h2>
-          <dl className="mt-3 grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+          <div className="mt-3 flex items-center gap-4">
+            <Avatar url={profile.avatar_url} initials={profile.avatar_initials} name={profile.name} className="h-16 w-16 shrink-0 bg-teal-light text-lg font-medium text-teal-dark" />
+            <div className="flex flex-wrap items-center gap-2">
+              <input ref={avatarInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onAvatarChange} />
+              <Button type="button" variant="secondary" disabled={avatarBusy} onClick={() => avatarInputRef.current?.click()}>
+                {avatarBusy ? "Nahrávám…" : profile.avatar_url ? "Změnit fotku" : "Nahrát fotku"}
+              </Button>
+              {profile.avatar_url && (
+                <Button type="button" variant="secondary" disabled={avatarBusy} onClick={removeAvatar}>
+                  Odebrat fotku
+                </Button>
+              )}
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted">PNG, JPG nebo WebP, nejvýše 2 MB. Bez fotky se zobrazují iniciály.</p>
+          <dl className="mt-4 grid grid-cols-[120px_1fr] gap-y-2 text-sm">
             <dt className="text-muted">Jméno</dt>
             <dd className="font-medium">{profile.name}</dd>
             <dt className="text-muted">E-mail</dt>

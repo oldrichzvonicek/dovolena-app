@@ -95,6 +95,7 @@ export interface DbProfile {
   name: string;
   role: Role;
   avatar_initials: string | null;
+  avatar_url: string | null;
   email: string | null;
   active: boolean;
   email_notifications: boolean;
