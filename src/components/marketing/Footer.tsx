@@ -28,6 +28,9 @@ export function Footer() {
             <a href="/sablona-dochazky-2027" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Šablona docházky zdarma
             </a>
+            <a href="/kalkulacka-dovolene" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Kalkulačka dovolené
+            </a>
           </div>
           <div className="flex flex-col gap-3">
             <div className="font-semibold text-dodio-ink">Kontakt</div>
