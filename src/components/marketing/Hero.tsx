@@ -18,7 +18,7 @@ function ApprovalChatCard({ className = "" }: { className?: string }) {
       <div className="flex items-center gap-2.5">
         <DodioMark size={28} />
         <div className="text-sm font-semibold">
-          Dodio <span className="font-normal text-dodio-ink-muted">· schválení z e-mailu</span>
+          Dodio <span className="font-normal text-dodio-ink-muted">· ke schválení</span>
         </div>
       </div>
       <div className="text-[15px] leading-[22px]">
@@ -206,7 +206,7 @@ export function Hero() {
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
             Dodio je jednoduchý nástroj pro správu dovolených a absencí pro české firmy. Zaměstnanci
-            požádají, vedoucí schválí dvěma kliky z e-mailu a všichni mají okamžitý přehled o týmu.
+            požádají, vedoucí schválí na pár kliknutí v appce a všichni mají okamžitý přehled o týmu.
           </p>
           <div className="flex flex-col gap-2.5">
             <a

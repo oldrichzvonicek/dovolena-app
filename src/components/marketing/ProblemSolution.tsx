@@ -10,7 +10,7 @@ const PAIRS = [
   {
     question: "Schválil už někdo moji žádost?",
     problem: "Žádosti přes e-mail nebo chat se ztrácejí. Nikdo neví, co je kde ve frontě.",
-    solution: "Stav žádosti v reálném čase — schváleno, čeká, zamítnuto s důvodem. Schválení jde i dvěma kliky z e-mailu.",
+    solution: "Stav žádosti v reálném čase — schváleno, čeká, zamítnuto s důvodem. Vidíte ho hned v appce.",
   },
   {
     question: "Nevzali si dva lidi volno ve stejný týden?",

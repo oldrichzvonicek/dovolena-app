@@ -14,7 +14,7 @@ const CATEGORIES = [
       },
       {
         q: "Jak funguje schválení, když manažer není u počítače?",
-        a: "Manažer může schválit nebo zamítnout žádost jedním kliknutím přímo z e-mailu, bez přihlašování do Dodia. Odkaz platí 7 dní a rozhodnutí se vždy ještě potvrzuje, takže nejde nic schválit omylem.",
+        a: "Dodio pošle e-mailové upozornění, že čeká žádost ke schválení. Manažer se přihlásí do appky — funguje i z mobilu, stačí prohlížeč — a žádost schválí nebo zamítne na pár kliknutí.",
       },
       {
         q: "Potřebujeme něco instalovat?",

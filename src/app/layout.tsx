@@ -24,11 +24,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://dodio.cz"),
   title: "Dodio – absence bez tabulek, e-mailů a zbytečné administrativy",
   description:
-    "Dodio je jednoduchý nástroj pro správu dovolených a absencí pro české firmy. Žádost na tři kliknutí, schválení dvěma kliky z e-mailu a export pro mzdy.",
+    "Dodio je jednoduchý nástroj pro správu dovolených a absencí pro české firmy. Žádost na tři kliknutí, rychlé schválení a export pro mzdy.",
   openGraph: {
     title: "Dodio – absence bez tabulek, e-mailů a zbytečné administrativy",
     description:
-      "Dodio je jednoduchý nástroj pro správu dovolených a absencí pro české firmy. Žádost na tři kliknutí, schválení dvěma kliky z e-mailu a export pro mzdy.",
+      "Dodio je jednoduchý nástroj pro správu dovolených a absencí pro české firmy. Žádost na tři kliknutí, rychlé schválení a export pro mzdy.",
     url: "https://dodio.cz",
     siteName: "Dodio",
     locale: "cs_CZ",

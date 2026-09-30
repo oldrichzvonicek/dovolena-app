@@ -65,7 +65,7 @@ const TEMPLATE_FAQ = [
   },
   {
     q: "Co když nám šablona přestane stačit?",
-    a: "Pak je čas na Dodio — žádosti na tři kliknutí, schválení dvěma kliky z e-mailu a export pro mzdy, místo ručního přepisování v Excelu.",
+    a: "Pak je čas na Dodio — žádosti na tři kliknutí, rychlé schválení a export pro mzdy, místo ručního přepisování v Excelu.",
   },
 ];
 
@@ -163,7 +163,7 @@ export default function TemplateLandingPage() {
             <p className="m-0 mx-auto max-w-[560px] text-[15px] leading-[23px] text-[#D7EEE6] lg:text-lg lg:leading-[28px]">
               Excel funguje, dokud tabulku upravuje jeden člověk. Jakmile roste tým, přibývají chyby,
               duplicitní žádosti a ruční dopočítávání. Dodio dělá to samé automaticky — žádost na tři
-              kliknutí, schválení dvěma kliky z e-mailu a export pro mzdy.
+              kliknutí, rychlé schválení a export pro mzdy.
             </p>
             <div className="pt-2">
               <a

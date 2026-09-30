@@ -12,7 +12,7 @@ import { ADDONS, getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/d
 // earlier item, so the checklist stays short at every tier.
 const FREE_FEATURES = [
   "Žádosti a zůstatky pro každého",
-  "Schvalování na webu i z e-mailu",
+  "Rychlé schvalování žádostí",
   "Týmový kalendář",
   "Notifikace v Dodiu a e-mailem",
   "Analytika a přehled kapacity",
