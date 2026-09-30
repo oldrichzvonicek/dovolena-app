@@ -119,11 +119,14 @@ function OverviewCard() {
     >
       <div className="flex items-center justify-between">
         <div className="font-dodio-display text-xl font-bold">Můj přehled</div>
-        <span className="flex items-center gap-1.5 rounded-dodio-md bg-dodio-coral px-3.5 py-2.5 text-sm font-semibold text-dodio-coral-dark">
+        <span className="flex items-center gap-1.5 rounded-dodio-md bg-dodio-teal-dark px-3.5 py-2.5 text-sm font-semibold text-white">
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-            <path d="M7 2v10M2 7h10" stroke="#712B13" strokeWidth="2" strokeLinecap="round" />
+            <path d="M7 2v10M2 7h10" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
           </svg>
           Nová žádost
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className="ml-0.5">
+            <path d="M2.5 4l2.5 2.5L7.5 4" fill="none" stroke="#FFFFFF" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </span>
       </div>
       <div className="grid grid-cols-3 gap-3">
