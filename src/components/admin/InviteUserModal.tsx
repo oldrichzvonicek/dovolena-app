@@ -18,10 +18,12 @@ const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Ma
  * the generic company-wide link, which anyone who gets forwarded it can use to join. */
 const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 
-/** "jana.novakova@firma.cz" -> "Jana Novakova" — used when several addresses are pasted at once. */
+/** "jana.novakova+test@firma.cz" -> "Jana Novakova" — used when several addresses are pasted at once.
+ * Everything from "+" on is a mail-provider alias/tag (Gmail apod.), not part of the name, so it's dropped first. */
 function nameFromEmail(email: string) {
   return email
     .split("@")[0]
+    .split("+")[0]
     .split(/[._-]+/)
     .filter(Boolean)
     .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
