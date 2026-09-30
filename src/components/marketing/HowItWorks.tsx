@@ -1,37 +1,41 @@
 import { Container } from "./Container";
 
-const STEPS = [
-  {
-    title: "Zaměstnanec požádá",
-    body: "Vybere termín dovolené nebo jiné absence a odešle žádost.",
-  },
-  {
-    title: "Vedoucí schválí",
-    body: "Žádost jednoduše schválí nebo zamítne přímo v appce.",
-  },
-  {
-    title: "Tým má přehled",
-    body: "Všichni podle svých oprávnění vidí aktuální stav absencí.",
-  },
-];
+const STEPS = ["Zaměstnanec požádá", "Vedoucí schválí", "Tým má přehled"];
+
+function Arrow({ className = "" }: { className?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" className={className}>
+      <path
+        d="M4 10h11M10 5l5 5-5 5"
+        fill="none"
+        stroke="#5F5E5A"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export function HowItWorks() {
   return (
     <section className="font-dodio-sans">
-      <Container className="flex flex-col gap-8 pb-14 lg:gap-10 lg:pb-[112px]">
-        <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
-          Jak Dodio funguje?
-        </h2>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+      <Container className="flex flex-col items-center gap-4 py-8 lg:py-10">
+        <div className="text-xs font-semibold uppercase tracking-wide text-[#0B7A60] lg:text-[13px]">
+          Jak Dodio funguje
+        </div>
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
           {STEPS.map((step, i) => (
-            <div key={step.title} className="flex flex-col gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-dodio-teal-dark font-dodio-display text-base font-bold text-white">
-                {i + 1}
+            <div key={step} className="flex items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-dodio-teal-dark font-dodio-display text-sm font-bold text-white">
+                  {i + 1}
+                </span>
+                <span className="font-dodio-display text-base font-bold text-dodio-ink lg:text-lg">{step}</span>
               </div>
-              <div className="font-dodio-display text-xl font-bold">{step.title}</div>
-              <p className="m-0 text-[15px] leading-[23px] text-dodio-ink-muted lg:text-base lg:leading-[25px]">
-                {step.body}
-              </p>
+              {i < STEPS.length - 1 && (
+                <Arrow className="hidden shrink-0 sm:block" />
+              )}
             </div>
           ))}
         </div>
