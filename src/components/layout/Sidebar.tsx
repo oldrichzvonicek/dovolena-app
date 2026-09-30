@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useFeatures } from "@/lib/use-features";
 import type { FeatureKey } from "@/lib/plans";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -158,15 +159,11 @@ export function Sidebar() {
   useEffect(loadPending, [isManager]); // eslint-disable-line react-hooks/exhaustive-deps
   useOnDataChanged(loadPending);
 
+  // Escape-to-close is handled by Radix Dialog itself once open.
   useEffect(() => {
     const toggle = () => setMobileOpen((v) => !v);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMobileOpen(false);
     window.addEventListener(TOGGLE_NAV_EVENT, toggle);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener(TOGGLE_NAV_EVENT, toggle);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener(TOGGLE_NAV_EVENT, toggle);
   }, []);
 
   useEffect(() => setMobileOpen(false), [pathname]);
@@ -306,21 +303,18 @@ export function Sidebar() {
   return (
     <>
       <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-r border-line bg-white lg:flex">{inner}</aside>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigace">
-          <div className="absolute inset-0 bg-ink/40" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 flex h-full w-[280px] max-w-[85vw] flex-col bg-white shadow-xl">
-            <button
-              onClick={() => setMobileOpen(false)}
-              aria-label="Zavřít menu"
-              className="absolute right-2 top-2 rounded p-2 text-muted hover:bg-paper hover:text-ink"
-            >
+      <DialogPrimitive.Root open={mobileOpen} onOpenChange={setMobileOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-ink/40 lg:hidden" />
+          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-[60] flex h-full w-[280px] max-w-[85vw] flex-col bg-surface shadow-xl lg:hidden">
+            <DialogPrimitive.Title className="sr-only">Navigace</DialogPrimitive.Title>
+            <DialogPrimitive.Close aria-label="Zavřít menu" className="absolute right-2 top-2 rounded p-2 text-muted hover:bg-paper hover:text-ink">
               <X size={18} />
-            </button>
+            </DialogPrimitive.Close>
             {inner}
-          </aside>
-        </div>
-      )}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </>
   );
 }

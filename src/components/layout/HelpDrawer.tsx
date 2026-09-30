@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { HelpCircle, PlayCircle, Search, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { faqsForRole } from "@/lib/help-content";
@@ -16,17 +17,11 @@ export function HelpDrawer() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
+  // Escape-to-close is handled by Radix Dialog itself once open.
   useEffect(() => {
     const toggle = () => setOpen((v) => !v);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     window.addEventListener(TOGGLE_HELP_EVENT, toggle);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener(TOGGLE_HELP_EVENT, toggle);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener(TOGGLE_HELP_EVENT, toggle);
   }, []);
 
   const faqs = useMemo(() => {
@@ -36,19 +31,20 @@ export function HelpDrawer() {
     return all.filter((f) => f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q));
   }, [profile?.role, query]);
 
-  if (!open) return null;
   const searching = query.trim().length > 0;
 
   return (
-    <div className="fixed inset-0 z-[65] flex justify-end bg-ink/30" onClick={() => setOpen(false)}>
-      <aside className="flex h-full w-full max-w-md flex-col bg-white shadow-[-8px_0_30px_rgba(22,35,59,0.16)]" onClick={(e) => e.stopPropagation()}>
+    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[65] bg-ink/30" />
+        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-[65] flex h-full w-full max-w-md flex-col border-l border-line bg-surface shadow-[-8px_0_30px_rgba(22,35,59,0.16)]">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <div className="flex items-center gap-2 font-display text-h2">
+          <DialogPrimitive.Title className="flex items-center gap-2 font-display text-h2">
             <HelpCircle size={18} className="text-teal-dark" /> Nápověda
-          </div>
-          <button onClick={() => setOpen(false)} aria-label="Zavřít" className="rounded p-1.5 text-muted hover:bg-paper hover:text-ink">
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Close aria-label="Zavřít" className="rounded p-1.5 text-muted hover:bg-paper hover:text-ink">
             <X size={18} />
-          </button>
+          </DialogPrimitive.Close>
         </div>
         <div className="space-y-3 border-b border-line p-4">
           <div className="relative">
@@ -82,7 +78,8 @@ export function HelpDrawer() {
             <HelpFaqItem key={`${f.q}-${searching}`} faq={f} forceOpen={searching} />
           ))}
         </div>
-      </aside>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

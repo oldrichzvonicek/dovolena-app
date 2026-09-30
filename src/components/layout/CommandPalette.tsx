@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   BarChart3,
   CalendarDays,
@@ -127,13 +128,12 @@ export function CommandPalette() {
     return [...base, ...ppl];
   }, [items, query, people]);
 
+  // Escape-to-close is handled by Radix Dialog itself once open — this only needs to own the global Cmd+K toggle.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen((v) => !v);
-      } else if (e.key === "Escape") {
-        setOpen(false);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -165,61 +165,60 @@ export function CommandPalette() {
     />
   ) : null;
 
-  if (!open) return requestModal;
-
   return (
     <>
-    {requestModal}
-    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-ink/30 pt-[15vh]" onClick={() => setOpen(false)}>
-      <div
-        className="w-full max-w-md rounded-lg border border-line bg-white shadow-[0_8px_30px_rgba(22,35,59,0.16)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
-          <Search size={16} className="shrink-0 text-muted" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setActiveIndex((i) => Math.max(i - 1, 0));
-              } else if (e.key === "Enter" && filtered[activeIndex]) {
-                go(filtered[activeIndex]);
-              }
-            }}
-            placeholder="Přejít na stránku, najít kolegu nebo zadat žádost…"
-            className="w-full text-sm outline-none"
-          />
-          <kbd className="shrink-0 rounded border border-line bg-paper px-1.5 py-0.5 text-[11px] text-muted">Esc</kbd>
-        </div>
-        <div className="max-h-80 overflow-y-auto p-1.5">
-          {filtered.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted">Nic jsme nenašli.</p>}
-          {filtered.map((item, i) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={`${item.href ?? "run"}-${item.label}`}
-                onClick={() => go(item)}
-                onMouseEnter={() => setActiveIndex(i)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm",
-                  i === activeIndex ? "bg-teal-light text-teal-dark" : "text-ink"
-                )}
-              >
-                <Icon size={15} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                {item.hint && <span className="shrink-0 text-xs text-muted">{item.hint}</span>}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+      {requestModal}
+      <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-ink/30" />
+          <DialogPrimitive.Content className="popover-surface fixed left-1/2 top-[15vh] z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2">
+            <DialogPrimitive.Title className="sr-only">Rychlá navigace</DialogPrimitive.Title>
+            <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
+              <Search size={16} className="shrink-0 text-muted" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActiveIndex((i) => Math.max(i - 1, 0));
+                  } else if (e.key === "Enter" && filtered[activeIndex]) {
+                    go(filtered[activeIndex]);
+                  }
+                }}
+                placeholder="Přejít na stránku, najít kolegu nebo zadat žádost…"
+                className="w-full text-sm outline-none"
+              />
+              <kbd className="shrink-0 rounded border border-line bg-paper px-1.5 py-0.5 text-[11px] text-muted">Esc</kbd>
+            </div>
+            <div className="max-h-80 overflow-y-auto p-1.5">
+              {filtered.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted">Nic jsme nenašli.</p>}
+              {filtered.map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={`${item.href ?? "run"}-${item.label}`}
+                    onClick={() => go(item)}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm",
+                      i === activeIndex ? "bg-teal-light text-teal-dark" : "text-ink"
+                    )}
+                  >
+                    <Icon size={15} className="shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.hint && <span className="shrink-0 text-xs text-muted">{item.hint}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </>
   );
 }
