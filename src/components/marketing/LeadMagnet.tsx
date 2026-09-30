@@ -1,9 +1,7 @@
 import { Container } from "./Container";
 
-// Visual placeholder only — no real template file or email capture wired up
-// yet. The input/button are decorative (aria-hidden, disabled/non-clickable)
-// so a real visitor can't submit into a void. Needs a real .xlsx asset and
-// a form handler (email service or API route) before this goes live.
+const TEMPLATE_URL = "/sablony/dodio-evidence-pracovni-doby-a-dovolene-2027.xlsx";
+
 export function LeadMagnet() {
   return (
     <section className="font-dodio-sans">
@@ -13,21 +11,18 @@ export function LeadMagnet() {
             <h3 className="m-0 font-dodio-display text-lg font-bold text-dodio-ink lg:text-xl">
               Ještě to řešíte v Excelu?
             </h3>
-            <p className="m-0 max-w-[440px] text-sm leading-[21px] text-dodio-ink-muted">
-              Dáme vám aspoň naši šablonu pro evidenci dovolené, ať v tom máte pořádek, než se rozhodnete.
+            <p className="m-0 max-w-[460px] text-sm leading-[21px] text-dodio-ink-muted">
+              Dáme vám aspoň naši šablonu na evidenci pracovní doby, dovolené, sick days a home office pro
+              rok 2027, ať v tom máte pořádek, než se rozhodnete.
             </p>
           </div>
-          <div aria-hidden="true" className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row">
-            <input
-              type="email"
-              disabled
-              placeholder="vas@email.cz"
-              className="h-11 flex-1 rounded-dodio-md border border-dodio-border bg-white px-4 text-sm text-dodio-ink placeholder:text-dodio-ink-muted sm:w-56"
-            />
-            <span className="flex h-11 items-center justify-center whitespace-nowrap rounded-dodio-md bg-dodio-teal-dark px-5 text-sm font-semibold text-white">
-              Poslat šablonu
-            </span>
-          </div>
+          <a
+            href={TEMPLATE_URL}
+            download
+            className="flex h-11 w-full shrink-0 items-center justify-center whitespace-nowrap rounded-dodio-md bg-dodio-teal-dark px-6 text-sm font-semibold text-white no-underline sm:w-auto"
+          >
+            Stáhnout šablonu (.xlsx)
+          </a>
         </div>
       </Container>
     </section>
