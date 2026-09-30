@@ -205,7 +205,7 @@ export function Hero() {
             Správa firemních absencí na pár kliknutí.
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
-            Žádost na tři kliknutí, schválení jedním klikem přímo z e-mailu a podklady pro mzdy jedním
+            Žádost na tři kliknutí, schválení dvěma kliky přímo z e-mailu a podklady pro mzdy jedním
             exportem. Dodio hlídá zůstatky, české svátky i to, kdo dnes chybí.
           </p>
           <div className="flex flex-col gap-2.5">

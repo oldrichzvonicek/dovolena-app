@@ -8,7 +8,7 @@ const PAIRS = [
   },
   {
     problem: "Žádosti přes e-mail nebo chat se ztrácejí. Nikdo neví, co je kde ve frontě.",
-    solution: "Stav žádosti v reálném čase — schváleno, čeká, zamítnuto s důvodem. Schválení jde i jedním klikem z e-mailu.",
+    solution: "Stav žádosti v reálném čase — schváleno, čeká, zamítnuto s důvodem. Schválení jde i dvěma kliky z e-mailu.",
   },
   {
     problem: "Manažer neví, kdo je v týmu kdy pryč — dva lidé si vezmou volno ve stejný týden a nikdo si toho nevšimne včas.",
