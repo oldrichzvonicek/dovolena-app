@@ -75,6 +75,11 @@ export function Integrations() {
                     </span>
                   ))}
                 </div>
+                {upcoming && (
+                  <p className="m-0 text-[13px] leading-5 text-dodio-ink-muted">
+                    Do té doby stačí schválení e-mailem — pokryje naprostou většinu týmů.
+                  </p>
+                )}
               </div>
             );
           })}

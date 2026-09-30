@@ -170,7 +170,6 @@ export function Features() {
             title="Zaměstnanec"
             illustration={<RequestIllustration />}
             points={[
-              "Žádost o dovolenou na pár kliknutí — typ, termín, případně zástup za sebe, odeslat.",
               "Naplánovat si rok dopředu soukromě, bez odesílání ke schválení, a pak žádost podat jedním kliknutím.",
               "Zůstatek na první pohled — čerpáno, naplánováno, zbývá.",
               "Chytré návrhy Dodia, kdy si vzít pár dní navíc kolem svátku a mít dlouhé volno.",
@@ -184,7 +183,6 @@ export function Features() {
             illustration={<ApprovalIllustration />}
             reverse
             points={[
-              "Schválení absence na dvě kliknutí.",
               "Kapacitní varování — Dodio upozorní, než by schválení nechalo tým pod minimem lidí.",
               "Přehled absencí celého týmu v kalendáři, včetně zástupů.",
               "Zástupce pro dobu vlastní nepřítomnosti, ať schvalování nestojí.",
@@ -198,7 +196,6 @@ export function Features() {
             points={[
               "Vlastní typy absencí a pravidla čerpání přesně podle vaší firmy.",
               "Import zaměstnanců a hromadné akce — rozjezd za minuty, ne za týdny.",
-              "Podklady pro mzdy jedním exportem, bez ručního sbírání.",
               "Role HR zdarma na jakémkoli tarifu, Účetní jako doplněk — každý vidí jen to, co má.",
             ]}
           />

@@ -24,8 +24,8 @@ const POINTS = [
 
 export function Security() {
   return (
-    <section className="font-dodio-sans">
-      <Container className="flex flex-col gap-8 pb-14 lg:gap-10 lg:pb-[112px]">
+    <section className="bg-[#EAF3EF] font-dodio-sans">
+      <Container className="flex flex-col gap-8 py-14 lg:gap-10 lg:py-[112px]">
         <div className="flex max-w-[720px] flex-col gap-3.5">
           <div className="text-xs font-semibold uppercase tracking-wide text-[#0B7A60] lg:text-[13px]">
             Bezpečnost a soukromí

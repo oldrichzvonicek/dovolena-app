@@ -7,7 +7,9 @@ import { ADDONS, getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/d
 
 // Each tier's feature list is cumulative — Starter includes everything Free
 // has plus its own additions, and so on up to Pro. Matches how the tiers
-// are actually scoped: nothing is ever removed going up, only added.
+// are actually scoped: nothing is ever removed going up, only added. Shown
+// on the card as "Vše z <nižší tarif>, plus:" instead of repeating every
+// earlier item, so the checklist stays short at every tier.
 const FREE_FEATURES = [
   "Žádosti a zůstatky pro každého",
   "Schvalování na webu i z e-mailu",
@@ -25,11 +27,18 @@ const TEAM_ADDS = ["Historie změn (audit log)", "Nárok podle odpracovaných le
 
 const PRO_ADDS = ["Smart HR — predikce kapacity a trendy", "Eskalace schvalování a zástupy", "Bez limitu uživatelů"];
 
-const PLAN_FEATURES: Record<PlanId, string[]> = {
+const PLAN_OWN_FEATURES: Record<PlanId, string[]> = {
   free: FREE_FEATURES,
-  starter: [...FREE_FEATURES, ...STARTER_ADDS],
-  team: [...FREE_FEATURES, ...STARTER_ADDS, ...TEAM_ADDS],
-  pro: [...FREE_FEATURES, ...STARTER_ADDS, ...TEAM_ADDS, ...PRO_ADDS],
+  starter: STARTER_ADDS,
+  team: TEAM_ADDS,
+  pro: PRO_ADDS,
+};
+
+const PLAN_INHERITS_FROM: Record<PlanId, string | null> = {
+  free: null,
+  starter: "Free",
+  team: "Starter",
+  pro: "Team",
 };
 
 export function Pricing() {
@@ -122,7 +131,12 @@ export function Pricing() {
                 {plan.note}
               </div>
               <div className="flex flex-col gap-2 border-t border-dodio-border pt-4 text-[13px] leading-5 lg:text-sm">
-                {PLAN_FEATURES[plan.id].map((label) => (
+                {PLAN_INHERITS_FROM[plan.id] && (
+                  <div className="pb-1 font-semibold text-dodio-ink">
+                    Vše z tarifu {PLAN_INHERITS_FROM[plan.id]}, plus:
+                  </div>
+                )}
+                {PLAN_OWN_FEATURES[plan.id].map((label) => (
                   <div key={label} className="flex items-center gap-2.5">
                     <CheckIcon />
                     <span className="text-dodio-ink">{label}</span>
