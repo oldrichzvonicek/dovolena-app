@@ -298,7 +298,7 @@ export function hrDigest(input: DigestInput): { subject: string; body: string } 
   }
   if (paragraphs.length === 0) return null;
   const speedNote = input.medianDecisionHours > 0 ? ` Poslední žádosti se u vás řešily v mediánu ${input.medianDecisionHours} h.` : "";
-  const header = `Dobré ráno,\n\ntady je týdenní přehled pro HR.${speedNote}`;
+  const header = `Dobré ráno,\n\ntady je váš týdenní přehled pro HR — pár věcí, na které stojí za to mrknout.${speedNote}`;
   return { subject: "Týdenní přehled pro HR — Dodio", body: [header, ...paragraphs].join("\n\n") };
 }
 

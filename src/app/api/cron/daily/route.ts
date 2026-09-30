@@ -41,7 +41,7 @@ export async function GET(req: Request) {
         category: "billing",
         to_email: a.email as string,
         subject: "Změna tarifu Dodio od " + co.pending_plan_from,
-        body: `Dobrý den ${String(a.name).split(" ")[0]},\n\nk ${co.pending_plan_from} se vaše firma přesune na jiný tarif (${co.pending_plan}), jak jste naplánovali v Nastavení firmy → Fakturace & tarify. Funkce, které nový tarif nemá, se tehdy zamknou, data zůstanou. Pokud jste s novým tarifem počet uživatelů nad limitem, další lidi už nepřidáte, dokud jejich počet nesnížíte. Změnu můžete do tohoto data zrušit.`,
+        body: `Dobrý den ${String(a.name).split(" ")[0]},\n\npřipomínáme, že ${co.pending_plan_from} se vaše firma přepne na tarif ${co.pending_plan}, přesně jak jste si naplánovali v Nastavení firmy → Fakturace & tarify. Funkce, co nový tarif nemá, se tím zamknou, ale data zůstanou beze změny. A kdybyste měli víc lidí, než nový tarif dovoluje, nepůjde přidávat další, dokud se počet nesníží. Do tohoto data můžete změnu ještě zrušit.`,
       }));
     if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
     await supabase.from("companies").update({ pending_plan_notified: true }).eq("id", co.id);
@@ -104,7 +104,7 @@ export async function GET(req: Request) {
           type: "request_created",
           leave_request_id: r.id,
           title: "Žádost čeká na schválení",
-          body: `${p.name} podal(a) žádost o absenci (${r.leave_type?.label ?? "absence"}) a čeká na rozhodnutí — zastupujete jejich schvalovatele (${reason}).`,
+          body: `${p.name} čeká na rozhodnutí o žádosti (${r.leave_type?.label ?? "absence"}) — zaskakujete za schvalovatele (${reason}), tak to prosím vyřiďte.`,
         }))
       );
       await supabase.from("leave_requests").update({ escalated_at: now.toISOString() }).eq("id", r.id);
@@ -157,7 +157,7 @@ export async function GET(req: Request) {
           category: "weekly_digest",
           to_email: p.email!,
           subject: "Týdenní přehled absencí — Dodio",
-          body: `Dobré ráno ${p.name.split(" ")[0]},\n\ntady je týdenní přehled — čekající žádosti: ${pendingCount}, absence tento týden: ${weekRows.length}.\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
+          body: `Dobré ráno ${p.name.split(" ")[0]},\n\ntady je váš týdenní přehled — čeká na vás ${pendingCount} žádostí, absencí tento týden: ${weekRows.length}.\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
         }));
       if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
 
