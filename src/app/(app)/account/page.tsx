@@ -150,7 +150,7 @@ export default function AccountPage() {
   return (
     <div>
       <Header title="Můj účet" subtitle="Přihlášení, zabezpečení a upozornění" />
-      <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">
+      <div className="max-w-[900px] space-y-6 p-4 sm:p-8">
         <div className="card p-5">
           <h2 className="font-display text-h2">Profil</h2>
           <div className="mt-3 flex items-center gap-4">

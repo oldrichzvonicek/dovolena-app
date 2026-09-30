@@ -48,23 +48,20 @@ export default function DashboardPage() {
   return (
     <div key={refreshKey}>
       <Header title={`Vítejte zpět, ${firstName}`} subtitle={subtitle} />
-      {/* Nástěnka nemá tabulku, která by potřebovala plnou šířku širokoúhlého monitoru — bez max-width
-          zůstávaly texty a tlačítka v kartách (Chytré návrhy dovolené apod.) na opačných koncích obrazovky. */}
-      <div className="p-4 pb-0 sm:p-8 sm:pb-0">
-        <div className="mx-auto max-w-[1400px] space-y-6">
-          <OnboardingChecklist />
-          {mine}
+      {/* Ukotveno vlevo (bez mx-auto), do max-width 1600px pro širokoúhlé monitory. Od xl (>=1280px) dva
+          sloupce vedle sebe — vlevo moje absence, vpravo týmový přehled; pod xl padají pod sebe. */}
+      <div className="max-w-[1600px] space-y-6 p-4 sm:p-8">
+        <OnboardingChecklist />
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
+          <div className="space-y-6">{mine}</div>
+          <section aria-labelledby="team-overview-heading" className="space-y-6 rounded-lg bg-teal-light/30 p-4 sm:p-6">
+            <h2 id="team-overview-heading" className="flex items-center gap-2 font-display text-h2">
+              <Users size={18} className="text-teal-dark" /> {isManager ? "Týmový přehled a agenda manažera" : "Týmový přehled"}
+            </h2>
+            {team}
+          </section>
         </div>
       </div>
-
-      <section aria-labelledby="team-overview-heading" className="mt-8 border-t border-line bg-teal-light/30 px-4 py-6 sm:px-8 sm:py-8">
-        <div className="mx-auto max-w-[1400px]">
-          <h2 id="team-overview-heading" className="mb-5 flex items-center gap-2 font-display text-h2">
-            <Users size={18} className="text-teal-dark" /> {isManager ? "Týmový přehled a agenda manažera" : "Týmový přehled"}
-          </h2>
-          {team}
-        </div>
-      </section>
     </div>
   );
 }
