@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { buildLeadMagnetEmailHtml, buildLeadMagnetEmailText } from "@/lib/lead-magnet-email";
 
 // Sends the free Excel template as a download link via e-mail. Requires
 // RESEND_API_KEY (server-only secret, set in the hosting environment) and a
@@ -35,12 +36,8 @@ export async function POST(request: Request) {
       from: FROM_EMAIL,
       to: email,
       subject: "Vaše šablona pro evidenci docházky 2027 — Dodio",
-      html: `
-        <p>Dobrý den,</p>
-        <p>posíláme šablonu pro evidenci pracovní doby, dovolené, sick days a home office pro rok 2027.</p>
-        <p><a href="${templateUrl}">Stáhnout šablonu (.xlsx)</a></p>
-        <p>Tým Dodio</p>
-      `,
+      html: buildLeadMagnetEmailHtml(templateUrl),
+      text: buildLeadMagnetEmailText(templateUrl),
     });
 
     if (error) {
