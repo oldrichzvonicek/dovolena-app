@@ -47,6 +47,13 @@ export function Integrations() {
               </div>
             ))}
           </div>
+          <p className="m-0 text-sm text-dodio-ink-muted">
+            Kolik pracovních dní má letošní rok?{" "}
+            <a href="/kalkulacka-pracovnich-dnu" className="text-dodio-teal-dark underline underline-offset-2">
+              Spočítejte si to i se svátky
+            </a>
+            .
+          </p>
         </div>
 
         <div className="flex flex-col gap-6 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-7 lg:gap-7 lg:p-10">
@@ -81,7 +88,8 @@ export function Integrations() {
                 </div>
                 {upcoming && (
                   <p className="m-0 text-[13px] leading-5 text-dodio-ink-muted">
-                    Do té doby stačí schválení e-mailem — pokryje naprostou většinu týmů.
+                    Do té doby stačí e-mailové upozornění a schválení přímo v appce — pokryje naprostou
+                    většinu týmů.
                   </p>
                 )}
               </div>

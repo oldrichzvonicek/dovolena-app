@@ -31,6 +31,9 @@ export function Footer() {
             <a href="/kalkulacka-dovolene" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Kalkulačka dovolené
             </a>
+            <a href="/kalkulacka-pracovnich-dnu" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Kalkulačka pracovních dnů
+            </a>
           </div>
           <div className="flex flex-col gap-3">
             <div className="font-semibold text-dodio-ink">Kontakt</div>
