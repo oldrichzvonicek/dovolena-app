@@ -18,7 +18,7 @@ function ApprovalChatCard({ className = "" }: { className?: string }) {
       <div className="flex items-center gap-2.5">
         <DodioMark size={28} />
         <div className="text-sm font-semibold">
-          Dodio <span className="font-normal text-dodio-ink-muted">· ke schválení</span>
+          dodio <span className="font-normal text-dodio-ink-muted">· ke schválení</span>
         </div>
       </div>
       <div className="text-[15px] leading-[22px]">
