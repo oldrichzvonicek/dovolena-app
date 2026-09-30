@@ -22,6 +22,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dodio.cz"),
+  // Site not ready for public search visibility yet — remove once it is.
+  robots: { index: false, follow: false },
   title: "Dodio – absence bez tabulek, e-mailů a administrativy",
   description:
     "Dodio je jednoduchý nástroj pro správu dovolených a absencí pro české firmy. Žádost na tři kliknutí, rychlé schválení a export pro mzdy.",

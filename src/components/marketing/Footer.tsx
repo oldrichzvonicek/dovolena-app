@@ -54,6 +54,9 @@ export function Footer() {
             <a href="/ochrana-osobnich-udaju" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Ochrana osobních údajů
             </a>
+            <a href="/bezpecnost-dat" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Bezpečnost dat
+            </a>
           </div>
         </div>
 
