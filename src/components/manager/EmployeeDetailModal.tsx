@@ -5,11 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { LeaveBadge, StatusBadge } from "@/components/ui/badge";
 import { dayWord, formatRange } from "@/lib/working-days";
-import { cn, formatNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { Balance, loadBalances } from "@/lib/balances";
 import { LeaveColor, RequestStatus } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface Row {
   id: string;
@@ -77,19 +78,14 @@ export function EmployeeDetailModal({ employee, onClose }: { employee: { id: str
         {rows && rows.length === 0 && <p className="text-sm text-muted">Zatím žádné žádosti.</p>}
         {rows && rows.length > 0 && (
           <>
-            <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtr podle druhu absence">
-              <button onClick={() => setTypeKey(null)} className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", typeKey === null ? "border-ink bg-ink text-white" : "border-line text-muted hover:bg-paper")}>
-                Vše ({rows.length})
-              </button>
-              {types.map(([key, t]) => (
-                <button
-                  key={key}
-                  onClick={() => setTypeKey(key === typeKey ? null : key)}
-                  className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", typeKey === key ? "border-ink bg-ink text-white" : "border-line text-muted hover:bg-paper")}
-                >
-                  {t.label} ({t.count})
-                </button>
-              ))}
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              <SegmentedControl
+                size="sm"
+                ariaLabel="Filtr podle druhu absence"
+                value={typeKey}
+                onChange={(key) => setTypeKey(key === typeKey ? null : key)}
+                options={[{ key: null, label: `Vše (${rows.length})` }, ...types.map(([key, t]) => ({ key, label: `${t.label} (${t.count})` }))]}
+              />
               {years.length > 1 && (
                 <select value={year ?? ""} onChange={(e) => setYear(e.target.value ? Number(e.target.value) : null)} aria-label="Rok" className="ml-auto rounded border border-line bg-white px-2 py-1 text-xs">
                   <option value="">Všechny roky</option>

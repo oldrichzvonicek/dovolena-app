@@ -5,6 +5,7 @@ import { Award, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { createClient } from "@/lib/supabase/client";
 import { updateCompany } from "@/lib/admin-data";
 import { emitDataChanged } from "@/lib/events";
@@ -183,18 +184,13 @@ export function SeniorityCard({
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent title={`Přepočet nároků na rok ${year}`} className="max-w-2xl">
-          <div className="mb-3 flex flex-wrap gap-2">
-            {[thisYear, thisYear + 1].map((y) => (
-              <button
-                key={y}
-                onClick={() => openPreview(y)}
-                aria-pressed={year === y}
-                className={year === y ? "rounded-full border border-ink bg-ink px-3 py-1 text-xs font-medium text-white" : "rounded-full border border-line bg-white px-3 py-1 text-xs text-muted hover:bg-paper"}
-              >
-                Rok {y}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            className="mb-3"
+            ariaLabel="Rok přepočtu"
+            value={year}
+            onChange={openPreview}
+            options={[thisYear, thisYear + 1].map((y) => ({ key: y, label: `Rok ${y}` }))}
+          />
           {loadingPreview && <p className="text-sm text-muted">Počítám…</p>}
           {previewError && <p className="text-sm text-danger-dark">{previewError}</p>}
           {rows && rows.length === 0 && <p className="text-sm text-muted">Nikdo nemá vyplněné datum nástupu. Doplňte ho v Uživatelé → Upravit.</p>}

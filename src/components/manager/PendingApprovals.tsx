@@ -21,6 +21,8 @@ import { fairnessHint, mainPeriodOf, type InRequest } from "@/lib/insights";
 import { computeApprovalWarnings, fetchMyDepartmentIds, autoApproveOwnPending } from "@/lib/approval-checks";
 import { fetchDecisionScope } from "@/lib/approval-scope";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { Avatar } from "@/components/ui/avatar";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useSearchParams } from "next/navigation";
 
 interface PendingRow {
@@ -35,6 +37,7 @@ interface PendingRow {
     id: string;
     name: string;
     avatar_initials: string | null;
+    avatar_url: string | null;
     manager_id: string | null;
     department_id: string | null;
     department: { name: string } | null;
@@ -76,7 +79,7 @@ export function PendingApprovals() {
       .select(
         `id, start_date, end_date, working_days, note, covering_profile_id,
          leave_type:leave_types(key, label, color, counts_against),
-         profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials, manager_id, department_id, department:departments!profiles_department_id_fkey(name))`
+         profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials, avatar_url, manager_id, department_id, department:departments!profiles_department_id_fkey(name))`
       )
       .eq("status", "pending")
       .order("created_at", { ascending: true });
@@ -280,26 +283,17 @@ export function PendingApprovals() {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {(
-          [
-            ["all", `Všechny (${pending.length})`],
-            ["conflict", `⚠️ S konfliktem (${conflictCount})`],
-            ["clean", `✓ Bez konfliktu (${pending.length - conflictCount})`],
-          ] as [typeof filter, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium",
-              filter === key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        className="mb-3"
+        ariaLabel="Filtr žádostí"
+        value={filter}
+        onChange={setFilter}
+        options={[
+          { key: "all", label: `Všechny (${pending.length})` },
+          { key: "conflict", label: `⚠️ S konfliktem (${conflictCount})` },
+          { key: "clean", label: `✓ Bez konfliktu (${pending.length - conflictCount})` },
+        ]}
+      />
 
       <div className="card overflow-hidden">
         <div className="flex items-center gap-4 border-b border-line bg-paper px-5 py-3">
@@ -323,7 +317,7 @@ export function PendingApprovals() {
                     className="h-4 w-4 shrink-0 rounded border-line accent-teal"
                     aria-label={`Vybrat žádost od ${r.profile.name}`}
                   />
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-paper text-xs font-medium">{r.profile.avatar_initials}</div>
+                  <Avatar url={r.profile.avatar_url} initials={r.profile.avatar_initials} name={r.profile.name} className="h-9 w-9 shrink-0 bg-paper text-xs font-medium" />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{r.profile.name}</span>

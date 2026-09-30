@@ -28,6 +28,7 @@ import { DbDepartment, DbLeaveType } from "@/lib/supabase/types";
 import { cn, formatNumber } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 import { LoadingLines } from "@/components/ui/skeleton";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { fetchDecisionScope } from "@/lib/approval-scope";
 
 interface Row {
@@ -311,29 +312,18 @@ export default function TeamPage() {
                   {rows.some((r) => !r.department_id) && <SelectItem value="none">Bez oddělení</SelectItem>}
                 </SelectContent>
               </Select>
-              {overdrawnCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setQuickFilter((v) => (v === "overdrawn" ? "all" : "overdrawn"))}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium",
-                    quickFilter === "overdrawn" ? "border-danger bg-danger-light text-danger-dark" : "border-line bg-white text-muted hover:bg-paper"
-                  )}
-                >
-                  🔴 Přečerpaná dovolená ({overdrawnCount})
-                </button>
-              )}
-              {noManagerCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setQuickFilter((v) => (v === "no-manager" ? "all" : "no-manager"))}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium",
-                    quickFilter === "no-manager" ? "border-teal bg-teal-light text-teal-dark" : "border-line bg-white text-muted hover:bg-paper"
-                  )}
-                >
-                  Bez nadřízeného ({noManagerCount})
-                </button>
+              {(overdrawnCount > 0 || noManagerCount > 0) && (
+                <SegmentedControl
+                  ariaLabel="Rychlé filtry"
+                  value={quickFilter}
+                  onChange={(key) => setQuickFilter((v) => (v === key ? "all" : key))}
+                  options={[
+                    ...(overdrawnCount > 0
+                      ? [{ key: "overdrawn" as const, label: `🔴 Přečerpaná dovolená (${overdrawnCount})`, activeClassName: "border-danger bg-danger-light text-danger-dark" }]
+                      : []),
+                    ...(noManagerCount > 0 ? [{ key: "no-manager" as const, label: `Bez nadřízeného (${noManagerCount})`, activeClassName: "border-teal bg-teal-light text-teal-dark" }] : []),
+                  ]}
+                />
               )}
               <span className="text-xs text-muted">
                 {visibleRows.length} z {rows.length}

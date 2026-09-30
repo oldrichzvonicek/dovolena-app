@@ -15,6 +15,7 @@ import { DbDepartment } from "@/lib/supabase/types";
 import { LeaveColor } from "@/lib/supabase/types";
 import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationReport";
 import { EmployeeDetailModal } from "@/components/manager/EmployeeDetailModal";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { canSeeInsights } from "@/lib/access";
 import { reducesPresence } from "@/lib/leave-kinds";
@@ -443,45 +444,34 @@ export function OverviewPanel() {
 
   return (
     <div className="space-y-8">
-      <div className="no-print flex flex-wrap gap-1.5" role="tablist" aria-label="Část přehledu">
-        {(
-          [
-            ["retro", "Retrospektiva a reporty"],
-            ["plan", "Operativní plánování"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={section === key}
-            onClick={() => setSection(key)}
-            className={cn("rounded-full border px-4 py-1.5 text-sm", section === key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="no-print flex flex-wrap gap-1.5">
+        <SegmentedControl
+          as="tabs"
+          size="lg"
+          ariaLabel="Část přehledu"
+          value={section}
+          onChange={setSection}
+          options={[
+            { key: "retro", label: "Retrospektiva a reporty" },
+            { key: "plan", label: "Operativní plánování" },
+          ]}
+        />
         <span className="basis-full text-xs text-muted">
           {section === "retro" ? "Zpětná data podle zvoleného období (měsíc, kvartál, rok)." : "Pohled dopředu: nadcházející absence, souběhy a nevyčerpaná dovolená. Zvolené období se zde nepoužívá."}
         </span>
       </div>
       <div>
         <div className="no-print flex flex-wrap items-center justify-between gap-3">
-          <div className={cn("flex flex-wrap gap-1.5", section !== "retro" && "hidden")}>
-            {presetLabels.map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => {
-                  setPreset(key);
-                  if (key === "month") setAnchor(new Date());
-                }}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium",
-                  preset === key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper"
-                )}
-              >
-                {label}
-              </button>
-            ))}
+          <div className={cn(section !== "retro" && "hidden")}>
+            <SegmentedControl
+              ariaLabel="Období"
+              value={preset}
+              onChange={(key) => {
+                setPreset(key);
+                if (key === "month") setAnchor(new Date());
+              }}
+              options={presetLabels.map(([key, label]) => ({ key, label }))}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Select value={deptFilter} onValueChange={setDeptFilter}>
@@ -571,26 +561,20 @@ export function OverviewPanel() {
             <div className="border-b border-line p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-display text-h2">Nadcházející absence {upcomingLabel}</h2>
-                <div className="flex flex-wrap gap-1" role="group" aria-label="Okno nadcházejících absencí">
-                  {[14, 30, 60, 90, 0].map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => {
-                        setUpcomingDays(d);
-                        setShowAllUpcoming(false);
-                        try {
-                          localStorage.setItem("dodio:upcoming-days", String(d));
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      aria-pressed={upcomingDays === d}
-                      className={cn("rounded-full border px-3 py-1 text-xs font-medium", upcomingDays === d ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
-                    >
-                      {d === 0 ? "Do konce roku" : `${d} dní`}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  ariaLabel="Okno nadcházejících absencí"
+                  value={upcomingDays}
+                  onChange={(d) => {
+                    setUpcomingDays(d);
+                    setShowAllUpcoming(false);
+                    try {
+                      localStorage.setItem("dodio:upcoming-days", String(d));
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  options={[14, 30, 60, 90, 0].map((d) => ({ key: d, label: d === 0 ? "Do konce roku" : `${d} dní` }))}
+                />
               </div>
               <p className="mt-1 text-xs text-muted">Vždy od dneška.</p>
             </div>

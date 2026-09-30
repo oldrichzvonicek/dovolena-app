@@ -8,6 +8,7 @@ import { START_TOUR_EVENT } from "@/components/layout/ProductTour";
 import { HelpFaqItem } from "@/components/shared/HelpFaqItem";
 import { ContactSupportBox } from "@/components/shared/ContactSupportBox";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { fetchTopQuestions, trackHelpView } from "@/lib/help-feedback";
 import { colorIcon, faqs, sections, slug, type HelpFaq, type HelpRole, type HelpSection } from "@/lib/help-content";
 import { cn } from "@/lib/utils";
@@ -103,28 +104,26 @@ export default function HelpPage() {
               className="w-full rounded-lg border border-line bg-white py-3.5 pl-11 pr-4 text-base shadow-sm"
             />
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Zobrazit nápovědu pro">
-            {AUDIENCES.map((a) => {
-              const Icon = a.icon;
-              const active = audience === a.key;
-              return (
-                <button
-                  key={a.key}
-                  onClick={() => {
-                    setAudience(a.key);
-                    setActiveSection(null);
-                  }}
-                  aria-pressed={active}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
-                    active ? "border-teal-dark bg-teal-dark text-white" : "border-line bg-white text-ink hover:border-teal/40 hover:text-teal-dark"
-                  )}
-                >
-                  <Icon size={15} /> {a.label}
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl
+            className="mt-4 justify-center"
+            size="lg"
+            ariaLabel="Zobrazit nápovědu pro"
+            value={audience}
+            onChange={(key) => {
+              setAudience(key);
+              setActiveSection(null);
+            }}
+            activeClassName="border-teal-dark bg-teal-dark text-white"
+            inactiveClassName="border-line bg-white text-ink hover:border-teal/40 hover:text-teal-dark"
+            options={AUDIENCES.map((a) => ({
+              key: a.key,
+              label: (
+                <>
+                  <a.icon size={15} /> {a.label}
+                </>
+              ),
+            }))}
+          />
           <div className="mt-4">
             <Button variant="ghost" onClick={() => window.dispatchEvent(new Event(START_TOUR_EVENT))}>
               <PlayCircle size={16} /> Spustit rychlého průvodce aplikací

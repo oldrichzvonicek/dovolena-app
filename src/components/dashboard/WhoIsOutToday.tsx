@@ -12,6 +12,8 @@ import { fetchMaskedAbsences } from "@/lib/data";
 import { TeamCapacity } from "@/components/dashboard/TeamCapacity";
 import { LoadingLines } from "@/components/ui/skeleton";
 import { leaveIconFor, LeaveTypeIcon } from "@/components/shared/LeaveTypeIcon";
+import { Avatar } from "@/components/ui/avatar";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface Row {
   id: string;
@@ -19,7 +21,7 @@ interface Row {
   end_date: string;
   covering_profile_id: string | null;
   leave_type: { key: string; label: string; color: "teal" | "rust" | "moss" | "violet" | "amber" } | null;
-  profile: { id: string; name: string; avatar_initials: string | null } | null;
+  profile: { id: string; name: string; avatar_initials: string | null; avatar_url: string | null } | null;
   department: { name: string } | null;
 }
 
@@ -63,7 +65,7 @@ export function WhoIsOutToday() {
       .select(
         `id, start_date, end_date, covering_profile_id,
          leave_type:leave_types(key, label, color),
-         profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials, department:departments!profiles_department_id_fkey(name))`
+         profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials, avatar_url, department:departments!profiles_department_id_fkey(name))`
       )
       .eq("status", "approved")
       .lte("start_date", horizon)
@@ -72,13 +74,15 @@ export function WhoIsOutToday() {
       .then(async ({ data }) => {
         // Private absences of colleagues (e.g. sick leave) come without a type — shown as "Nepřítomen".
         const masked = (await fetchMaskedAbsences(weekStartISO, horizon)).filter((m) => m.status === "approved");
-        let maskedProfiles: Record<string, { id: string; name: string; avatar_initials: string | null; department: { name: string } | null }> = {};
+        let maskedProfiles: Record<string, { id: string; name: string; avatar_initials: string | null; avatar_url: string | null; department: { name: string } | null }> = {};
         if (masked.length > 0) {
           const { data: ps } = await supabase
             .from("profiles")
-            .select("id, name, avatar_initials, department:departments!profiles_department_id_fkey(name)")
+            .select("id, name, avatar_initials, avatar_url, department:departments!profiles_department_id_fkey(name)")
             .in("id", Array.from(new Set(masked.map((m) => m.profile_id))));
-          maskedProfiles = Object.fromEntries(((ps as unknown as { id: string; name: string; avatar_initials: string | null; department: { name: string } | null }[]) ?? []).map((p) => [p.id, p]));
+          maskedProfiles = Object.fromEntries(
+            ((ps as unknown as { id: string; name: string; avatar_initials: string | null; avatar_url: string | null; department: { name: string } | null }[]) ?? []).map((p) => [p.id, p])
+          );
         }
         const hiddenRows = masked
           .filter((m) => maskedProfiles[m.profile_id])
@@ -98,7 +102,7 @@ export function WhoIsOutToday() {
             end_date: string;
             covering_profile_id: string | null;
             leave_type: Row["leave_type"];
-            profile: { id: string; name: string; avatar_initials: string | null; department: { name: string } | null } | null;
+            profile: { id: string; name: string; avatar_initials: string | null; avatar_url: string | null; department: { name: string } | null } | null;
           };
           return {
             id: row.id,
@@ -196,30 +200,25 @@ export function WhoIsOutToday() {
       </div>
 
       {types.length > 1 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setTypeFilter(null)}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-xs font-medium",
-              typeFilter === null ? "border-ink bg-ink text-white" : "border-line text-muted hover:bg-paper"
-            )}
-          >
-            Vše
-          </button>
-          {types.map(([key, t]) => (
-            <button
-              key={key}
-              onClick={() => setTypeFilter(key === typeFilter ? null : key)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
-                typeFilter === key ? "border-ink bg-ink text-white" : "border-line text-muted hover:bg-paper"
-              )}
-            >
-              <span className={cn("h-1.5 w-1.5 rounded-full", colorDot[t.color])} />
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          className="mt-3"
+          size="sm"
+          ariaLabel="Filtr podle typu absence"
+          value={typeFilter}
+          onChange={(key) => setTypeFilter(key === typeFilter ? null : key)}
+          options={[
+            { key: null, label: "Vše" },
+            ...types.map(([key, t]) => ({
+              key,
+              label: (
+                <>
+                  <span className={cn("h-1.5 w-1.5 rounded-full", colorDot[t.color])} />
+                  {t.label}
+                </>
+              ),
+            })),
+          ]}
+        />
       )}
 
       <h3 className="mt-4 flex items-center gap-2 text-sm font-medium">
@@ -262,9 +261,7 @@ export function WhoIsOutToday() {
           return (
             <div key={r.id} className="flex items-center justify-between border-b border-line pb-3 last:border-0 last:pb-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-paper text-xs font-medium">
-                  {r.profile.avatar_initials}
-                </div>
+                <Avatar url={r.profile.avatar_url} initials={r.profile.avatar_initials} name={r.profile.name} className="h-8 w-8 shrink-0 bg-paper text-xs font-medium" />
                 <div>
                   <div className="text-sm font-medium">{r.profile.name}</div>
                   <div className="text-xs text-muted">{r.department?.name}</div>

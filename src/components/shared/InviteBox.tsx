@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { fetchDepartments } from "@/lib/data";
 import { fetchCompany, importEmployees } from "@/lib/admin-data";
 import { DbDepartment, Role } from "@/lib/supabase/types";
-import { cn, errorMessage } from "@/lib/utils";
+import { errorMessage } from "@/lib/utils";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useJoinLink } from "@/lib/use-join-link";
 import { showToast } from "@/lib/toast";
 
@@ -151,15 +152,6 @@ export function InviteColleagueButton() {
     }
   }
 
-  const tabBtn = (key: "link" | "email", label: string) => (
-    <button
-      onClick={() => setTab(key)}
-      className={cn("rounded-full border px-3 py-1 text-xs font-medium", tab === key ? "border-ink bg-ink text-white" : "border-line text-muted hover:bg-paper")}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -168,10 +160,16 @@ export function InviteColleagueButton() {
         </Button>
       </DialogTrigger>
       <DialogContent title="Pozvat kolegu do týmu">
-        <div className="mb-3 flex gap-1.5">
-          {tabBtn("link", "Kopírovat odkaz")}
-          {tabBtn("email", "Odeslat na e-mail")}
-        </div>
+        <SegmentedControl
+          className="mb-3"
+          ariaLabel="Způsob pozvání"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { key: "link", label: "Kopírovat odkaz" },
+            { key: "email", label: "Odeslat na e-mail" },
+          ]}
+        />
 
         {tab === "link" ? (
           <>

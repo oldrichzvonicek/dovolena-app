@@ -15,6 +15,7 @@ import { formatKc } from "@/lib/plans";
 import { showToast } from "@/lib/toast";
 import { cn, formatNumber } from "@/lib/utils";
 import { PrintPreviewModal } from "@/components/ui/print-preview-modal";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import type { ExtraInsights } from "@/components/admin/SmartInsightsExtra";
 
 type Period = "month" | "quarter" | "year";
@@ -264,13 +265,7 @@ export function LeadershipReport({ departmentId, extra }: { departmentId: string
   return (
     <div className="space-y-4 lg:col-span-2">
       <div className="no-print flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Období reportu">
-          {PERIODS.map((p) => (
-            <button key={p.key} onClick={() => setPeriod(p.key)} aria-pressed={period === p.key} className={cn("rounded-full border px-3 py-1 text-xs", period === p.key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}>
-              {p.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl ariaLabel="Období reportu" value={period} onChange={setPeriod} options={PERIODS.map((p) => ({ key: p.key, label: p.label }))} />
         <div className="ml-auto flex gap-2">
           <button onClick={copySummary} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
             <Copy size={13} /> Kopírovat shrnutí do e-mailu

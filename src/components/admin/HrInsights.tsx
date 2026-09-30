@@ -14,6 +14,7 @@ import { Card, Empty, Row } from "@/components/admin/insight-ui";
 import { ExtraCards, ExtraSummary, useExtraInsights } from "@/components/admin/SmartInsightsExtra";
 import { LeadershipReport } from "@/components/admin/LeadershipReport";
 import { EmployeeDetailModal } from "@/components/manager/EmployeeDetailModal";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { createClient } from "@/lib/supabase/client";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS, dayWord } from "@/lib/working-days";
@@ -299,19 +300,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
     <div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {extra && tab !== "report" && <ExtraSummary extra={extra} tab={tab} />}
-        <div className="flex flex-wrap gap-1.5 lg:col-span-2" role="tablist" aria-label="Oblast přehledu">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={tab === t.key}
-              onClick={() => setTab(t.key)}
-              className={cn("rounded-full border px-4 py-1.5 text-sm", tab === t.key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl className="lg:col-span-2" as="tabs" size="lg" ariaLabel="Oblast přehledu" value={tab} onChange={setTab} options={TABS.map((t) => ({ key: t.key, label: t.label }))} />
         {tab === "plan" && (
         <Card
           className="lg:col-span-2"
@@ -470,18 +459,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
           title="Trendy za 12 měsíců"
           hint="Podíl pracovních dnů všech lidí. Sloupec = poslední rok, čárka = stejný měsíc předchozího roku. Počítá se se současným počtem lidí."
         >
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Zobrazená řada">
-            {SERIES.map((sr) => (
-              <button
-                key={sr.key}
-                onClick={() => setSeries(sr.key)}
-                aria-pressed={series === sr.key}
-                className={cn("rounded-full border px-3 py-1 text-xs", series === sr.key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
-              >
-                {sr.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl ariaLabel="Zobrazená řada" value={series} onChange={setSeries} options={SERIES.map((sr) => ({ key: sr.key, label: sr.label }))} />
           <TrendChart points={data.trend} series={series} />
           <Seasonality points={data.trend.slice(12)} series={series} />
         </Card>
@@ -489,18 +467,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
 
         {tab === "people" && (
         <Card icon={<BatteryCharging size={17} className="text-teal-dark" />} title="Dobití baterií" hint={`${rechargeOpt.hint} Oddělení s aspoň ${MIN_GROUP} lidmi; kliknutím na řádek uvidíte jména.`}>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Délka dovolené">
-            {RECHARGE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => setRechargeMin(o.value)}
-                aria-pressed={rechargeMin === o.value}
-                className={cn("rounded-full border px-3 py-1 text-xs", rechargeMin === o.value ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl ariaLabel="Délka dovolené" value={rechargeMin} onChange={setRechargeMin} options={RECHARGE_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
           {recharge.company === null && recharge.rows.length === 0 && <Empty text="Málo lidí na smysluplný souhrn." />}
           {recharge.company && (
             <RechargeRow id="__firma" left={`Celá firma (${recharge.company.size} lidí)`} pct={recharge.company.pct} tone={warnRecharge(recharge.company.pct, 50, rechargeMin)} ids={recharge.company.ids} names={rechargeNames} open={rechargeOpen} onToggle={setRechargeOpen} />
@@ -514,18 +481,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
 
         {tab === "plan" && (
         <Card icon={<Users size={17} className="text-teal-dark" />} title="Férové plánování hlavních období" hint="Kdo měl loni totéž období a kdo letos už něco plánuje. Nahoře jsou ti, kdo loni neměli. Jen dovolená.">
-          <div className="flex gap-1.5" role="group" aria-label="Období">
-            {MAIN_PERIODS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => setPeriodKey(p.key)}
-                aria-pressed={periodKey === p.key}
-                className={cn("rounded-full border px-3 py-1 text-xs", periodKey === p.key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper")}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl ariaLabel="Období" value={periodKey} onChange={setPeriodKey} options={MAIN_PERIODS.map((p) => ({ key: p.key, label: p.label }))} />
           <FairRota data={data} periodKey={periodKey} onSelectPerson={(id, name) => setDetailFor({ id, name })} />
         </Card>
         )}

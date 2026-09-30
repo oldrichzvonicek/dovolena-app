@@ -20,6 +20,7 @@ import { cancelLeaveRequest, requestLeaveCancellation } from "@/lib/data";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { LeaveColor, RequestStatus } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface Row {
   id: string;
@@ -370,30 +371,23 @@ export default function RequestsPage() {
         )}
 
         {rows.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-1.5">
-            {(
+          <SegmentedControl
+            className="mb-4"
+            ariaLabel="Filtr podle stavu"
+            value={statusTab}
+            onChange={(key) => {
+              setStatusTab(key);
+              setPage(0);
+            }}
+            options={(
               [
                 ["all", "Všechny"],
                 ["pending", "⏳ Čekající"],
                 ["approved", "🟢 Schválené"],
                 ["rejected", "🔴 Zamítnuté"],
               ] as [StatusTab, string][]
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => {
-                  setStatusTab(key);
-                  setPage(0);
-                }}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium",
-                  statusTab === key ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-paper"
-                )}
-              >
-                {label} ({count(key)})
-              </button>
-            ))}
-          </div>
+            ).map(([key, label]) => ({ key, label: `${label} (${count(key)})` }))}
+          />
         )}
         {actionError && <p className="mb-3 rounded bg-danger-light px-3 py-2 text-sm text-danger">{actionError}</p>}
 
