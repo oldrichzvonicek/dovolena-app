@@ -2,7 +2,6 @@ import { SiteHeader } from "@/components/marketing/SiteHeader";
 import { Hero } from "@/components/marketing/Hero";
 import { ProblemSolution } from "@/components/marketing/ProblemSolution";
 import { Features } from "@/components/marketing/Features";
-import { ProductPreview } from "@/components/marketing/ProductPreview";
 import { TeamCalendar } from "@/components/marketing/TeamCalendar";
 import { SmartHR } from "@/components/marketing/SmartHR";
 import { Integrations } from "@/components/marketing/Integrations";
@@ -21,7 +20,6 @@ export default function LandingPage() {
       <main>
         <Hero />
         <Features />
-        <ProductPreview />
         <ProblemSolution />
         <TeamCalendar />
         <SmartHR />
