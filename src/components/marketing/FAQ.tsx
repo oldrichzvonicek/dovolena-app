@@ -7,27 +7,27 @@ const QUESTIONS = [
   },
   {
     q: "Do jakých formátů umíte exportovat podklady pro mzdy?",
-    a: "CSV, Excel a ODS — najdete je od tarifu Starter. Appka spočítá měsíční mzdový podklad i vyrovnání dovolené při odchodu zaměstnance.",
+    a: "CSV, Excel a ODS — najdete je od tarifu Starter. Dodio spočítá měsíční mzdový podklad i vyrovnání dovolené při odchodu zaměstnance.",
   },
   {
     q: "Jak funguje schválení, když manažer není u počítače?",
-    a: "Manažer může schválit nebo zamítnout žádost jedním kliknutím přímo z e-mailu, bez přihlašování do appky. Odkaz platí 7 dní a rozhodnutí se vždy ještě potvrzuje, takže nejde nic schválit omylem.",
+    a: "Manažer může schválit nebo zamítnout žádost jedním kliknutím přímo z e-mailu, bez přihlašování do Dodia. Odkaz platí 7 dní a rozhodnutí se vždy ještě potvrzuje, takže nejde nic schválit omylem.",
   },
   {
-    q: "Vidí appka moje zdravotní údaje?",
+    q: "Vidí Dodio moje zdravotní údaje?",
     a: "Kolegové v týmovém kalendáři vidí jen „Nepřítomen“, ne že jde o nemoc. Konkrétní typ absence vidí jen nadřízený, admin, HR a účetní.",
   },
   {
-    q: "Jak appka zabezpečuje naše data?",
+    q: "Jak Dodio zabezpečuje naše data?",
     a: "Přístup je podle rolí (zaměstnanec, manažer, admin, HR, účetní) — každý vidí jen to, co má. Dvoufázové ověření je volitelné pro každého a povinné pro admina, HR a účetní. Data jsou hostovaná v EU.",
   },
   {
-    q: "Musím appku vyzkoušet na kartu?",
+    q: "Musím Dodio vyzkoušet na kartu?",
     a: "Ne. Tarif Free je zdarma do 5 uživatelů bez zadávání platební karty — stačí se zaregistrovat.",
   },
   {
     q: "Co když firma přeroste 30 lidí?",
-    a: "Nic se neděje — tarif Pro nemá horní limit uživatelů. Nad 30 lidí zaplatíte 39 Kč měsíčně za každého dalšího, appka zůstává stejná.",
+    a: "Nic se neděje — tarif Pro nemá horní limit uživatelů. Nad 30 lidí zaplatíte 39 Kč měsíčně za každého dalšího, Dodio zůstává stejné.",
   },
   {
     q: "Co je Smart HR?",
@@ -38,7 +38,7 @@ const QUESTIONS = [
     a: "Ne. Dodio běží celé v prohlížeči — funguje z počítače, tabletu i mobilu bez instalace.",
   },
   {
-    q: "Jak dlouho trvá zavedení appky ve firmě?",
+    q: "Jak dlouho trvá zavedení Dodia ve firmě?",
     a: "Pár minut. Zaregistrujete se, nastavíte typy absencí a nároky, pošlete týmu registrační odkaz — žádný konzultant ani zavádění na týdny.",
   },
 ];

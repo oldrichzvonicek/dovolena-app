@@ -12,7 +12,7 @@ const FREE_FEATURES = [
   "Žádosti a zůstatky pro každého",
   "Schvalování na webu i z e-mailu",
   "Týmový kalendář",
-  "Notifikace v appce a e-mailem",
+  "Notifikace v Dodiu a e-mailem",
   "Analytika a přehled kapacity",
   "Chytré návrhy dovolené",
   "Role HR zdarma na jakémkoli tarifu",

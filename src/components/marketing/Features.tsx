@@ -157,7 +157,7 @@ export function Features() {
       <Container className="flex flex-col gap-8 pb-14 lg:gap-12 lg:pb-[120px]">
         <div className="flex max-w-[720px] flex-col gap-3.5 lg:gap-3.5">
           <div className="text-xs font-semibold uppercase tracking-wide text-[#0B7A60] lg:text-[13px]">
-            Pro koho appka je
+            Pro koho je Dodio
           </div>
           <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
             Řeší to pro každého v týmu.
@@ -173,7 +173,7 @@ export function Features() {
               "Žádost o dovolenou na pár kliknutí — typ, termín, případně zástup za sebe, odeslat.",
               "Naplánovat si rok dopředu soukromě, bez odesílání ke schválení, a pak žádost podat jedním kliknutím.",
               "Zůstatek na první pohled — čerpáno, naplánováno, zbývá.",
-              "Chytré návrhy appky, kdy si vzít pár dní navíc kolem svátku a mít dlouhé volno.",
+              "Chytré návrhy Dodia, kdy si vzít pár dní navíc kolem svátku a mít dlouhé volno.",
               "Soukromí nemoci — kolegové vidí jen „Nepřítomen“, typ absence jen nadřízený a HR.",
             ]}
           />
@@ -184,10 +184,10 @@ export function Features() {
             illustration={<ApprovalIllustration />}
             reverse
             points={[
-              "Schválení jedním kliknutím přímo z e-mailu, bez přihlašování do appky.",
-              "Kapacitní varování — appka upozorní, než by schválení nechalo tým pod minimem lidí.",
+              "Schválení absence na dvě kliknutí.",
+              "Kapacitní varování — Dodio upozorní, než by schválení nechalo tým pod minimem lidí.",
               "Přehled absencí celého týmu v kalendáři, včetně zástupů.",
-              "Zástupce pro dobu vlastní nepřítomnosti, ať schvalování nestoí.",
+              "Zástupce pro dobu vlastní nepřítomnosti, ať schvalování nestojí.",
             ]}
           />
           <PersonaRow

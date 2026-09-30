@@ -7,7 +7,7 @@ const POINTS = [
     rest: " – zaměstnanec, manažer, admin, a doplňkové role HR a Účetní. Každý vidí jen to, co má.",
   },
   {
-    strong: "Soukromí zdravotních údajů je v základu appky",
+    strong: "Soukromí zdravotních údajů je v základu Dodia",
     rest: " – kolegové vidí jen „Nepřítomen“, typ absence jen nadřízený, admin, HR a účetní.",
   },
   {
@@ -19,7 +19,7 @@ const POINTS = [
     strong: "Běží v cloudu",
     rest: " – funguje z počítače, tabletu i mobilu, stačí prohlížeč. Žádná instalace, přístup odkudkoli.",
   },
-  { strong: "Data hostovaná v EU", rest: " a appka celá v češtině." },
+  { strong: "Data hostovaná v EU", rest: " a Dodio celé v češtině." },
 ];
 
 export function Security() {

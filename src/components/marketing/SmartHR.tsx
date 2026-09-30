@@ -39,7 +39,7 @@ export function SmartHR() {
             Neřídíte jen evidenci. Řídíte tým.
           </h2>
           <p className="m-0 max-w-[640px] text-[15px] leading-[23px] text-[#D7EEE6] lg:text-lg lg:leading-[28px]">
-            Appka nečeká, až se problém objeví — sama upozorní na to, co byste jinak zjistili pozdě.
+            Dodio nečeká, až se problém objeví — samo upozorní na to, co byste jinak zjistili pozdě.
           </p>
         </div>
 

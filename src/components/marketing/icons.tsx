@@ -124,7 +124,7 @@ export function CloseIcon() {
   );
 }
 
-// Persona icons for "Pro koho appka je" — same flat geometric language.
+// Persona icons for "Pro koho je Dodio" — same flat geometric language.
 
 export function EmployeeIcon() {
   return (
