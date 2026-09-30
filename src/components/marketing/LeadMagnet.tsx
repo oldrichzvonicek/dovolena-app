@@ -21,6 +21,13 @@ export function LeadMagnet() {
           </div>
           <TemplateEmailForm layoutClassName="sm:w-auto" />
         </div>
+        <p className="m-0 mt-3 text-sm text-dodio-ink-muted">
+          Nevíte, kolik dovolené vám letos patří?{" "}
+          <a href="/kalkulacka-dovolene" className="text-dodio-teal-dark underline underline-offset-2">
+            Spočítejte si to v kalkulačce
+          </a>
+          .
+        </p>
       </Container>
     </section>
   );
