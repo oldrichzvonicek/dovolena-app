@@ -16,14 +16,17 @@ export function Footer() {
         <div className="flex flex-wrap gap-10 text-sm lg:gap-20">
           <div className="flex flex-col gap-3">
             <div className="font-semibold text-dodio-ink">Produkt</div>
-            <a href="#funkce" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/#funkce" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Pro koho
             </a>
-            <a href="#integrace" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/#integrace" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Integrace
             </a>
-            <a href="#cenik" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/#cenik" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Ceník
+            </a>
+            <a href="/sablona-dochazky-2027" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Šablona docházky zdarma
             </a>
           </div>
           <div className="flex flex-col gap-3">

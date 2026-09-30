@@ -34,7 +34,7 @@ export function SiteHeader() {
       <header className="sticky top-0 z-50 border-b border-dodio-border bg-dodio-surface/95 backdrop-blur">
         <Container className="flex items-center justify-between py-3.5 lg:py-6">
           <a
-            href="#"
+            href="/"
             aria-label="Dodio – úvod"
             className="flex items-center gap-2 text-dodio-ink no-underline lg:gap-2.5"
           >
