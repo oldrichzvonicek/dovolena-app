@@ -205,8 +205,7 @@ export function Hero() {
             Absence bez tabulek, e-mailů a zbytečné administrativy.
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
-            Dodio je jednoduchý nástroj pro správu dovolených a absencí pro české firmy. Zaměstnanci
-            požádají, vedoucí schválí na pár kliknutí v appce a všichni mají okamžitý přehled o týmu.
+            Dodio sjednotí žádosti o dovolenou, schvalování a přehled absencí na jednom místě.
           </p>
           <div className="flex flex-col gap-2.5">
             <a
@@ -216,11 +215,11 @@ export function Hero() {
               Vyzkoušet zdarma
             </a>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-dodio-ink-muted">
+              <span>Do 5 lidí zdarma</span>
+              <span aria-hidden="true">·</span>
               <span>Bez platební karty</span>
               <span aria-hidden="true">·</span>
-              <span>Založeno za 1 minutu</span>
-              <span aria-hidden="true">·</span>
-              <span>Pro týmy do 5 lidí zdarma</span>
+              <span>Nastavení za pár minut</span>
             </div>
           </div>
           <div className="hidden flex-wrap gap-6 text-sm text-dodio-ink-muted lg:flex">

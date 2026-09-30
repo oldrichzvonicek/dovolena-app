@@ -1,5 +1,6 @@
 import { SiteHeader } from "@/components/marketing/SiteHeader";
 import { Hero } from "@/components/marketing/Hero";
+import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { ProblemSolution } from "@/components/marketing/ProblemSolution";
 import { Features } from "@/components/marketing/Features";
 import { TeamCalendar } from "@/components/marketing/TeamCalendar";
@@ -19,6 +20,7 @@ export default function LandingPage() {
       <SiteHeader />
       <main>
         <Hero />
+        <HowItWorks />
         <Features />
         <ProblemSolution />
         <Integrations />

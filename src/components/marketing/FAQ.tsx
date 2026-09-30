@@ -37,6 +37,14 @@ const CATEGORIES = [
         q: "Jak Dodio zabezpečuje naše data?",
         a: "Přístup je podle rolí (zaměstnanec, manažer, admin, HR, účetní) — každý vidí jen to, co má. Dvoufázové ověření je volitelné pro každého a povinné pro admina, HR a účetní. Data jsou hostovaná v EU.",
       },
+      {
+        q: "Kde jsou uložená firemní data?",
+        a: "V cloudu, na serverech v EU. Appka je dostupná odkudkoli přes prohlížeč — z počítače, tabletu i mobilu, bez instalace.",
+      },
+      {
+        q: "Může mít každý vedoucí jiná oprávnění?",
+        a: "Ano. Manažer vidí a schvaluje žádosti jen za svůj tým nebo oddělení, admin má přehled za celou firmu. Role si nastavíte podle skutečné struktury firmy.",
+      },
     ],
   },
   {
@@ -45,6 +53,10 @@ const CATEGORIES = [
       {
         q: "Kolik Dodio stojí?",
         a: "Do 5 lidí napořád zdarma. Placené tarify začínají na 290 Kč/měsíc a rostou podle velikosti týmu — přesné ceny najdete v ceníku výše.",
+      },
+      {
+        q: "Co se stane, když překročím 5 zaměstnanců?",
+        a: "Přejdete na placený tarif podle velikosti týmu — data, nastavení i historie zůstávají beze změny, nic se neztratí.",
       },
       {
         q: "Musím Dodio vyzkoušet na kartu?",

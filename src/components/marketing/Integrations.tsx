@@ -12,6 +12,7 @@ const CZECH_POINTS = [
     rest: " – měsíční mzdový podklad i vyrovnání dovolené při odchodu zaměstnance.",
   },
   { strong: "Cena v korunách", rest: " – paušál podle velikosti týmu, bez přepočítávání lidí." },
+  { strong: "Appka celá v češtině", rest: " – žádné anglické HR pojmy, kterým tým nerozumí." },
   { strong: "GDPR ready", rest: "" },
 ];
 

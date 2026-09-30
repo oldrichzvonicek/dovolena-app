@@ -164,7 +164,7 @@ export function Features() {
             Pro koho je Dodio
           </div>
           <h2 className="m-0 font-dodio-display text-[30px] font-extrabold leading-[36px] tracking-[-0.5px] text-dodio-ink lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
-            Řeší to pro každého v týmu.
+            Jednoduché pro zaměstnance. Přehledné pro vedení.
           </h2>
         </div>
         <div className="flex flex-col gap-16 lg:gap-24">
@@ -172,7 +172,7 @@ export function Features() {
             iconBg="bg-[#E3F2EC]"
             icon={<EmployeeIcon />}
             title="Zaměstnanec"
-            lead="Požádám o volno během pár sekund a hned vidím, kdy je schválené."
+            lead="Požádá o dovolenou během pár sekund a vždy vidí stav své žádosti."
             illustration={<RequestIllustration />}
             points={[
               "Naplánovat si rok dopředu soukromě, bez odesílání ke schválení, a pak žádost podat jedním kliknutím.",
@@ -185,7 +185,7 @@ export function Features() {
             iconBg="bg-[#FBE4DA]"
             icon={<ManagerIcon />}
             title="Manažer"
-            lead="Vidím, kdo bude chybět, a žádosti schválím na jednom místě."
+            lead="Schvaluje žádosti a vidí, kdo bude v týmu chybět."
             illustration={<ApprovalIllustration />}
             reverse
             points={[
@@ -198,7 +198,7 @@ export function Features() {
             iconBg="bg-[#ECEAE3]"
             icon={<HRIcon />}
             title="HR & Admin"
-            lead="Mám evidenci bez ručního přepisování — všechno na jednom místě."
+            lead="Má aktuální evidenci absencí bez ručního přepisování."
             illustration={<ExportIllustration />}
             points={[
               "Vlastní typy absencí a pravidla čerpání přesně podle vaší firmy.",

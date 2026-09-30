@@ -20,7 +20,7 @@ export function FinalCTA() {
               Přestaňte řešit absence v tabulkách.
             </h2>
             <p className="m-0 hidden text-lg leading-[28px] text-[#D7EEE6] lg:block">
-              Dodio vám dá přehled o celém týmu během několika minut.
+              Přesuňte dovolené, žádosti a evidenci absencí na jedno místo.
             </p>
           </div>
           <div className="relative flex flex-col items-start gap-2.5 lg:items-end">

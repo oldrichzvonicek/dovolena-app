@@ -36,10 +36,11 @@ export function SmartHR() {
             </span>
           </div>
           <h2 className="m-0 max-w-[720px] font-dodio-display text-[30px] font-extrabold leading-[36px] text-white lg:text-[44px] lg:leading-[50px] lg:tracking-[-1px]">
-            Neřídíte jen evidenci. Řídíte tým.
+            Odhalí problémy dřív, než nastanou.
           </h2>
           <p className="m-0 max-w-[640px] text-[15px] leading-[23px] text-[#D7EEE6] lg:text-lg lg:leading-[28px]">
-            Dodio nečeká, až se problém objeví — samo upozorní na to, co byste jinak zjistili pozdě.
+            Predikce kapacity, trendy čerpání a upozornění na nerovnoměrné plánování — automaticky, bez
+            ručního sledování.
           </p>
         </div>
 

@@ -4,13 +4,18 @@ import { CircleCheckIcon, CircleCrossIcon } from "./icons";
 const PAIRS = [
   {
     question: "Kdo je dnes vlastně na dovolené?",
-    problem: "Zjišťujete to z tabulky, e-mailu nebo chatu — a stejně si nejste jistí.",
+    problem: "Excel, e-mail nebo Teams — informace je někde, ale nevíte kde.",
     solution: "Přehled absencí celého týmu na jednom místě, aktuální pro každého.",
   },
   {
     question: "Schválil už někdo moji žádost?",
-    problem: "Žádosti přes e-mail nebo chat se ztrácejí. Nikdo neví, co je kde ve frontě.",
-    solution: "Stav žádosti v reálném čase — schváleno, čeká, zamítnuto s důvodem. Vidíte ho hned v appce.",
+    problem: "Musíte psát vedoucímu nebo pátrat po starém e-mailu, jestli se něco stalo.",
+    solution: "Stav žádosti vidíte okamžitě, přímo v appce.",
+  },
+  {
+    question: "Kolik dní dovolené mi ještě zbývá?",
+    problem: "Dohledáváte to v tabulce, nebo se musíte zeptat HR.",
+    solution: "Zůstatek dovolené máte vždy po ruce, na první pohled.",
   },
   {
     question: "Nevzali si dva lidi volno ve stejný týden?",
