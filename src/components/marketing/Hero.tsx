@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Container } from "./Container";
 import { CheckIcon } from "./icons";
 import { DodioMark } from "./DodioLogo";
@@ -105,13 +106,25 @@ function BalanceCard({ tile }: { tile: BalanceTile }) {
   );
 }
 
-function OverviewCard() {
-  const outToday = [
-    { initials: "MS", bg: "bg-[#FBE4DA]", fg: "text-dodio-coral-dark", name: "Martin Svoboda", detail: "Nepřítomen · do úterý" },
-    { initials: "TD", bg: "bg-[#ECEAE3]", fg: "text-dodio-ink", name: "Tomáš Dvořák", detail: "Home office · celý den" },
-    { initials: "LČ", bg: "bg-[#E3F2EC]", fg: "text-dodio-teal-dark", name: "Lucie Černá", detail: "Lékař · 8:00–11:00" },
-  ];
+const WEEK_DAYS = [
+  { label: "Po 28." },
+  { label: "Út 29." },
+  { label: "St 30.", today: true },
+  { label: "Čt 1." },
+  { label: "Pá 2." },
+];
 
+interface WeekRow {
+  name: string;
+  cells: (string | null)[];
+}
+
+const WEEK_ROWS: WeekRow[] = [
+  { name: "Martin Svoboda", cells: [null, null, "bg-dodio-danger", null, null] },
+  { name: "Lucie Černá", cells: [null, null, null, "bg-[#4A7FC9]", "bg-[#4A7FC9]"] },
+];
+
+function OverviewCard() {
   return (
     <div
       aria-hidden="true"
@@ -134,23 +147,46 @@ function OverviewCard() {
           <BalanceCard key={tile.label} tile={tile} />
         ))}
       </div>
-      <div className="flex flex-col gap-1">
-        <div className="pb-1.5 text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">Dnes chybí</div>
-        {outToday.map((person) => (
-          <div key={person.initials} className="flex items-center gap-3 border-t border-[#EFEDE6] py-2.5">
-            <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold ${person.bg} ${person.fg}`}>
-              {person.initials}
-            </div>
-            <div className="flex-1">
-              <div className="text-[15px] font-medium">{person.name}</div>
-              <div className="text-[13px] text-dodio-ink-muted">{person.detail}</div>
-            </div>
-            <span className="flex items-center gap-1.5 rounded-dodio-sm bg-[#E3F2EC] px-2 py-1 text-xs font-medium text-dodio-teal-dark">
-              <span className="h-1.5 w-1.5 rounded-full bg-dodio-teal" />
-              Schváleno
-            </span>
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
+            Kdo tento týden chybí
           </div>
-        ))}
+          <span className="rounded-dodio-sm bg-[#FBE4DA] px-2 py-0.5 text-[10px] font-semibold text-dodio-coral-dark">
+            V práci 3 ze 4
+          </span>
+        </div>
+        <div className="grid grid-cols-[128px_repeat(5,1fr)] items-center gap-x-1 gap-y-1.5">
+          <div />
+          {WEEK_DAYS.map((day) => (
+            <div
+              key={day.label}
+              className={`rounded-dodio-sm py-1 text-center text-[10px] font-medium ${
+                day.today ? "bg-[#E3F2EC] text-dodio-teal-dark" : "text-dodio-ink-muted"
+              }`}
+            >
+              {day.label}
+            </div>
+          ))}
+          {WEEK_ROWS.map((row) => (
+            <Fragment key={row.name}>
+              <div className="truncate pr-2 text-[13px] font-medium text-dodio-ink">{row.name}</div>
+              {row.cells.map((cell, i) => (
+                <div key={i} className={`h-5 rounded-dodio-sm ${cell ?? "bg-dodio-border/40"}`} />
+              ))}
+            </Fragment>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-3 text-[10px] text-dodio-ink-muted">
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2.5 rounded-[2px] bg-dodio-danger" />
+            Sick Day
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2.5 rounded-[2px] bg-[#4A7FC9]" />
+            Home Office
+          </span>
+        </div>
       </div>
     </div>
   );

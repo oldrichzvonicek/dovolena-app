@@ -10,17 +10,35 @@ function RequestIllustration() {
   return (
     <div
       aria-hidden="true"
-      className="flex w-full max-w-[380px] flex-col gap-3.5 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
+      className="flex w-full max-w-[380px] flex-col gap-3 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
     >
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold">Nová žádost</span>
-        <span className="rounded-dodio-sm bg-[#E3F2EC] px-2 py-1 text-xs font-medium text-dodio-teal-dark">Dovolená</span>
+      <span className="text-sm font-semibold">Nová žádost o absenci</span>
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] text-dodio-ink-muted">Typ absence</span>
+        <span className="flex items-center justify-between rounded-dodio-md border border-dodio-border px-3 py-2 text-sm">
+          Dovolená
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M2.5 4l2.5 2.5L7.5 4" fill="none" stroke="#5F5E5A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </div>
-      <div className="text-[13px] text-dodio-ink-muted">Čt 29. – Pá 30. října · 2 dny</div>
-      <div className="h-px bg-dodio-border" />
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-dodio-ink-muted">Zůstatek po žádosti</span>
-        <span className="font-semibold">14,5 dne</span>
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] text-dodio-ink-muted">Délka trvání</span>
+        <div className="flex rounded-dodio-md bg-dodio-surface p-1 text-xs font-semibold">
+          <span className="flex-1 rounded-dodio-sm bg-white py-1.5 text-center text-dodio-ink shadow-[0_1px_3px_rgba(44,44,42,0.15)]">
+            Celý den
+          </span>
+          <span className="flex-1 py-1.5 text-center text-dodio-ink-muted">Půlden</span>
+          <span className="flex-1 py-1.5 text-center text-dodio-ink-muted">Hodiny</span>
+        </div>
+      </div>
+      <div className="text-[13px] text-dodio-ink-muted">7. – 9. října 2026</div>
+      <div className="rounded-dodio-md bg-[#E3F2EC] px-3 py-2 text-[12px] leading-[17px] text-dodio-teal-dark">
+        Celkem: 3 pracovní dny — víkendy a státní svátky odečteny automaticky.
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] text-dodio-ink-muted">Poznámka pro manažera (volitelné)</span>
+        <span className="text-[11px] italic text-dodio-ink-muted/80">Neuvádějte zdravotní údaje.</span>
       </div>
       <span className="flex h-10 items-center justify-center rounded-dodio-md bg-dodio-teal-dark text-sm font-semibold text-white">
         Odeslat ke schválení
@@ -30,32 +48,37 @@ function RequestIllustration() {
 }
 
 function ApprovalIllustration() {
+  const items = [
+    { name: "Tomáš Dvořák", range: "7. – 9. října 2026" },
+    { name: "Lucie Černá", range: "20. – 22. října 2026" },
+  ];
   return (
     <div
       aria-hidden="true"
-      className="flex w-full max-w-[380px] flex-col gap-3.5 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
+      className="flex w-full max-w-[380px] flex-col gap-3 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
     >
-      <div className="text-[15px] leading-[22px]">
-        <strong className="font-semibold">Tomáš Dvořák</strong> žádá o dovolenou
-        <br />
-        <span className="text-dodio-ink-muted">Po 12. – Pá 16. ledna · 5 dní</span>
-      </div>
-      <div className="flex items-start gap-2 rounded-dodio-md bg-[#FDF1DE] px-3 py-2.5 text-xs font-medium leading-[17px] text-dodio-warning-dark">
-        <svg width="14" height="14" viewBox="0 0 14 14" className="mt-0.5 shrink-0">
-          <path d="M7 1L13 12H1L7 1z" fill="#EF9F27" />
-          <rect x="6.25" y="5" width="1.5" height="3.5" fill="#7A4E11" />
-          <rect x="6.25" y="9.3" width="1.5" height="1.5" fill="#7A4E11" />
-        </svg>
-        V tomto týdnu bude mimo už 3 z 8 lidí v týmu.
-      </div>
-      <div className="flex gap-2">
-        <span className="flex h-10 flex-1 items-center justify-center rounded-dodio-md bg-dodio-teal-dark text-sm font-semibold text-white">
-          Schválit
-        </span>
-        <span className="flex h-10 flex-1 items-center justify-center rounded-dodio-md border border-dodio-border text-sm font-semibold text-dodio-danger-dark">
-          Zamítnout
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        Čeká na vaše schválení
+        <span className="rounded-dodio-sm bg-dodio-coral px-1.5 py-0.5 text-[11px] font-bold text-dodio-coral-dark">
+          {items.length}
         </span>
       </div>
+      {items.map((item) => (
+        <div key={item.name} className="flex flex-wrap items-center justify-between gap-2 border-t border-[#EFEDE6] pt-3">
+          <div className="text-[13px]">
+            <div className="font-medium">{item.name} – Dovolená</div>
+            <div className="text-dodio-ink-muted">{item.range}</div>
+          </div>
+          <div className="flex gap-1.5">
+            <span className="flex h-8 items-center justify-center rounded-dodio-sm bg-dodio-teal-dark px-2.5 text-xs font-semibold text-white">
+              Schválit
+            </span>
+            <span className="flex h-8 items-center justify-center rounded-dodio-sm border border-dodio-border px-2.5 text-xs font-semibold text-dodio-danger-dark">
+              Zamítnout
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
