@@ -16,6 +16,7 @@ import { showToast } from "@/lib/toast";
 import { cn, formatNumber } from "@/lib/utils";
 import { PrintPreviewModal } from "@/components/ui/print-preview-modal";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Button } from "@/components/ui/button";
 import type { ExtraInsights } from "@/components/admin/SmartInsightsExtra";
 
 type Period = "month" | "quarter" | "year";
@@ -267,12 +268,12 @@ export function LeadershipReport({ departmentId, extra }: { departmentId: string
       <div className="no-print flex flex-wrap items-center gap-2">
         <SegmentedControl ariaLabel="Období reportu" value={period} onChange={setPeriod} options={PERIODS.map((p) => ({ key: p.key, label: p.label }))} />
         <div className="ml-auto flex gap-2">
-          <button onClick={copySummary} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
+          <Button variant="secondary" size="sm" onClick={copySummary}>
             <Copy size={13} /> Kopírovat shrnutí do e-mailu
-          </button>
-          <button onClick={() => setPreviewOpen(true)} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper">
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setPreviewOpen(true)}>
             <Printer size={13} /> Tisk / PDF
-          </button>
+          </Button>
         </div>
       </div>
 

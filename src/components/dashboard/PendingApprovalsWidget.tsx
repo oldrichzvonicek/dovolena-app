@@ -121,13 +121,13 @@ export function PendingApprovalsWidget({ onChanged }: { onChanged?: () => void }
                   Zkontrolovat
                 </Link>
               ) : (
-                <Button className="px-3 py-1.5 text-sm" disabled={busyId === r.id} onClick={() => run(r.id, () => approveLeaveRequest(r.id, profile.id))}>
+                <Button size="sm" disabled={busyId === r.id} onClick={() => run(r.id, () => approveLeaveRequest(r.id, profile.id))}>
                   <Check size={14} /> Schválit
                 </Button>
               )}
               <Button
                 variant="danger"
-                className="px-3 py-1.5 text-sm"
+                size="sm"
                 disabled={busyId === r.id}
                 onClick={() => {
                   setReason("");

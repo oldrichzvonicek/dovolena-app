@@ -16,6 +16,7 @@ import { LeaveColor } from "@/lib/supabase/types";
 import { ExpiringVacationReport } from "@/components/admin/ExpiringVacationReport";
 import { EmployeeDetailModal } from "@/components/manager/EmployeeDetailModal";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { canSeeInsights } from "@/lib/access";
 import { reducesPresence } from "@/lib/leave-kinds";
@@ -488,17 +489,12 @@ export function OverviewPanel() {
               </SelectContent>
             </Select>
             {section === "retro" && (<>
-            <button
-              onClick={exportCsv}
-              disabled={!canExport}
-              title={canExport ? undefined : "Export do CSV je od tarifu Starter"}
-              className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button variant="secondary" size="sm" onClick={exportCsv} disabled={!canExport} title={canExport ? undefined : "Export do CSV je od tarifu Starter"}>
               <Download size={13} /> Excel (CSV)
-            </button>
-            <button onClick={() => setPreviewOpen(true)} disabled={loading} className="flex items-center gap-1.5 rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-paper disabled:cursor-not-allowed disabled:opacity-50">
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setPreviewOpen(true)} disabled={loading}>
               <Printer size={13} /> PDF (tisk)
-            </button>
+            </Button>
             </>)}
           </div>
         </div>
