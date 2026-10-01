@@ -124,7 +124,7 @@ export const sections: HelpSection[] = [
       "Uživatelé — pozvání e-mailem, odkazem nebo CSV importem; hromadné akce (oddělení, nadřízený, nároky, deaktivace), roční nároky a individuální limit Home Office. Odcházející lidi deaktivujte — ztratí přístup a zmizí z kalendáře, historie zůstane.",
       "Oddělení — vedoucí a zástupce vedoucího, sloučení duplicit.",
       "Typy absencí — barvy, řazení přetažením, z jakého limitu se čerpá, automatické schválení do X dní, poměrné krácení nároku u nových zaměstnanců, výchozí nároky. Nepoužívané typy lze skrýt.",
-      "Provoz & kalendář — směny a pracovní dny, pravidla pro žádosti (předstih, zpětné zadávání, mínus), převod dovolenky do dalšího roku (max. dní a datum propadnutí), připomínky, kapacitní varování, blokované termíny, celozávodní dovolená a firemní logo.",
+      "Kalendář a provoz — směny a pracovní dny, pravidla pro žádosti (předstih, zpětné zadávání, mínus), převod dovolenky do dalšího roku (max. dní a datum propadnutí), připomínky, kapacitní varování, blokované termíny, celozávodní dovolená a firemní logo.",
       "Fakturace & tarify — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Team, Pro) a doplňky (Smart HR, Účetní), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
       ...(CHAT_INTEGRATIONS_ENABLED ? ["Integrace — napojení Slack, Microsoft Teams, Mattermost, Discord, Google Chat nebo libovolného webhooku; vyberete, které události se do kanálu posílají."] : []),
       "Historie změn — kdo, kdy a co v systému změnil.",
@@ -173,7 +173,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Co se stane s nevyčerpanou dovolenou na konci roku?",
     section: "Nástěnka",
-    a: "Část dní se převede do dalšího roku — kolik a do kdy je nastaveno ve firemních pravidlech (Provoz & kalendář). Převedené dny jsou na nástěnce vidět zvlášť a po datu propadnutí se odečtou.",
+    a: "Část dní se převede do dalšího roku — kolik a do kdy je nastaveno ve firemních pravidlech (Kalendář a provoz). Převedené dny jsou na nástěnce vidět zvlášť a po datu propadnutí se odečtou.",
   },
   {
     q: "Jak funguje převod dovolené do dalšího roku?",
@@ -182,7 +182,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Jak nastavím převod dovolené do dalšího roku?",
-    a: "V Nastavení firmy → Provoz & kalendář, sekce „Převod a expirace dovolené“. Nastavíte datum, kdy převedená dovolená propadne (např. 31. 3.; prázdné = nikdy nepropadá), a maximální počet dní, které lze převést (prázdné = bez omezení). Změna platí pro výpočet zůstatků okamžitě a týká se převodu z minulého roku, nikoli už vyčerpaných dní.",
+    a: "V Nastavení firmy → Kalendář a provoz, sekce „Převod a expirace dovolené“. Nastavíte datum, kdy převedená dovolená propadne (např. 31. 3.; prázdné = nikdy nepropadá), a maximální počet dní, které lze převést (prázdné = bez omezení). Změna platí pro výpočet zůstatků okamžitě a týká se převodu z minulého roku, nikoli už vyčerpaných dní.",
     section: "Nastavení firmy (admin)",
     roles: ["admin"],
   },
@@ -205,7 +205,7 @@ const ALL_FAQS: HelpFaq[] = [
     q: "Proč mi systém nedovolí odeslat žádost o absenci?",
     section: "Žádost o absenci",
     top: true,
-    a: "Nejspíš naráží na firemní pravidlo — blokovaný termín, příliš krátký předstih, zpětné zadávání, čerpání do mínusu, nebo vybraný termín obsahuje jen víkend a svátky (0 pracovních dní). Pravidla nastavuje admin v Nastavení firmy → Provoz & kalendář.",
+    a: "Nejspíš naráží na firemní pravidlo — blokovaný termín, příliš krátký předstih, zpětné zadávání, čerpání do mínusu, nebo vybraný termín obsahuje jen víkend a svátky (0 pracovních dní). Pravidla nastavuje admin v Nastavení firmy → Kalendář a provoz.",
   },
   {
     q: "Kdo schvaluje moje žádosti?",
@@ -230,7 +230,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Můžu zadat absenci zpětně?",
-    a: "Záleží na pravidlech vaší firmy: admin může zpětné zadávání zakázat nebo omezit na několik dní (Nastavení firmy → Provoz & kalendář). Když to pravidla nedovolují, formulář vám to při odeslání napíše.",
+    a: "Záleží na pravidlech vaší firmy: admin může zpětné zadávání zakázat nebo omezit na několik dní (Nastavení firmy → Kalendář a provoz). Když to pravidla nedovolují, formulář vám to při odeslání napíše.",
     section: "Žádost o absenci",
   },
   {
@@ -271,7 +271,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Moje žádost čeká na schválení už dlouho. Co mám dělat?",
-    a: "Po době nastavené ve firmě (Provoz & kalendář → připomínka schvalovatele) se žádost automaticky předá zástupci vedoucího oddělení, případně adminům. Stejně se předá, když je schvalovatel dnes nepřítomen. Pokud spěchá, napište schvalovateli přímo. Kdo vaše žádosti schvaluje, zjistíte v otázce „Kdo schvaluje moje žádosti?“.",
+    a: "Po době nastavené ve firmě (Kalendář a provoz → připomínka schvalovatele) se žádost automaticky předá zástupci vedoucího oddělení, případně adminům. Stejně se předá, když je schvalovatel dnes nepřítomen. Pokud spěchá, napište schvalovateli přímo. Kdo vaše žádosti schvaluje, zjistíte v otázce „Kdo schvaluje moje žádosti?“.",
     section: "Moje žádosti",
   },
   {
@@ -424,7 +424,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Kde změním heslo a zapnu dvoufázové ověření?",
     section: "Účet",
-    a: "Klikněte dole v menu na své jméno (Můj účet). Najdete tam změnu hesla, dvoufázové ověření, vypnutí e-mailových upozornění a odhlášení ze všech zařízení. Dvoufázové ověření zapnete naskenováním QR kódu v aplikaci pro ověřovací kódy (Google Authenticator, Microsoft Authenticator, 1Password) a opsáním šestimístného kódu; při dalších přihlášeních pak kód zadáte navíc. Admin může v Nastavení firmy → Provoz & kalendář vyžadovat dvoufázové ověření pro admina, HR a účetní. Ztratili jste telefon? Požádejte admina, ať vám ověření vypne, nebo se odhlaste ze všech zařízení a obnovte heslo.",
+    a: "Klikněte dole v menu na své jméno (Můj účet). Najdete tam změnu hesla, dvoufázové ověření, vypnutí e-mailových upozornění a odhlášení ze všech zařízení. Dvoufázové ověření zapnete naskenováním QR kódu v aplikaci pro ověřovací kódy (Google Authenticator, Microsoft Authenticator, 1Password) a opsáním šestimístného kódu; při dalších přihlášeních pak kód zadáte navíc. Admin může v Nastavení firmy → Kalendář a provoz vyžadovat dvoufázové ověření pro admina, HR a účetní. Ztratili jste telefon? Požádejte admina, ať vám ověření vypne, nebo se odhlaste ze všech zařízení a obnovte heslo.",
     roles: ["employee", "manager", "admin"],
   },
   {
@@ -491,7 +491,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Co je celozávodní dovolená?",
     section: "Nastavení firmy (admin)",
-    a: "Admin ji nastaví v Nastavení firmy → Provoz & kalendář — jednotná absence, která se rovnou přiřadí celé firmě nebo vybraným oddělením (např. vánoční odstávka).",
+    a: "Admin ji nastaví v Nastavení firmy → Kalendář a provoz — jednotná absence, která se rovnou přiřadí celé firmě nebo vybraným oddělením (např. vánoční odstávka).",
     roles: ["admin"],
   },
   {
@@ -503,7 +503,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Kde nastavím firemní logo a fakturační údaje?",
     section: "Nastavení firmy (admin)",
-    a: "Logo v Nastavení firmy → Provoz & kalendář, fakturační údaje a způsob platby v Fakturace & tarify. Údaje o firmě lze načíst z ARES podle IČO.",
+    a: "Logo v Nastavení firmy → Kalendář a provoz, fakturační údaje a způsob platby v Fakturace & tarify. Údaje o firmě lze načíst z ARES podle IČO.",
     roles: ["admin"],
   },
   {

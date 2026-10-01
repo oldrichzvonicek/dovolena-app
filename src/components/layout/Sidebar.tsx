@@ -48,7 +48,7 @@ const settingsGroups = [
     title: "Pravidla & Absence",
     items: [
       { key: "leave-types", label: "Typy absencí", icon: Tags },
-      { key: "general", label: "Provoz & kalendář", icon: SlidersHorizontal },
+      { key: "general", label: "Kalendář a provoz", icon: SlidersHorizontal },
     ],
   },
   {

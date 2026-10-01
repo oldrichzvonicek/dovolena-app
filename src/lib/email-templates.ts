@@ -151,7 +151,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     key: "carryover_expiring",
     name: "Blíží se propadnutí převedené dovolené",
-    when: "30 a 7 dní před datem propadnutí převedené dovolené (nastavení: Provoz & kalendář).",
+    when: "30 a 7 dní před datem propadnutí převedené dovolené (nastavení: Kalendář a provoz).",
     to: "Zaměstnanec s nevyčerpanou převedenou dovolenou",
     live: false,
     vars: ["jmeno", "dny", "datum"],

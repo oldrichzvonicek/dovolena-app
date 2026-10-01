@@ -19,7 +19,7 @@ const titles: Record<string, string> = {
   users: "Uživatelé",
   departments: "Oddělení",
   "leave-types": "Typy absencí",
-  general: "Provoz & kalendář",
+  general: "Kalendář a provoz",
   billing: "Fakturace & tarify",
   integrations: "Integrace",
   emails: "E-maily",
@@ -43,7 +43,7 @@ function SettingsContent() {
     <div>
       <Header title={`Nastavení firmy — ${titles[active]}`} subtitle="Sekce nastavení najdete v menu vlevo" />
       {/* Bez max-width tady — některé sekce jsou tabulky (Uživatelé, Historie změn), které širokou obrazovku
-          využijí; sekce s formulářem (Provoz & kalendář) si šířku omezuje sama, viz CompanySettingsPanel. */}
+          využijí; sekce s formulářem (Kalendář a provoz) si šířku omezuje sama, viz CompanySettingsPanel. */}
       <div className="p-4 sm:p-8">
         {active === "users" && <UsersPanel />}
         {active === "departments" && <DepartmentsPanel />}
