@@ -10,7 +10,14 @@ import { getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/dodio-pri
 // are actually scoped: nothing is ever removed going up, only added. Shown
 // on the card as "Vše z <nižší tarif>, plus:" instead of repeating every
 // earlier item, so the checklist stays short at every tier.
-const FREE_FEATURES = ["Dovolená", "Absence", "Týmový kalendář", "Schvalování žádostí", "E-mailové notifikace"];
+const FREE_FEATURES = [
+  "Dovolená",
+  "Absence",
+  "Týmový kalendář",
+  "Schvalování žádostí",
+  "E-mailové notifikace",
+  "GDPR ready",
+];
 
 const STARTER_ADDS = ["Exporty (CSV, Excel, ODS)", "Mzdové podklady", "iCal synchronizace kalendáře", "Účetní přístup"];
 
@@ -118,8 +125,9 @@ export function Pricing() {
                   </span>
                 )}
               </div>
-              <div className="text-sm text-dodio-ink-muted lg:text-[15px]">
-                {plan.usersLabel}
+              <div className="flex flex-col gap-0.5 text-sm text-dodio-ink-muted lg:text-[15px]">
+                <span>{plan.forWhom}</span>
+                <span className="font-medium text-dodio-ink">{plan.usersLabel}</span>
               </div>
               <div className="flex flex-wrap items-baseline gap-1.5">
                 <span className="font-dodio-display text-[26px] font-extrabold tracking-[-1px] lg:text-[38px]">
