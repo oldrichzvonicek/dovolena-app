@@ -117,7 +117,7 @@ export function MyLeavePlans() {
         </ul>
       )}
 
-      <PlanLeaveModal open={modalOpen} onOpenChange={setModalOpen} onSaved={load} />
+      <PlanLeaveModal open={modalOpen} onOpenChange={setModalOpen} onSaved={load} existing={plans} />
     </div>
   );
 }

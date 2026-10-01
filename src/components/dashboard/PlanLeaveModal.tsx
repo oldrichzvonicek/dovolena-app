@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { DbCompany, DbLeaveType } from "@/lib/supabase/types";
 import { fetchCompany } from "@/lib/admin-data";
-import { createLeavePlan } from "@/lib/leave-plans";
+import { createLeavePlan, LeavePlan } from "@/lib/leave-plans";
 import { countWorkingDays, dayWord, workingDaysPhrase } from "@/lib/working-days";
 import { errorMessage } from "@/lib/utils";
 
@@ -19,7 +19,18 @@ import { errorMessage } from "@/lib/utils";
  * ne závazná žádost) — jen typ a termín. Kdo o den skutečně požádá, projde normální žádostí s plnou
  * kontrolou (viz "Podat žádost" u návrhu, submitLeavePlan).
  */
-export function PlanLeaveModal({ open, onOpenChange, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; onSaved?: () => void }) {
+export function PlanLeaveModal({
+  open,
+  onOpenChange,
+  onSaved,
+  existing = [],
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
+  /** Vlastní návrhy uživatele — proti nim hlídáme duplicitu (stejný typ a termín nadvakrát). */
+  existing?: LeavePlan[];
+}) {
   const { profile } = useAuth();
   const [leaveTypes, setLeaveTypes] = useState<DbLeaveType[]>([]);
   const [company, setCompany] = useState<DbCompany | null>(null);
@@ -57,6 +68,9 @@ export function PlanLeaveModal({ open, onOpenChange, onSaved }: { open: boolean;
   async function handleSubmit() {
     if (!profile || !typeId) return;
     if (endDate < startDate) return setError("Konec termínu musí být po jeho začátku.");
+    if (existing.some((p) => p.leave_type_id === typeId && p.start_date === startDate && p.end_date === endDate)) {
+      return setError("Tenhle termín a typ absence už máte naplánovaný — podívejte se do seznamu níže.");
+    }
     setSubmitting(true);
     setError(null);
     try {
