@@ -13,6 +13,7 @@ import { approvalSpeed, type Decision } from "@/lib/insights";
 import { DEFAULT_MINUTES_PER_REQUEST, estimateTimeSaved, forfeitRisk, reportText, type ForfeitRisk } from "@/lib/leadership-report";
 import { formatKc } from "@/lib/plans";
 import { showToast } from "@/lib/toast";
+import { canSeeInsights } from "@/lib/access";
 import { cn, formatNumber } from "@/lib/utils";
 import { PrintPreviewModal } from "@/components/ui/print-preview-modal";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -128,12 +129,19 @@ export function LeadershipReport({ departmentId, extra }: { departmentId: string
   const noSub = extra?.results.subs.noSubstitute.length ?? 0;
   const shortNotice = extra && extra.results.lead.overall.requests >= 10 ? extra.results.lead.overall.shortPct : null;
 
-  const actions: string[] = [];
-  if (data.risk.atRiskPeople > 0) actions.push(`Pošlete výzvu k vyčerpání ${data.risk.atRiskPeople} lidem s velkým zůstatkem dovolené.`);
-  if (data.risk.totalDays > 0 && data.dailyCost === null) actions.push("Zadejte průměrné denní náklady (Smart HR → Lidé a zůstatky), ať se riziko vyčíslí v Kč.");
-  if (collisions > 0) actions.push(`Vyřešte ${collisions} kapacitních kolizí nebo kolizí zástupů v příštích dnech.`);
-  if (noSub > 0) actions.push(`Určete zástup u ${noSub} lidí.`);
-  if (shortNotice !== null && shortNotice >= 30) actions.push(`Připomeňte dřívější plánování: ${shortNotice} % dovolených se žádá s předstihem do 3 dnů.`);
+  const insightsHref = canSeeInsights(profile) ? "/admin/insights" : null;
+  const actions: { text: string; href: string | null; linkLabel: string }[] = [];
+  if (data.risk.atRiskPeople > 0)
+    actions.push({
+      text: `Pošlete výzvu k vyčerpání ${data.risk.atRiskPeople} lidem s velkým zůstatkem dovolené.`,
+      href: "/admin/overview?sekce=plan",
+      linkLabel: "Otevřít výzvu k vyčerpání",
+    });
+  if (data.risk.totalDays > 0 && data.dailyCost === null)
+    actions.push({ text: "Zadejte průměrné denní náklady, ať se riziko vyčíslí v Kč.", href: insightsHref, linkLabel: "Otevřít Smart HR → Lidé a zůstatky" });
+  if (collisions > 0) actions.push({ text: `Vyřešte ${collisions} kapacitních kolizí nebo kolizí zástupů v příštích dnech.`, href: insightsHref, linkLabel: "Otevřít Smart HR → Kapacita a plánování" });
+  if (noSub > 0) actions.push({ text: `Určete zástup u ${noSub} lidí.`, href: insightsHref, linkLabel: "Otevřít Smart HR → Kapacita a plánování" });
+  if (shortNotice !== null && shortNotice >= 30) actions.push({ text: `Připomeňte dřívější plánování: ${shortNotice} % dovolených se žádá s předstihem do 3 dnů.`, href: null, linkLabel: "" });
 
   async function copySummary() {
     const text = reportText({ company: data!.company, period: range.label, saved, medianHours: data!.medianHours, risk: data!.risk, collisions, noSubstitute: noSub });
@@ -247,16 +255,18 @@ export function LeadershipReport({ departmentId, extra }: { departmentId: string
       {actions.length > 0 && (
         <div className="rounded bg-paper px-4 py-3">
           <h3 className="text-sm font-medium">Doporučené kroky</h3>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">
+          <ul className="mt-1.5 space-y-1.5 pl-5 text-sm">
             {actions.map((a) => (
-              <li key={a}>{a}</li>
+              <li key={a.text} className="list-disc">
+                {a.text}
+                {a.href && (
+                  <Link href={a.href} className="no-print ml-2 whitespace-nowrap font-medium text-teal-dark underline underline-offset-2">
+                    {a.linkLabel} →
+                  </Link>
+                )}
+              </li>
             ))}
           </ul>
-          {data.risk.atRiskPeople > 0 && (
-            <Link href="/admin/overview" className="no-print mt-2 inline-block text-sm font-medium text-teal-dark underline underline-offset-2">
-              Otevřít výzvu k vyčerpání (Analytika → Operativní plánování)
-            </Link>
-          )}
         </div>
       )}
       <p className="text-[11px] text-muted">Ušetřený čas je odhad z uvedeného předpokladu, ostatní údaje vycházejí z dat v Dodiu. Vygenerováno {format(now, "d. M. yyyy", { locale: cs })}.</p>

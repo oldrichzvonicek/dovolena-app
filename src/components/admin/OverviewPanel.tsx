@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { addDays, addMonths, addYears, endOfMonth, endOfQuarter, endOfYear, format, getISOWeek, getISOWeekYear, getQuarter, isWeekend, parseISO, startOfMonth, startOfQuarter, startOfYear, subMonths, subYears } from "date-fns";
 import { cs } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Printer } from "lucide-react";
@@ -102,7 +103,9 @@ export function OverviewPanel() {
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   // Dvě logické části: zpětné reporty (řízené obdobím) a operativní plánování (vždy od dneška dopředu).
-  const [section, setSection] = useState<"retro" | "plan">("retro");
+  // ?sekce=plan umožňuje odjinud (Přehled pro vedení) odkázat rovnou na Operativní plánování.
+  const sekceParam = useSearchParams().get("sekce");
+  const [section, setSection] = useState<"retro" | "plan">(sekceParam === "plan" ? "plan" : "retro");
   const [overlapFor, setOverlapFor] = useState<{ department: string; start: string; end: string } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);

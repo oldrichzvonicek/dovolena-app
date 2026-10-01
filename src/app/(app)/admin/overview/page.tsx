@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Header } from "@/components/layout/Header";
 import { OverviewPanel } from "@/components/admin/OverviewPanel";
 
@@ -6,7 +7,9 @@ export default function OverviewPage() {
     <div>
       <Header title="Analytika" subtitle="Kapacita, absence a co se blíží" />
       <div className="p-4 sm:p-8">
-        <OverviewPanel />
+        <Suspense fallback={null}>
+          <OverviewPanel />
+        </Suspense>
       </div>
     </div>
   );
