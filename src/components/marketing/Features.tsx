@@ -190,8 +190,8 @@ export function Features() {
             reverse
             points={[
               "Kapacitní varování — Dodio upozorní, než by schválení nechalo tým pod minimem lidí.",
-              "Přehled absencí celého týmu v kalendáři, včetně zástupů.",
-              "Zástupce pro dobu vlastní nepřítomnosti, ať schvalování nestojí.",
+              "Přehled absencí celého týmu v kalendáři.",
+              "Zástupce pro dobu vlastní nepřítomnosti v tarifu Pro, ať schvalování nestojí.",
             ]}
           />
           <PersonaRow
