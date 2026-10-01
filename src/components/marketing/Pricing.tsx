@@ -20,7 +20,7 @@ const FREE_FEATURES = [
 
 const STARTER_ADDS = ["Exporty (CSV, Excel, ODS)", "Mzdové podklady", "iCal synchronizace kalendáře", "Účetní přístup"];
 
-const TEAM_ADDS = ["Audit log", "Automatický výpočet nároku", "Zástupy", "Pokročilé schvalování", "Pokročilá analytika"];
+const TEAM_ADDS = ["Audit log", "Automatický výpočet nároku", "Pokročilá analytika"];
 
 const PRO_ADDS = [
   "Smart HR",
@@ -29,8 +29,9 @@ const PRO_ADDS = [
   "Anonymní nemocnost",
   "Riziko propadnutí dovolené",
   "Férové plánování",
+  "Zástupy",
+  "Pokročilé schvalování",
   "Eskalace schvalování",
-  "+39 Kč za každého dalšího člověka",
 ];
 
 const PLAN_OWN_FEATURES: Record<PlanId, string[]> = {
@@ -149,6 +150,11 @@ export function Pricing() {
                     <span className="text-dodio-ink">{label}</span>
                   </div>
                 ))}
+                {plan.id === "pro" && (
+                  <div className="mt-1 text-xs italic text-dodio-ink-muted">
+                    +39 Kč / měs. za každého dalšího člověka nad 30.
+                  </div>
+                )}
               </div>
               <a
                 href={plan.ctaHref}
