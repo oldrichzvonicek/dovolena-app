@@ -43,8 +43,7 @@ const weekDays = [
 ];
 
 const sections = [
-  { id: "sec-obecne", label: "Obecné" },
-  { id: "sec-logo", label: "Logo firmy" },
+  { id: "sec-obecne", label: "Informace o firmě" },
   { id: "sec-kalendar", label: "Kalendář a směny" },
   { id: "sec-pravidla", label: "Pravidla pro žádosti" },
   { id: "sec-kapacita", label: "Kapacita" },
@@ -306,7 +305,7 @@ export function CompanySettingsPanel() {
 
       <div className="min-w-0 flex-1 space-y-6">
       <div id="sec-obecne" className="card scroll-mt-24 p-5">
-        <SectionHeader icon={<Building2 size={15} />} title="Obecné" className="bg-sky-light text-sky-dark" />
+        <SectionHeader icon={<Building2 size={15} />} title="Informace o firmě" className="bg-sky-light text-sky-dark" />
 
         <div className="mt-4">
           <label className="mb-1.5 block text-sm font-medium">Název firmy</label>
@@ -321,6 +320,10 @@ export function CompanySettingsPanel() {
             }}
           />
           <p className="mt-1 text-xs text-muted">Zobrazovaný název — v hlavičce appky a v e-mailech. Na faktuře se nepoužívá, tu řídí Obchodní název ve Fakturaci.</p>
+        </div>
+
+        <div className="mt-4">
+          <LogoCard />
         </div>
 
         <div className="mt-4">
@@ -345,10 +348,6 @@ export function CompanySettingsPanel() {
           </div>
           <p className="mt-1 text-xs text-muted">Použijte při komunikaci s podporou.</p>
         </div>
-      </div>
-
-      <div id="sec-logo" className="scroll-mt-24">
-        <LogoCard />
       </div>
 
       <div id="sec-kalendar" className="card scroll-mt-24 p-5">

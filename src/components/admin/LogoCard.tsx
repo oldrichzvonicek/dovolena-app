@@ -47,16 +47,11 @@ export function LogoCard() {
   }
 
   return (
-    <div id="sec-logo" className="card scroll-mt-24 p-5">
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plum-light text-plum-dark">
-          <ImageIcon size={15} />
-        </div>
-        <h2 className="font-display text-h2">Logo firmy</h2>
-      </div>
-      <p className="mt-1 text-sm text-muted">Zobrazí se vlevo nahoře v menu aplikace všem zaměstnancům.</p>
+    <div>
+      <label className="mb-1.5 block text-sm font-medium">Logo firmy</label>
+      <p className="text-xs text-muted">Zobrazí se vlevo nahoře v menu aplikace všem zaměstnancům.</p>
 
-      <div className="mt-4 flex items-center gap-4">
+      <div className="mt-2.5 flex items-center gap-4">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-line bg-paper">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element

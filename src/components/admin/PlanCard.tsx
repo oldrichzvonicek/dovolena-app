@@ -4,12 +4,10 @@ import { Fragment, useEffect, useState } from "react";
 import { Check, ChevronDown, Crown, Minus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { ADDONS, FEATURE_MATRIX, PLANS, YEARLY_NOTE, formatKc, planByKey, planPrice, pricePerUser, recommendedFor, type Addon, type Plan } from "@/lib/plans";
-import { useFeatures } from "@/lib/use-features";
+import { FEATURE_MATRIX, PLANS, YEARLY_NOTE, formatKc, planByKey, planPrice, pricePerUser, recommendedFor, type Plan } from "@/lib/plans";
 import { changeKind, downgradeEffectiveDate, overLimitBy, quoteUpgrade, remainingDays } from "@/lib/plan-change";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { showToast } from "@/lib/toast";
-import { InfoTip } from "@/components/ui/info-tip";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import Link from "next/link";
@@ -34,7 +32,6 @@ export function PlanCard({ planKey, billing, onChanged }: { planKey: string | nu
   const [period, setPeriod] = useState<"monthly" | "yearly">(billing?.billing_period ?? "monthly");
   const [showMatrix, setShowMatrix] = useState(false);
   const plan = planByKey(planKey);
-  const features = useFeatures();
   const users = employees ?? 0;
 
   useEffect(() => {
@@ -110,16 +107,6 @@ export function PlanCard({ planKey, billing, onChanged }: { planKey: string | nu
     if (error) return showToast(error.message, "error");
     showToast("Naplánovaná změna tarifu je zrušená.", "info");
     onChanged?.();
-  }
-
-  function orderAddon(a: Addon) {
-    const subject = encodeURIComponent(`Doplněk Dodio: ${a.name}`);
-    const body = encodeURIComponent(`Dobrý den,
-
-chceme si k tarifu ${plan.name} přikoupit doplněk ${a.name} (${period === "yearly" ? formatKc(a.yearly) + " ročně" : formatKc(a.monthly) + " měsíčně"}).
-
-Děkujeme.`);
-    window.location.href = `mailto:${salesEmail}?subject=${subject}&body=${body}`;
   }
 
   // U ročního přepínače jde vždy o CELKOVOU částku za rok (ne měsíční ekvivalent) — "účtováno ročně" to říká
@@ -362,47 +349,6 @@ Děkujeme.`);
           )}
         </div>
 
-        <div className="mt-6">
-          <h2 className="font-display text-h2">Doplňky</h2>
-          <p className="text-xs text-muted">Cena je za celou firmu, ne za uživatele.</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {ADDONS.map((a) => {
-              const included = a.includedIn.includes(plan.key);
-              const active = features.addons.includes(a.key);
-              const buyable = !included && !active && a.availableOn.includes(plan.key);
-              const price = period === "monthly" ? `${formatKc(a.monthly)} / měs.` : `${formatKc(a.yearly)} / rok`;
-              return (
-                <div key={a.key} className="card flex flex-col p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 font-display text-h2">
-                      {a.name} <InfoTip text={a.info} label={`Co je ${a.name}`} />
-                    </div>
-                    {(included || active) && (
-                      <span className="rounded-full bg-teal-light px-2 py-0.5 text-[11px] font-medium text-teal-dark">{included ? "V ceně tarifu" : "Aktivní"}</span>
-                    )}
-                  </div>
-                  <div className="mt-1 text-lg font-medium">{included ? "0 Kč" : price}</div>
-                  <p className="mt-1 flex-1 text-xs text-muted">
-                    {included
-                      ? "Máte v ceně svého tarifu."
-                      : active
-                        ? "Doplněk máte aktivní."
-                        : buyable
-                          ? a.key === "accountant"
-                            ? "Od tarifu Starter je v ceně."
-                            : "V tarifu Pro je v ceně."
-                          : "V tomto tarifu se nedokupuje."}
-                  </p>
-                  {buyable && (
-                    <Button className="mt-3 w-full justify-center" variant="secondary" disabled={!salesEmail} onClick={() => orderAddon(a)}>
-                      Přikoupit
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
         {!salesEmail && <p className="mt-2 text-xs text-warning-dark">Kontaktní e-mail pro objednávku není nastaven (NEXT_PUBLIC_SALES_EMAIL).</p>}
         <p className="mt-2 text-xs text-muted">Volba tarifu otevře e-mail s předvyplněnou objednávkou — tarif se po potvrzení změní na naší straně.</p>
       </div>
