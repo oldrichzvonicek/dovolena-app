@@ -11,11 +11,10 @@ import { getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/dodio-pri
 // on the card as "Vše z <nižší tarif>, plus:" instead of repeating every
 // earlier item, so the checklist stays short at every tier.
 const FREE_FEATURES = [
-  "Dovolená",
-  "Absence",
+  "Žádosti a zůstatky pro každého",
   "Týmový kalendář",
-  "Schvalování žádostí",
-  "E-mailové notifikace",
+  "Rychlé schvalování žádostí",
+  "Notifikace v Dodiu a e-mailem",
   "GDPR ready",
 ];
 
