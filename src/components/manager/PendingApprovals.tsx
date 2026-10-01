@@ -290,8 +290,8 @@ export function PendingApprovals() {
         onChange={setFilter}
         options={[
           { key: "all", label: `Všechny (${pending.length})` },
-          { key: "conflict", label: `⚠️ S konfliktem (${conflictCount})` },
-          { key: "clean", label: `✓ Bez konfliktu (${pending.length - conflictCount})` },
+          { key: "conflict", label: `⚠️ Se souběhem (${conflictCount})` },
+          { key: "clean", label: `✓ Bez souběhu (${pending.length - conflictCount})` },
         ]}
       />
 
@@ -383,7 +383,7 @@ export function PendingApprovals() {
                   )}
                   {conflicts[r.id] && (
                     <span className={cn(pill, "bg-warning-light text-warning-dark")}>
-                      <AlertTriangle size={13} /> Konflikt s {conflicts[r.id]}
+                      <AlertTriangle size={13} /> Souběh s {conflicts[r.id]}
                     </span>
                   )}
                   {remaining[r.id] !== undefined && remaining[r.id] < 0 && (
