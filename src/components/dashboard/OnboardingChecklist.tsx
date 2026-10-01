@@ -51,7 +51,7 @@ export function OnboardingChecklist() {
     const cid = profile.company_id;
     let cancelled = false;
     (async () => {
-      const [company, billing, depts, people, invites, hooks, deptRows, staff] = await Promise.all([
+      const [company, billing, depts, people, invites, hooks, deptRows, staff, anyRequest] = await Promise.all([
         supabase.from("companies").select("logo_url").eq("id", cid).single(),
         supabase.from("company_billing").select("billing_ico").eq("company_id", cid).maybeSingle(),
         supabase.from("departments").select("id", { count: "exact", head: true }).eq("company_id", cid),
@@ -60,6 +60,7 @@ export function OnboardingChecklist() {
         supabase.from("webhook_integrations").select("id", { count: "exact", head: true }).eq("company_id", cid),
         supabase.from("departments").select("id, head_profile_id, deputy_head_profile_id").eq("company_id", cid),
         supabase.from("profiles").select("id, role, manager_id, department_id").eq("company_id", cid).eq("active", true),
+        supabase.from("leave_requests").select("id, profile:profiles!leave_requests_profile_id_fkey(company_id)").eq("profile.company_id", cid).limit(1),
       ]);
       // People whose requests only an admin can approve: no manager and no head / deputy of their department.
       const noApprover = ((staff.data ?? []) as { id: string; role: string; manager_id: string | null; department_id: string | null }[]).filter((p) => {
@@ -89,10 +90,10 @@ export function OnboardingChecklist() {
         },
         {
           key: "people",
-          title: "Pozvěte kolegy",
-          hint: "Vložte e-maily najednou, pošlete odkaz nebo nahrajte CSV.",
-          href: "/admin/settings?sekce=users",
-          cta: "Pozvat lidi",
+          title: "Přidejte zaměstnance",
+          hint: "Nejrychleji nahráním CSV z mzdového systému, nebo pošlete pozvánky jednotlivě.",
+          href: "/admin/settings?sekce=users&akce=import",
+          cta: "Importovat / pozvat",
           done: (people.count ?? 0) > 1 || (invites.count ?? 0) > 0,
         },
         {
@@ -102,6 +103,14 @@ export function OnboardingChecklist() {
           href: "/admin/settings?sekce=users&akce=schvalovatel",
           cta: "Přiřadit",
           done: nonAdmins > 0 && noApprover === 0,
+        },
+        {
+          key: "try",
+          title: "Vyzkoušejte žádost o absenci",
+          hint: "Tlačítkem „Nová žádost“ nahoře podejte zkušební žádost, ať vidíte, jak schvalování funguje.",
+          href: "/requests",
+          cta: "Podat žádost",
+          done: (anyRequest.data?.length ?? 0) > 0,
         },
         {
           key: "rules",

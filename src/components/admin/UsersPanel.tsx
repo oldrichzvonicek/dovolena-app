@@ -71,7 +71,9 @@ export function UsersPanel() {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+  // Z uvítacího průvodce ("Vítejte v Dodiu"): rovnou otevře import, ať nový admin nemusí tlačítko hledat.
+  const autoImport = useSearchParams().get("akce") === "import";
+  const [importOpen, setImportOpen] = useState(autoImport);
   const [linkCopied, setLinkCopied] = useState(false);
   const [bulk, setBulk] = useState<null | "dept" | "manager" | "entitlement">(null);
   const [bulkTarget, setBulkTarget] = useState("");

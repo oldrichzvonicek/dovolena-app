@@ -7,6 +7,7 @@ import { BalanceCards } from "@/components/dashboard/BalanceCards";
 import { WhoIsOutToday } from "@/components/dashboard/WhoIsOutToday";
 import { UpcomingLeave } from "@/components/dashboard/UpcomingLeave";
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
+import { OnboardingWizard } from "@/components/dashboard/OnboardingWizard";
 import { BridgeDays } from "@/components/dashboard/BridgeDays";
 import { PendingApprovalsWidget } from "@/components/dashboard/PendingApprovalsWidget";
 import { CancellationRequests } from "@/components/manager/CancellationRequests";
@@ -51,6 +52,7 @@ export default function DashboardPage() {
       {/* Ukotveno vlevo (bez mx-auto), do max-width 1600px pro širokoúhlé monitory. Od xl (>=1280px) dva
           sloupce vedle sebe — vlevo moje absence, vpravo týmový přehled; pod xl padají pod sebe. */}
       <div className="max-w-[1600px] space-y-6 p-4 sm:p-8">
+        <OnboardingWizard />
         <OnboardingChecklist />
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
           <div className="space-y-6">{mine}</div>

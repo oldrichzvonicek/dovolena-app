@@ -7,13 +7,7 @@ import { emitDataChanged } from "@/lib/events";
 import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
 import { errorMessage } from "@/lib/utils";
-
-async function call(action: "status" | "create" | "remove") {
-  const res = await fetch("/api/admin/demo-data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error ?? "Požadavek selhal.");
-  return json as { exists?: boolean; eligible?: boolean; people?: number; requests?: number; removed?: number };
-}
+import { callDemoData as call } from "@/lib/demo-data-client";
 
 /** Ukázková data (jen admin): fiktivní oddělení, lidé a absence k prohlédnutí aplikace; jedním kliknutím se odstraní. */
 export function DemoDataCard() {
