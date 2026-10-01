@@ -62,7 +62,6 @@ describe("add-ons", () => {
     const row = (label: string) => FEATURE_MATRIX.flatMap((g) => g.rows).find((r) => r.label.startsWith(label))!;
     const keys = ["free", "basic", "starter", "pro"];
     keys.forEach((k, i) => {
-      expect(row("Role Účetní").values[i] === true || row("Role Účetní").values[i] === "addon").toBe(true);
       expect(row("Role Účetní").values[i] === true).toBe(hasFeature(k, [], "accountant"));
       expect(row("Smart HR").values[i] === true).toBe(hasFeature(k, [], "hr_insights"));
     });

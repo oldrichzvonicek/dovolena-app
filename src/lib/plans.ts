@@ -78,6 +78,35 @@ export const PLANS: Plan[] = [
   },
 ];
 
+/** Řádek ceníku z tabulky plans (verzované ceny, které mění provozovatel v super-adminu). */
+export interface PlanPriceRow {
+  code: string;
+  price_monthly: number | string;
+  price_yearly: number | string;
+  price_extra_user_monthly: number | string | null;
+  price_extra_user_yearly: number | string | null;
+  valid_from: string;
+}
+
+/**
+ * Přepíše ceny v PLANS aktuálním ceníkem z databáze (nejnovější řádek s valid_from <= dnes pro každý tarif). Volá se jednou při
+ * startu aplikace, dřív než se cokoli vykreslí. Bez řádků (migrace není nasazená) zůstávají ceny z tohoto souboru.
+ */
+export function applyPlanPrices(rows: readonly PlanPriceRow[], today: string = new Date().toLocaleDateString("sv-SE")): void {
+  const latest = new Map<string, PlanPriceRow>();
+  for (const r of [...rows].sort((a, b) => (a.valid_from < b.valid_from ? -1 : 1))) if (r.valid_from <= today) latest.set(r.code, r);
+  for (const plan of PLANS) {
+    const r = latest.get(plan.key);
+    if (!r) continue;
+    plan.monthly = Number(r.price_monthly);
+    plan.yearly = Number(r.price_yearly);
+    if (plan.includedUsers !== undefined) {
+      if (r.price_extra_user_monthly !== null) plan.extraPerUserMonthly = Number(r.price_extra_user_monthly);
+      if (r.price_extra_user_yearly !== null) plan.extraPerUserYearly = Number(r.price_extra_user_yearly);
+    }
+  }
+}
+
 export const YEARLY_NOTE = "2 měsíce zdarma";
 
 /** Neznámé a zastaralé hodnoty sloupce: "start" → Free, dřívější tarif "enterprise" (Business) → Pro. */
@@ -123,7 +152,7 @@ export const ADDONS: Addon[] = [
     name: "Smart HR",
     monthly: 200,
     yearly: 2000,
-    availableOn: ["free", "basic", "starter"],
+    availableOn: [],
     includedIn: ["pro"],
     info:
       "Přehledy pro HR a vedení: předpověď kapacity týmu na 13 týdnů, trendy za 12 měsíců, anonymní nemocnost po odděleních (od 5 lidí), rychlost schvalování, závazek z nevyčerpané dovolené, dobití baterií a férové plánování Vánoc a léta. Nemoc se nikdy neukazuje po jménech.",
@@ -133,7 +162,7 @@ export const ADDONS: Addon[] = [
     name: "Účetní",
     monthly: 100,
     yearly: 1000,
-    availableOn: ["free"],
+    availableOn: [],
     includedIn: ["basic", "starter", "pro"],
     info: "Role Účetní (jen čtení) a mzdové exporty: účetní vidí absence včetně nemoci (mzdy to potřebují), ale nic neschvaluje ani neupravuje. Od tarifu Starter je v ceně.",
   },
@@ -229,7 +258,7 @@ const ALL_FEATURE_MATRIX: FeatureGroup[] = [
     rows: [
       { feature: "exports", label: "Exporty (CSV, Excel), mzdový podklad a vyrovnání", benefit: "Data do Excelu, podklady pro mzdy, uzávěrka měsíce a vyrovnání dovolené při odchodu.", values: [false, true, true, true] },
       { feature: "ical", label: "iCal export kalendáře", benefit: "Kalendář absencí v telefonu, Outlooku nebo Google kalendáři.", values: [false, true, true, true] },
-      { feature: "accountant", label: "Role Účetní", benefit: "Účetní si podklady stáhne sama, bez psaní e-mailů.", values: ["addon", true, true, true] },
+      { feature: "accountant", label: "Role Účetní", benefit: "Účetní si podklady stáhne sama, bez psaní e-mailů.", values: [false, true, true, true] },
     ],
   },
   {
@@ -247,7 +276,7 @@ const ALL_FEATURE_MATRIX: FeatureGroup[] = [
       { feature: "escalation", label: "Eskalace schvalování a zástupy", benefit: "Žádost nezůstane viset, když je schvalovatel pryč.", values: [false, false, false, true] },
       { feature: "seniority", label: "Nárok podle odpracovaných let", benefit: "Automatický nárok podle délky zaměstnání a poměrná dovolená pro nováčky.", values: [false, false, true, true] },
       { feature: "audit_log", label: "Historie změn", benefit: "Kdo, kdy a co změnil — u žádostí, lidí i nastavení.", values: [false, false, true, true] },
-      { feature: "hr_insights", label: "Smart HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: ["addon", "addon", "addon", true] },
+      { feature: "hr_insights", label: "Smart HR", benefit: "Předpověď kapacity, trendy, dobití baterií a férové plánování.", values: [false, false, false, true] },
     ],
   },
 ];
