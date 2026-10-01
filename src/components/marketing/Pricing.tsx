@@ -10,22 +10,22 @@ import { getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/dodio-pri
 // are actually scoped: nothing is ever removed going up, only added. Shown
 // on the card as "Vše z <nižší tarif>, plus:" instead of repeating every
 // earlier item, so the checklist stays short at every tier.
-const FREE_FEATURES = [
-  "Žádosti a zůstatky pro každého",
-  "Rychlé schvalování žádostí",
-  "Týmový kalendář",
-  "Notifikace v Dodiu a e-mailem",
-  "Analytika a přehled kapacity",
-  "Chytré návrhy dovolené",
-  "Role HR zdarma na jakémkoli tarifu",
-  "GDPR ready",
+const FREE_FEATURES = ["Dovolená", "Absence", "Týmový kalendář", "Schvalování žádostí", "E-mailové notifikace"];
+
+const STARTER_ADDS = ["Exporty (CSV, Excel, ODS)", "Mzdové podklady", "iCal synchronizace kalendáře", "Účetní přístup"];
+
+const TEAM_ADDS = ["Audit log", "Automatický výpočet nároku", "Zástupy", "Pokročilé schvalování", "Pokročilá analytika"];
+
+const PRO_ADDS = [
+  "Smart HR",
+  "13týdenní predikce kapacity",
+  "Trendy",
+  "Anonymní nemocnost",
+  "Riziko propadnutí dovolené",
+  "Férové plánování",
+  "Eskalace schvalování",
+  "+39 Kč za každého dalšího člověka",
 ];
-
-const STARTER_ADDS = ["Exporty pro mzdy (CSV, Excel)", "iCal synchronizace kalendáře", "Doplňková role Účetní"];
-
-const TEAM_ADDS = ["Historie změn (audit log)", "Nárok podle odpracovaných let"];
-
-const PRO_ADDS = ["Smart HR — predikce kapacity a trendy", "Eskalace schvalování a zástupy", "Bez limitu uživatelů"];
 
 const PLAN_OWN_FEATURES: Record<PlanId, string[]> = {
   free: FREE_FEATURES,
@@ -119,7 +119,7 @@ export function Pricing() {
                 )}
               </div>
               <div className="text-sm text-dodio-ink-muted lg:text-[15px]">
-                {plan.forWhom} · {plan.usersLabel}
+                {plan.usersLabel}
               </div>
               <div className="flex flex-wrap items-baseline gap-1.5">
                 <span className="font-dodio-display text-[26px] font-extrabold tracking-[-1px] lg:text-[38px]">

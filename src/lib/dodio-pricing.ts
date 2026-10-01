@@ -14,7 +14,6 @@ interface PlanDefinition {
   name: string;
   usersLabel: string;
   monthlyPrice: number;
-  forWhom: string;
   /** Per-extra-user monthly surcharge above the plan's user cap (Pro only — it has no cap otherwise). */
   extraUserMonthlyPrice?: number;
   /** User count used only for the Pro example calculation. */
@@ -25,28 +24,25 @@ interface PlanDefinition {
 const YEARLY_MONTHS = 10;
 
 const PLAN_DEFINITIONS: PlanDefinition[] = [
-  { id: "free", name: "Free", usersLabel: "do 5 uživatelů", monthlyPrice: 0, forWhom: "Úplný začátek" },
+  { id: "free", name: "Free", usersLabel: "Do 5 lidí", monthlyPrice: 0 },
   {
     id: "starter",
     name: "Starter",
-    usersLabel: "do 10 uživatelů",
+    usersLabel: "Do 10 lidí",
     monthlyPrice: 290,
-    forWhom: "Malý tým, podklady pro mzdy",
   },
   {
     id: "team",
     name: "Team",
-    usersLabel: "do 15 uživatelů",
+    usersLabel: "Do 15 lidí",
     monthlyPrice: 590,
-    forWhom: "Rostoucí firma",
     recommended: true,
   },
   {
     id: "pro",
     name: "Pro",
-    usersLabel: "bez limitu (30 v ceně, pak 39 Kč/měs. za dalšího)",
+    usersLabel: "Do 30 lidí",
     monthlyPrice: 1190,
-    forWhom: "Firma, která lidi opravdu řídí",
     extraUserMonthlyPrice: 39,
     exampleUserCount: 50,
   },
@@ -74,7 +70,6 @@ export interface PlanPricing {
   id: PlanId;
   name: string;
   usersLabel: string;
-  forWhom: string;
   recommended: boolean;
   price: string;
   perUnit: "/ měs." | "/ rok" | "";
@@ -99,7 +94,6 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
         id: plan.id,
         name: plan.name,
         usersLabel: plan.usersLabel,
-        forWhom: plan.forWhom,
         recommended: false,
         price: "0 Kč",
         perUnit: "",
@@ -125,7 +119,6 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
         id: plan.id,
         name: plan.name,
         usersLabel: plan.usersLabel,
-        forWhom: plan.forWhom,
         recommended: false,
         price,
         perUnit,
@@ -144,7 +137,6 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
       id: plan.id,
       name: plan.name,
       usersLabel: plan.usersLabel,
-      forWhom: plan.forWhom,
       recommended: Boolean(plan.recommended),
       price,
       perUnit,

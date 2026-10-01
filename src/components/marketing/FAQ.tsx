@@ -65,11 +65,11 @@ const CATEGORIES = [
       },
       {
         q: "Musím Dodio vyzkoušet na kartu?",
-        a: "Ne. Tarif Free je zdarma do 5 uživatelů bez zadávání platební karty — stačí se zaregistrovat.",
+        a: "Ne. Tarif Free je zdarma do 5 lidí bez zadávání platební karty — stačí se zaregistrovat.",
       },
       {
         q: "Co když firma přeroste 30 lidí?",
-        a: "Nic se neděje — tarif Pro nemá horní limit uživatelů. Nad 30 lidí zaplatíte 39 Kč měsíčně za každého dalšího, Dodio zůstává stejné.",
+        a: "Nic se neděje — tarif Pro nemá horní limit lidí. Nad 30 lidí zaplatíte 39 Kč měsíčně za každého dalšího, Dodio zůstává stejné.",
       },
       {
         q: "Co je Smart HR?",
