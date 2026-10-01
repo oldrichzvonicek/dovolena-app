@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/Header";
 import { UsersPanel } from "@/components/admin/UsersPanel";
 import { DepartmentsPanel } from "@/components/admin/DepartmentsPanel";
 import { LeaveTypesPanel } from "@/components/admin/LeaveTypesPanel";
+import { CompanyProfilePanel } from "@/components/admin/CompanyProfilePanel";
 import { CompanySettingsPanel } from "@/components/admin/CompanySettingsPanel";
 import { BillingPanel } from "@/components/admin/BillingPanel";
 import { AuditLogPanel } from "@/components/admin/AuditLogPanel";
@@ -19,6 +20,7 @@ const titles: Record<string, string> = {
   users: "Uživatelé",
   departments: "Oddělení",
   "leave-types": "Typy absencí",
+  profile: "Profil firmy",
   general: "Kalendář a provoz",
   billing: "Fakturace & tarify",
   integrations: "Integrace",
@@ -48,6 +50,7 @@ function SettingsContent() {
         {active === "users" && <UsersPanel />}
         {active === "departments" && <DepartmentsPanel />}
         {active === "leave-types" && <LeaveTypesPanel />}
+        {active === "profile" && <CompanyProfilePanel />}
         {active === "general" && <CompanySettingsPanel />}
         {active === "billing" && <BillingPanel />}
         {active === "integrations" && <IntegrationsPanel />}

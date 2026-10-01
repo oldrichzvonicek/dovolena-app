@@ -76,7 +76,7 @@ export function OnboardingChecklist() {
           key: "logo",
           title: "Nahrajte logo firmy",
           hint: "Zobrazí se v appce a v e-mailech kolegům.",
-          href: "/admin/settings?sekce=general",
+          href: "/admin/settings?sekce=profile",
           cta: "Nahrát logo",
           done: !!company.data?.logo_url,
         },

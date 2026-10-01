@@ -6,7 +6,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useFeatures } from "@/lib/use-features";
 import type { FeatureKey } from "@/lib/plans";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock } from "lucide-react";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Landmark, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -40,6 +40,7 @@ const settingsGroups = [
   {
     title: "Lidé & Organizace",
     items: [
+      { key: "profile", label: "Profil firmy", icon: Landmark },
       { key: "users", label: "Uživatelé", icon: Users2 },
       { key: "departments", label: "Oddělení", icon: Building2 },
     ],

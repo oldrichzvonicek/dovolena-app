@@ -124,7 +124,8 @@ export const sections: HelpSection[] = [
       "Uživatelé — pozvání e-mailem, odkazem nebo CSV importem; hromadné akce (oddělení, nadřízený, nároky, deaktivace), roční nároky a individuální limit Home Office. Odcházející lidi deaktivujte — ztratí přístup a zmizí z kalendáře, historie zůstane.",
       "Oddělení — vedoucí a zástupce vedoucího, sloučení duplicit.",
       "Typy absencí — barvy, řazení přetažením, z jakého limitu se čerpá, automatické schválení do X dní, poměrné krácení nároku u nových zaměstnanců, výchozí nároky. Nepoužívané typy lze skrýt.",
-      "Kalendář a provoz — směny a pracovní dny, pravidla pro žádosti (předstih, zpětné zadávání, mínus), převod dovolenky do dalšího roku (max. dní a datum propadnutí), připomínky, kapacitní varování, blokované termíny, celozávodní dovolená a firemní logo.",
+      "Profil firmy — zobrazovaný název, logo a ID firmy.",
+      "Kalendář a provoz — směny a pracovní dny, pravidla pro žádosti (předstih, zpětné zadávání, mínus), převod dovolenky do dalšího roku (max. dní a datum propadnutí), připomínky, kapacitní varování, blokované termíny a celozávodní dovolená.",
       "Fakturace & tarify — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Team, Pro) a doplňky (Smart HR, Účetní), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
       ...(CHAT_INTEGRATIONS_ENABLED ? ["Integrace — napojení Slack, Microsoft Teams, Mattermost, Discord, Google Chat nebo libovolného webhooku; vyberete, které události se do kanálu posílají."] : []),
       "Historie změn — kdo, kdy a co v systému změnil.",
@@ -503,7 +504,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Kde nastavím firemní logo a fakturační údaje?",
     section: "Nastavení firmy (admin)",
-    a: "Logo v Nastavení firmy → Kalendář a provoz, fakturační údaje a způsob platby v Fakturace & tarify. Údaje o firmě lze načíst z ARES podle IČO.",
+    a: "Logo a název v Nastavení firmy → Profil firmy, fakturační údaje a způsob platby v Fakturace & tarify. Údaje o firmě lze načíst z ARES podle IČO.",
     roles: ["admin"],
   },
   {

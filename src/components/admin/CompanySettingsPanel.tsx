@@ -3,7 +3,7 @@
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Ban, Building2, CalendarOff, Check, CheckCircle2, Copy, Settings, Trash2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Ban, CalendarOff, CheckCircle2, Settings, Trash2, ShieldCheck } from "lucide-react";
 import { FeatureGate, LockedFeature, PlanTag } from "@/components/shared/FeatureGate";
 import { useFeatures } from "@/lib/use-features";
 import { useAuth } from "@/lib/auth-context";
@@ -22,9 +22,9 @@ import { Button } from "@/components/ui/button";
 import { DbBlackoutPeriod, DbCompany, DbDepartment, DbLeaveType, ShiftPattern } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
 import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
-import { LogoCard } from "@/components/admin/LogoCard";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 const shiftLabel: Record<ShiftPattern, string> = {
   none: "Jednosměnný (standardní pracovní doba)",
@@ -42,79 +42,16 @@ const weekDays = [
   { iso: 7, label: "Ne" },
 ];
 
-const sections = [
-  { id: "sec-obecne", label: "Informace o firmě" },
-  { id: "sec-kalendar", label: "Kalendář a směny" },
-  { id: "sec-pravidla", label: "Pravidla pro žádosti" },
-  { id: "sec-kapacita", label: "Kapacita" },
-  { id: "sec-zabezpeceni", label: "Zabezpečení" },
-  { id: "sec-blokace", label: "Blokované termíny" },
-  { id: "sec-celozavodni", label: "Celozávodní dovolená" },
+type SettingsTab = "kalendar" | "pravidla" | "kapacita" | "zabezpeceni" | "blokace" | "celozavodni";
+
+const tabs: { key: SettingsTab; label: string }[] = [
+  { key: "kalendar", label: "Kalendář a směny" },
+  { key: "pravidla", label: "Pravidla pro žádosti" },
+  { key: "kapacita", label: "Kapacita" },
+  { key: "zabezpeceni", label: "Zabezpečení" },
+  { key: "blokace", label: "Blokované termíny" },
+  { key: "celozavodni", label: "Celozávodní dovolená" },
 ];
-
-/**
- * Svislé menu sekcí, vlevo od obsahu (sticky) — na mobilu se mění na vodorovný scrollovací pruh, kde se
- * aktivní položka vždy dotáhne do vidu. Klik skočí na kotvu; scroll-spy sám zvýrazní, co je zrovna vidět.
- */
-function SectionIndex({ sections, active, onActive }: { sections: { id: string; label: string }[]; active: string; onActive: (id: string) => void }) {
-  useEffect(() => {
-    // Aktivní je poslední sekce, jejíž horní okraj už minul horní lištu; na samém konci stránky poslední sekce.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const update = () => {
-      timer = undefined;
-      const els = sections.map((s) => document.getElementById(s.id)).filter((e): e is HTMLElement => !!e);
-      let current = els[0]?.id ?? "";
-      for (const el of els) if (el.getBoundingClientRect().top <= 240) current = el.id;
-      const doc = document.scrollingElement ?? document.documentElement;
-      const scroller = document.querySelector("main");
-      const atBottom = doc.scrollTop + window.innerHeight >= doc.scrollHeight - 4 || (scroller ? scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4 && scroller.scrollHeight > scroller.clientHeight : false);
-      if (atBottom && els.length > 0) current = els[els.length - 1].id;
-      if (current) onActive(current);
-    };
-    const onScroll = () => {
-      if (!timer) timer = setTimeout(update, 40);
-    };
-    window.addEventListener("scroll", onScroll, true);
-    update();
-    return () => {
-      window.removeEventListener("scroll", onScroll, true);
-      if (timer) clearTimeout(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Na mobilu (vodorovný pruh) je užší než všech 8 položek — aktivní se sama nejspíš odscrolluje mimo obrazovku
-  // a vypadá to, že se při scrollování stránky nic neděje. Aktivní položku proto vždy dotáhneme zpátky do vidu.
-  useEffect(() => {
-    document.getElementById(`tab-${active}`)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [active]);
-
-  return (
-    <nav
-      aria-label="Sekce nastavení"
-      className="sticky top-4 z-20 -mx-1 flex shrink-0 gap-1.5 overflow-x-auto bg-paper/95 px-1 py-2 backdrop-blur sm:mx-0 sm:w-48 sm:flex-col sm:gap-0.5 sm:overflow-visible sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
-    >
-      {sections.map((s) => (
-        <a
-          key={s.id}
-          id={`tab-${s.id}`}
-          href={`#${s.id}`}
-          onClick={(e) => {
-            e.preventDefault();
-            document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-            onActive(s.id);
-          }}
-          className={cn(
-            "shrink-0 rounded-full border px-3 py-1 text-xs font-medium sm:block sm:rounded sm:border-0 sm:px-3 sm:py-1.5 sm:text-sm",
-            active === s.id ? "border-ink bg-ink text-white sm:bg-teal-light sm:text-teal-dark sm:font-semibold" : "border-line bg-white text-muted hover:bg-white hover:text-ink sm:bg-transparent sm:hover:bg-paper"
-          )}
-        >
-          {s.label}
-        </a>
-      ))}
-    </nav>
-  );
-}
 
 /** Číselný vstup s pevnou jednotkou vpravo (dní, hodin, %), ať je zřejmé, co číslo znamená. */
 function UnitInput({ unit, className, ...props }: { unit: string } & React.InputHTMLAttributes<HTMLInputElement>) {
@@ -260,8 +197,7 @@ export function CompanySettingsPanel() {
   const [blackouts, setBlackouts] = useState<DbBlackoutPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const save = useSaveStatus();
-  const [activeSection, setActiveSection] = useState("sec-obecne");
-  const [copiedId, setCopiedId] = useState(false);
+  const [tab, setTab] = useState<SettingsTab>("kalendar");
 
   async function load() {
     if (!profile) return;
@@ -297,60 +233,14 @@ export function CompanySettingsPanel() {
   if (loading || !company) return <LoadingCard rows={8} />;
 
   return (
-    // max-w tady, ne na stránce nadřazené všem sekcím Nastavení — pravý sloupec je formulář (popisek + přepínač
-    // vedle sebe), který na širokém monitoru natahoval popisek daleko od ovládacího prvku; jiné sekce (Uživatelé,
-    // Historie změn) jsou tabulky, které širokou obrazovku využijí, a max-width by jim naopak škodil.
-    <div className="flex max-w-[1120px] flex-col gap-6 sm:flex-row sm:items-start">
-      <SectionIndex sections={sections} active={activeSection} onActive={setActiveSection} />
+    // max-w tady, ne na stránce nadřazené všem sekcím Nastavení — formulář (popisek + přepínač vedle sebe) by se
+    // na širokém monitoru natahoval daleko od ovládacího prvku; jiné sekce (Uživatelé, Historie změn) jsou
+    // tabulky, které širokou obrazovku využijí, a max-width by jim naopak škodil.
+    <div className="max-w-[720px] space-y-4">
+      <SegmentedControl as="tabs" ariaLabel="Sekce nastavení" value={tab} onChange={setTab} options={tabs.map((t) => ({ key: t.key, label: t.label }))} />
 
-      <div className="min-w-0 flex-1 space-y-6">
-      <div id="sec-obecne" className="card scroll-mt-24 p-5">
-        <SectionHeader icon={<Building2 size={15} />} title="Informace o firmě" className="bg-sky-light text-sky-dark" />
-
-        <div className="mt-4">
-          <label className="mb-1.5 block text-sm font-medium">Název firmy</label>
-          <input
-            defaultValue={company.name}
-            aria-label="Název firmy"
-            className="w-full max-w-sm rounded border border-line bg-white px-3 py-2 text-sm"
-            onBlur={(e) => {
-              const v = e.target.value.trim();
-              if (v && v !== company.name) patch({ name: v });
-              else e.target.value = company.name;
-            }}
-          />
-          <p className="mt-1 text-xs text-muted">Zobrazovaný název — v hlavičce appky a v e-mailech. Na faktuře se nepoužívá, tu řídí Obchodní název ve Fakturaci.</p>
-        </div>
-
-        <div className="mt-4">
-          <LogoCard />
-        </div>
-
-        <div className="mt-4">
-          <label className="mb-1 block text-xs font-medium text-muted">ID firmy</label>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded border border-line bg-paper px-2 py-1 font-mono text-xs tracking-wide text-muted">DOD-{company.seq_id}</span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(`DOD-${company.seq_id}`);
-                  setCopiedId(true);
-                  setTimeout(() => setCopiedId(false), 2000);
-                } catch {
-                  /* clipboard blocked */
-                }
-              }}
-            >
-              {copiedId ? <Check size={12} className="text-teal-dark" /> : <Copy size={12} />} {copiedId ? "Zkopírováno" : "Kopírovat"}
-            </Button>
-          </div>
-          <p className="mt-1 text-xs text-muted">Použijte při komunikaci s podporou.</p>
-        </div>
-      </div>
-
-      <div id="sec-kalendar" className="card scroll-mt-24 p-5">
+      {tab === "kalendar" && (
+      <div className="card p-5">
         <SectionHeader icon={<Settings size={15} />} title="Kalendář a směny" />
 
         <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
@@ -417,22 +307,27 @@ export function CompanySettingsPanel() {
           </div>
         </div>
       </div>
+      )}
 
-      <div id="sec-pravidla" className="card scroll-mt-24 p-5">
+      {tab === "pravidla" && (
+      <div className="card p-5">
         <SectionHeader icon={<CalendarOff size={15} />} title="Pravidla pro žádosti" className="bg-warning-light text-warning-dark" />
 
         <div className="mt-4 space-y-4">
           <div className="rounded border border-line p-4">
-            <div className="text-sm font-medium">Minimální předstih</div>
+            <div className="text-sm font-medium">Minimální předstih pro delší dovolenou</div>
             <p className="mt-0.5 text-sm text-muted">
               Žádosti delší než zadaný počet dní je nutné podat s předstihem.
             </p>
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              Dovolenou delší než
-              <UnitInput unit="dní" min={0} step={0.5} defaultValue={company.min_advance_threshold_days} aria-label="Délka dovolené od které platí předstih" onBlur={(e) => patch({ min_advance_threshold_days: Number(e.target.value) })} />
-              je nutné zadat nejméně
-              <UnitInput unit="dní" min={0} defaultValue={company.min_advance_days} aria-label="Minimální předstih ve dnech" onBlur={(e) => patch({ min_advance_days: Number(e.target.value) })} />
-              předem.
+            <div className="mt-2.5 flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted">Délka od</span>
+                <UnitInput unit="dní" min={0} step={0.5} defaultValue={company.min_advance_threshold_days} aria-label="Délka dovolené od které platí předstih" onBlur={(e) => patch({ min_advance_threshold_days: Number(e.target.value) })} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted">Předstih</span>
+                <UnitInput unit="dní" min={0} defaultValue={company.min_advance_days} aria-label="Minimální předstih ve dnech" onBlur={(e) => patch({ min_advance_days: Number(e.target.value) })} />
+              </div>
             </div>
           </div>
 
@@ -500,8 +395,10 @@ export function CompanySettingsPanel() {
           </div>
         </div>
       </div>
+      )}
 
-      <div id="sec-kapacita" className="card scroll-mt-24 p-5">
+      {tab === "kapacita" && (
+      <div className="card p-5">
         <SectionHeader icon={<AlertTriangle size={15} />} title="Kapacita a přeposílání žádostí" className="bg-danger-light text-danger" />
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -532,8 +429,10 @@ export function CompanySettingsPanel() {
         </div>
 
       </div>
+      )}
 
-      <div id="sec-zabezpeceni" className="card scroll-mt-24 p-5">
+      {tab === "zabezpeceni" && (
+      <div className="card p-5">
         <SectionHeader icon={<ShieldCheck size={15} />} title="Zabezpečení a schvalování" />
         <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
           <div>
@@ -587,13 +486,13 @@ export function CompanySettingsPanel() {
           />
         </label>
       </div>
+      )}
 
-      <BlackoutPeriodsSection companyId={profile!.company_id} blackouts={blackouts} onReload={load} />
+      {tab === "blokace" && <BlackoutPeriodsSection companyId={profile!.company_id} blackouts={blackouts} onReload={load} />}
 
-      <CompanyWideLeaveSection companyId={profile!.company_id} leaveTypes={leaveTypes} />
+      {tab === "celozavodni" && <CompanyWideLeaveSection companyId={profile!.company_id} leaveTypes={leaveTypes} />}
 
       <SaveStatusBar status={save.status} error={save.error} />
-      </div>
     </div>
   );
 }
@@ -632,7 +531,7 @@ function BlackoutPeriodsSection({
   }
 
   return (
-    <div id="sec-blokace" className="card scroll-mt-24 p-5">
+    <div className="card p-5">
       <SectionHeader icon={<Ban size={15} />} title="Blokované termíny" className="bg-danger-light text-danger" />
       <p className="mt-1 text-sm text-muted">
         Během těchto dat nejde podat běžnou žádost o absenci (např. celofiremní inventura, uzávěrka).
@@ -764,7 +663,7 @@ function CompanyWideLeaveSection({ companyId, leaveTypes }: { companyId: string;
   }
 
   return (
-    <div id="sec-celozavodni" className="card scroll-mt-24 p-5">
+    <div className="card p-5">
       <SectionHeader icon={<CheckCircle2 size={15} />} title="Celozávodní dovolená" />
       <p className="mt-1 text-sm text-muted">
         Naplánuje schválenou dovolenou rovnou všem (nebo vybraným) zaměstnancům firmy (např. vánoční odstávka) — u
