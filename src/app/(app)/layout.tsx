@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { canSeeAnalytics, canSeeInsights, canSeeReports, canSeeSettings, isHr } from "@/lib/access";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
@@ -11,11 +12,34 @@ import { ProductTour } from "@/components/layout/ProductTour";
 import { ConfirmHost } from "@/components/shared/ConfirmHost";
 import { Toaster } from "@/components/ui/toaster";
 import { MfaGate } from "@/components/layout/MfaGate";
+import { CompanyAccessGate } from "@/components/layout/CompanyAccessGate";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { session, profile, loading, signOut } = useAuth();
+  const { session, profile, loading, signOut, refreshProfile } = useAuth();
   // If a signed-in user's profile never shows up (e.g. sign-up was interrupted) offer a way out instead of a dead screen.
   const [waitedTooLong, setWaitedTooLong] = useState(false);
+  // Dokončit založení firmy rovnou tady — bez toho by jediná cesta ven byla odhlásit se a registrovat znovu
+  // (viz completeOnboarding: uložená volba ze signupu se smaže, jakmile ji jednou zkusí a nevyjde).
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setupName, setSetupName] = useState("");
+  const [setupCompany, setSetupCompany] = useState("");
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
+
+  async function finishSetup(e: React.FormEvent) {
+    e.preventDefault();
+    setSetupBusy(true);
+    setSetupError(null);
+    try {
+      const { error } = await createClient().rpc("onboard_new_company", { p_company_name: setupCompany, p_admin_name: setupName });
+      if (error) throw error;
+      await refreshProfile();
+    } catch (err) {
+      setSetupError(err instanceof Error ? err.message : "Nepodařilo se dokončit založení firmy.");
+    } finally {
+      setSetupBusy(false);
+    }
+  }
   useEffect(() => {
     if (loading || !session || profile) {
       setWaitedTooLong(false);
@@ -66,20 +90,56 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-paper px-4 text-center text-sm text-muted">
         <div>Připravuji účet…</div>
-        {waitedTooLong && (
+        {waitedTooLong && !setupOpen && (
           <>
             <p className="max-w-sm">
-              Trvá to déle než obvykle. Váš účet se nepodařilo dokončit — zkuste stránku obnovit, nebo se odhlaste a zaregistrujte znovu. Kdyby potíže trvaly, kontaktujte správce firmy.
+              Trvá to déle než obvykle. Nejspíš jste neměli pozvánku do žádné firmy — rovnou si ji tady založte, nebo to zkuste jinak.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
+              <button onClick={() => setSetupOpen(true)} className="rounded bg-teal-dark px-4 py-2 text-white hover:bg-teal-dark/90">
+                Založit firmu
+              </button>
               <button onClick={() => window.location.reload()} className="rounded border border-line bg-white px-4 py-2 text-ink hover:bg-paper">
                 Obnovit stránku
               </button>
-              <button onClick={() => signOut()} className="rounded bg-teal-dark px-4 py-2 text-white hover:bg-teal-dark/90">
+              <button onClick={() => signOut()} className="rounded border border-line bg-white px-4 py-2 text-ink hover:bg-paper">
                 Odhlásit se
               </button>
             </div>
           </>
+        )}
+        {waitedTooLong && setupOpen && (
+          <form onSubmit={finishSetup} className="w-full max-w-sm space-y-3 rounded-lg border border-line bg-white p-5 text-left">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">Vaše jméno</label>
+              <input
+                required
+                value={setupName}
+                onChange={(e) => setSetupName(e.target.value)}
+                className="w-full rounded border border-line px-3 py-2 text-sm text-ink"
+                placeholder="Jan Novák"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">Název firmy</label>
+              <input
+                required
+                value={setupCompany}
+                onChange={(e) => setSetupCompany(e.target.value)}
+                className="w-full rounded border border-line px-3 py-2 text-sm text-ink"
+                placeholder="Název firmy s.r.o."
+              />
+            </div>
+            {setupError && <p className="text-xs text-danger">{setupError}</p>}
+            <div className="flex gap-2">
+              <button type="submit" disabled={setupBusy} className="rounded bg-teal-dark px-4 py-2 text-sm text-white hover:bg-teal-dark/90 disabled:opacity-60">
+                {setupBusy ? "Zakládám…" : "Založit a pokračovat"}
+              </button>
+              <button type="button" onClick={() => setSetupOpen(false)} className="rounded border border-line px-4 py-2 text-sm text-ink hover:bg-paper">
+                Zpět
+              </button>
+            </div>
+          </form>
         )}
       </div>
     );
@@ -88,6 +148,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (forbidden) return null;
 
   return (
+    <CompanyAccessGate>
     <MfaGate>
     <div className="flex">
       <a
@@ -109,5 +170,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <Toaster />
     </div>
     </MfaGate>
+    </CompanyAccessGate>
   );
 }
