@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DbDepartment } from "@/lib/supabase/types";
+import { userLimitOf } from "@/lib/plans";
 import { cn, errorMessage } from "@/lib/utils";
 
 type ManagerStatus = "none" | "existing" | "from-file" | "not-found";
@@ -55,6 +56,7 @@ export function ImportEmployeesPanel() {
   const [employees, setEmployees] = useState<AdminEmployeeRow[]>([]);
   const [invites, setInvites] = useState<CompanyInviteRow[]>([]);
   const [defaults, setDefaults] = useState({ vacation: 20, sick: 5 });
+  const [companyPlan, setCompanyPlan] = useState<string | null>(null);
 
   const [table, setTable] = useState<string[][] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -83,6 +85,7 @@ export function ImportEmployeesPanel() {
     setEmployees(emps);
     setInvites(inv);
     setDefaults({ vacation: company.default_vacation_days, sick: company.default_sick_days });
+    setCompanyPlan(company.plan);
   }
 
   useEffect(() => {
@@ -164,6 +167,13 @@ export function ImportEmployeesPanel() {
   ].filter(Boolean);
   const hasEmailColumn = mapping.email !== undefined;
   const anyMissingEmail = rows.some((r) => r.issues.includes("missing-email"));
+
+  // Odhad kapacity tarifu předem — appka ji stejně vynucuje až při potvrzení (assert_user_capacity v DB),
+  // ale bez tohohle by člověk vyplnil celé mapování a náhled 30 lidí a teprve na konci dostal chybu.
+  const activeEmployeeCount = employees.filter((e) => e.active && !e.is_demo).length;
+  const planLimit = userLimitOf(companyPlan);
+  const remainingCapacity = planLimit === null ? null : Math.max(0, planLimit - activeEmployeeCount - invites.length);
+  const overCapacity = remainingCapacity !== null && importable.length > remainingCapacity;
 
   // Nadřízený: existující zaměstnanec, jiný řádek v souboru, nebo nenalezen.
   const existingNames = useMemo(() => new Map(employees.map((e) => [e.name.trim().toLowerCase(), e])), [employees]);
@@ -398,6 +408,14 @@ export function ImportEmployeesPanel() {
               K importu {importable.length} z {rows.length} řádků
               {skipped > 0 && <span className="text-warning-dark"> · přeskočeno {skipped}{reasons.length > 0 ? ` (${reasons.join(", ")})` : ""}</span>}
             </p>
+            {overCapacity && (
+              <p className="mt-3 flex items-start gap-1.5 rounded border border-warning/40 bg-warning-light p-3 text-sm text-warning-dark">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                Tarif má volnou kapacitu jen pro {remainingCapacity} z {importable.length} připravených k importu (teď {activeEmployeeCount} aktivních
+                {invites.length > 0 ? ` + ${invites.length} čekajících pozvánek` : ""}, limit tarifu {planLimit}). Zbytek appka při potvrzení odmítne —
+                zvyšte tarif (Nastavení firmy → Fakturace &amp; tarify), nebo soubor zmenšete.
+              </p>
+            )}
           </div>
           <div className="max-h-[50vh] overflow-auto">
             <table className="w-full min-w-[820px] text-sm">
