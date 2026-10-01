@@ -7,3 +7,6 @@ tsconfig.tsbuildinfo
 supabase/.temp
 .claude
 .env*.local
+
+.vercel
+.env*

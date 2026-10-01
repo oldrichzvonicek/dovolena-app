@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AppLockup } from "@/components/shared/AppLockup";
 import { claimInvite } from "@/lib/admin-data";
 import { joinCompanyByCode, publicCompanyNameByCode } from "@/lib/join-link";
-import { saveOnboardingIntent } from "@/lib/onboarding-intent";
+import { readOnboardingIntent, saveOnboardingIntent } from "@/lib/onboarding-intent";
 import { LEGAL } from "@/lib/legal";
 import { cn, errorMessage } from "@/lib/utils";
 
@@ -97,6 +97,12 @@ function LoginForm() {
         else setError("Váš účet byl deaktivován. Obraťte se na administrátora firmy.");
       }
       if (legacyLink) setError("Tento registrační odkaz už neplatí. Požádejte správce firmy o nový.");
+      // Potvrzovací e-mail přesměruje sem bez jakéhokoli parametru, co by to prozradilo — uložená volba ze
+      // signupu (viz onboarding-intent.ts) je jediná stopa, že člověk právě potvrdil registraci a jen neví,
+      // co dál. Dokud se nepřihlásí (completeOnboarding ji pak smaže), má smysl mu to připomenout při každé návštěvě.
+      if (!flag && !legacyLink && readOnboardingIntent()) {
+        setInfo("Pokud jste právě potvrdili e-mail z registrace, přihlaste se teď — vaše firma se dokončí automaticky.");
+      }
     } catch {}
     // Jen při prvním načtení stránky — jinak by se "deaktivováno" hlásilo znovu při každém překreslení.
     // eslint-disable-next-line react-hooks/exhaustive-deps
