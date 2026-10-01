@@ -64,6 +64,8 @@ export function BillingPanel() {
   const dirty = !!billing && !!draft && JSON.stringify(draft) !== JSON.stringify(toDraft(billing));
   const warnDirty = dirty && touched;
   const invoiceEmailMissing = (billing?.payment_method ?? "invoice") === "invoice" && !!draft && !draft.billing_email.trim();
+  // Na faktuře se nikdy nepoužije firemní "Název firmy" jako záloha — bez vyplněného Obchodního názvu by faktura zůstala bez jména.
+  const billingNameMissing = !!draft && !draft.billing_name.trim();
 
   // Explicit-save form: warn before the browser tab is closed with unsaved changes the person actually made.
   useEffect(() => {
@@ -84,6 +86,10 @@ export function BillingPanel() {
 
   async function handleSaveBilling() {
     if (!profile || !billing || !draft) return;
+    if (billingNameMissing) {
+      setSaveMsg({ text: "Obchodní název je povinný — appka ho používá na faktuře, nic ho nezálohuje.", error: true });
+      return;
+    }
     if (invoiceEmailMissing) {
       setSaveMsg({ text: "E-mail pro faktury je povinný při platbě fakturou (jinak nemáme kam doklady poslat).", error: true });
       return;
@@ -192,7 +198,20 @@ export function BillingPanel() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {field("Obchodní název", "billing_name", true)}
+          <div className="sm:col-span-2">
+            <label htmlFor="billing-name" className="mb-1.5 block text-sm font-medium">
+              Obchodní název <span className="text-danger" aria-label="povinné">*</span>
+            </label>
+            <input
+              id="billing-name"
+              value={draft.billing_name}
+              onChange={(e) => setField("billing_name", e.target.value)}
+              required
+              aria-invalid={billingNameMissing}
+              className={cn("w-full rounded border px-3 py-2 text-sm", billingNameMissing ? "border-danger" : "border-line")}
+            />
+            {billingNameMissing && <p className="mt-1 text-xs text-danger-dark">Povinné — appka ho použije na faktuře místo „Názvu firmy“.</p>}
+          </div>
           {field("IČO", "billing_ico")}
           {field("DIČ", "billing_dic")}
           {field("Ulice a číslo", "billing_street", true)}

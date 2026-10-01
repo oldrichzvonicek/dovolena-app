@@ -53,7 +53,10 @@ const sections = [
   { id: "sec-celozavodni", label: "Celozávodní dovolená" },
 ];
 
-/** Sticky in-page index: jumps to a section and highlights the one currently in view. */
+/**
+ * Svislé menu sekcí, vlevo od obsahu (sticky) — na mobilu se mění na vodorovný scrollovací pruh, kde se
+ * aktivní položka vždy dotáhne do vidu. Klik skočí na kotvu; scroll-spy sám zvýrazní, co je zrovna vidět.
+ */
 function SectionIndex({ sections, active, onActive }: { sections: { id: string; label: string }[]; active: string; onActive: (id: string) => void }) {
   useEffect(() => {
     // Aktivní je poslední sekce, jejíž horní okraj už minul horní lištu; na samém konci stránky poslední sekce.
@@ -81,14 +84,17 @@ function SectionIndex({ sections, active, onActive }: { sections: { id: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Na mobilu je ten pruh užší než všech 7 položek — aktivní se sama nejspíš odscrolluje mimo obrazovku a
-  // vypadá to, že se při scrollování stránky nic neděje. Aktivní položku proto vždy dotáhneme zpátky do vidu.
+  // Na mobilu (vodorovný pruh) je užší než všech 8 položek — aktivní se sama nejspíš odscrolluje mimo obrazovku
+  // a vypadá to, že se při scrollování stránky nic neděje. Aktivní položku proto vždy dotáhneme zpátky do vidu.
   useEffect(() => {
     document.getElementById(`tab-${active}`)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [active]);
 
   return (
-    <nav aria-label="Sekce provozu" className="sticky top-0 z-20 -mx-1 flex gap-1.5 overflow-x-auto bg-paper/95 px-1 py-2 backdrop-blur">
+    <nav
+      aria-label="Sekce nastavení"
+      className="sticky top-4 z-20 -mx-1 flex shrink-0 gap-1.5 overflow-x-auto bg-paper/95 px-1 py-2 backdrop-blur sm:mx-0 sm:w-48 sm:flex-col sm:gap-0.5 sm:overflow-visible sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+    >
       {sections.map((s) => (
         <a
           key={s.id}
@@ -100,8 +106,8 @@ function SectionIndex({ sections, active, onActive }: { sections: { id: string; 
             onActive(s.id);
           }}
           className={cn(
-            "shrink-0 rounded-full border px-3 py-1 text-xs font-medium",
-            active === s.id ? "border-ink bg-ink text-white" : "border-line bg-white text-muted hover:bg-white hover:text-ink"
+            "shrink-0 rounded-full border px-3 py-1 text-xs font-medium sm:block sm:rounded sm:border-0 sm:px-3 sm:py-1.5 sm:text-sm",
+            active === s.id ? "border-ink bg-ink text-white sm:bg-teal-light sm:text-teal-dark sm:font-semibold" : "border-line bg-white text-muted hover:bg-white hover:text-ink sm:bg-transparent sm:hover:bg-paper"
           )}
         >
           {s.label}
@@ -292,12 +298,13 @@ export function CompanySettingsPanel() {
   if (loading || !company) return <LoadingCard rows={8} />;
 
   return (
-    // max-w tady, ne na stránce nadřazené všem sekcím Nastavení — tahle sekce je formulář (popisek + přepínač
+    // max-w tady, ne na stránce nadřazené všem sekcím Nastavení — pravý sloupec je formulář (popisek + přepínač
     // vedle sebe), který na širokém monitoru natahoval popisek daleko od ovládacího prvku; jiné sekce (Uživatelé,
     // Historie změn) jsou tabulky, které širokou obrazovku využijí, a max-width by jim naopak škodil.
-    <div className="max-w-[900px] space-y-6">
+    <div className="flex max-w-[1120px] flex-col gap-6 sm:flex-row sm:items-start">
       <SectionIndex sections={sections} active={activeSection} onActive={setActiveSection} />
 
+      <div className="min-w-0 flex-1 space-y-6">
       <div id="sec-obecne" className="card scroll-mt-24 p-5">
         <SectionHeader icon={<Building2 size={15} />} title="Obecné" className="bg-sky-light text-sky-dark" />
 
@@ -313,17 +320,16 @@ export function CompanySettingsPanel() {
               else e.target.value = company.name;
             }}
           />
-          <p className="mt-1 text-xs text-muted">
-            Zobrazuje se v hlavičce a e-mailech. Na faktuře se použije jen tehdy, když ve Fakturaci nevyplníte vlastní obchodní název.
-          </p>
+          <p className="mt-1 text-xs text-muted">Zobrazovaný název — v hlavičce appky a v e-mailech. Na faktuře se nepoužívá, tu řídí Obchodní název ve Fakturaci.</p>
         </div>
 
         <div className="mt-4">
-          <label className="mb-1.5 block text-sm font-medium">ID firmy</label>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded border border-line bg-paper px-3 py-1.5 font-mono text-sm tracking-wide">DOD-{company.seq_id}</span>
+          <label className="mb-1 block text-xs font-medium text-muted">ID firmy</label>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded border border-line bg-paper px-2 py-1 font-mono text-xs tracking-wide text-muted">DOD-{company.seq_id}</span>
             <Button
               variant="secondary"
+              size="sm"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(`DOD-${company.seq_id}`);
@@ -334,10 +340,10 @@ export function CompanySettingsPanel() {
                 }
               }}
             >
-              {copiedId ? <Check size={14} className="text-teal-dark" /> : <Copy size={14} />} {copiedId ? "Zkopírováno" : "Kopírovat"}
+              {copiedId ? <Check size={12} className="text-teal-dark" /> : <Copy size={12} />} {copiedId ? "Zkopírováno" : "Kopírovat"}
             </Button>
           </div>
-          <p className="mt-1 text-xs text-muted">Uveďte ho, když řešíte cokoliv s podporou.</p>
+          <p className="mt-1 text-xs text-muted">Použijte při komunikaci s podporou.</p>
         </div>
       </div>
 
@@ -588,6 +594,7 @@ export function CompanySettingsPanel() {
       <CompanyWideLeaveSection companyId={profile!.company_id} leaveTypes={leaveTypes} />
 
       <SaveStatusBar status={save.status} error={save.error} />
+      </div>
     </div>
   );
 }
