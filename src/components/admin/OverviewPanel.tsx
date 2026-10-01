@@ -25,6 +25,8 @@ import { PrintPreviewModal } from "@/components/ui/print-preview-modal";
 import { useFeatures } from "@/lib/use-features";
 import { fetchAnalyticsDepartmentIds } from "@/lib/approval-scope";
 import { fetchAll } from "@/lib/fetch-all";
+import { leaveColorBg } from "@/lib/leave-colors";
+import { TeamAnalyticsSection } from "@/components/manager/TeamAnalyticsSection";
 
 interface State {
   employeeCount: number;
@@ -43,21 +45,6 @@ interface State {
     leave_type: { key: string; label: string; color: LeaveColor };
   }[];
 }
-
-const colorBg: Record<LeaveColor, string> = {
-  teal: "bg-teal",
-  rust: "bg-rust",
-  moss: "bg-moss",
-  violet: "bg-violet",
-  amber: "bg-amber",
-  sky: "bg-sky",
-  plum: "bg-plum",
-  sage: "bg-sage",
-  gold: "bg-gold",
-  wine: "bg-wine",
-  slate: "bg-slate",
-  forest: "bg-forest",
-};
 
 // Czech locative ("v říjnu") for the "Později v …" group headings.
 const monthLocative = ["lednu", "únoru", "březnu", "dubnu", "květnu", "červnu", "červenci", "srpnu", "září", "říjnu", "listopadu", "prosinci"];
@@ -83,6 +70,8 @@ const presetLabels: [Preset, string][] = [
 
 export function OverviewPanel() {
   const { profile } = useAuth();
+  // Plain manažer (ne HR/účetní) dostává týmově zaměřenou Analytiku (TeamAnalyticsSection) místo celofiremních KPI a grafu podle oddělení.
+  const isPlainManager = profile?.role === "manager" && !profile?.staff_role;
   const features = useFeatures();
   const canExport = features.has("exports");
   const [state, setState] = useState<State | null>(null);
@@ -329,8 +318,9 @@ export function OverviewPanel() {
         ).size
       : 0;
 
-  const retroReport =
-    state && kpis ? (
+  const retroReport = isPlainManager ? (
+    profile && <TeamAnalyticsSection profile={profile} departments={departments} range={range} onOpenDetail={setDetailFor} />
+  ) : state && kpis ? (
       <div className="mt-6 space-y-6">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           <Link href="/admin/settings" className="card p-5 transition-colors hover:border-teal/40">
@@ -377,7 +367,7 @@ export function OverviewPanel() {
                   {state.byType.map((t) => (
                     <div
                       key={t.label}
-                      className={cn("h-full shrink-0", colorBg[t.color])}
+                      className={cn("h-full shrink-0", leaveColorBg[t.color])}
                       style={{ width: `${totalTypeDays > 0 ? (t.days / totalTypeDays) * 100 : 0}%` }}
                       title={`${t.label}: ${formatNumber(t.days)} ${dayWord(t.days)}`}
                     />
@@ -387,7 +377,7 @@ export function OverviewPanel() {
                 <div className="mt-3 space-y-2.5">
                   {state.byType.map((t) => (
                     <div key={t.label} className="flex items-center gap-2 text-sm">
-                      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", colorBg[t.color])} />
+                      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", leaveColorBg[t.color])} />
                       <span className="flex-1">{t.label}</span>
                       <span className="text-muted">
                         {t.count}× · {formatNumber(t.days)} {dayWord(t.days)}
