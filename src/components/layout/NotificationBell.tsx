@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, MessageCircleQuestion, PalmtreeIcon, Undo2, X } from "lucide-react";
+import { Bell, Check, MessageCircleQuestion, PalmtreeIcon, Rocket, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   NotificationRow,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { emitDataChanged } from "@/lib/events";
 
 const typeMeta: Record<NotificationType, { icon: typeof Bell; className: string; href: string }> = {
   request_created: { icon: Bell, className: "bg-warning-light text-warning-dark", href: "/approvals" },
@@ -23,6 +24,8 @@ const typeMeta: Record<NotificationType, { icon: typeof Bell; className: string;
   cancellation_resolved: { icon: Undo2, className: "bg-teal-light text-teal-dark", href: "/requests" },
   help_question: { icon: MessageCircleQuestion, className: "bg-violet-light text-violet-dark", href: "/help" },
 };
+
+const onboardingHiddenKey = (companyId: string) => `dodio:onboarding-hidden:${companyId}`;
 
 function timeAgo(iso: string): string {
   const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -41,10 +44,34 @@ export function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [emailOn, setEmailOn] = useState(true);
+  // Karta "Začínáme s Dodiem" na dashboardu se po skrytí křížkem jinak už nedá nijak znovu zobrazit —
+  // tohle je jediná trvalá cesta zpátky k ní (viz OnboardingChecklist.tsx).
+  const [onboardingHidden, setOnboardingHidden] = useState(false);
 
   useEffect(() => {
     if (profile) setEmailOn(profile.email_notifications !== false);
   }, [profile]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== "admin") return;
+    try {
+      setOnboardingHidden(localStorage.getItem(onboardingHiddenKey(profile.company_id)) === "1");
+    } catch {
+      setOnboardingHidden(false);
+    }
+  }, [profile, open]);
+
+  function reopenOnboarding() {
+    if (!profile) return;
+    try {
+      localStorage.removeItem(onboardingHiddenKey(profile.company_id));
+    } catch {
+      /* ignore */
+    }
+    setOnboardingHidden(false);
+    emitDataChanged(); // OnboardingChecklist poslouchá tuhle událost a znovu si načte stav skrytí.
+    setOpen(false);
+  }
 
   // Stejné nastavení jako v Můj účet → E-mailová upozornění — po změně zde se musí opravit i sdílený
   // profil v kontextu (refreshProfile), jinak by na stránce Můj účet ukazoval starý (nepřepnutý) stav.
@@ -139,6 +166,21 @@ export function NotificationBell() {
             )}
           </div>
           <div className="max-h-96 overflow-y-auto">
+            {onboardingHidden && (
+              <Link
+                href="/dashboard"
+                onClick={reopenOnboarding}
+                className="flex items-start gap-2.5 border-b border-line bg-teal-light/30 px-4 py-3 hover:bg-teal-light/50"
+              >
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-light text-teal-dark">
+                  <Rocket size={14} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-ink">Pokračovat v nastavení Dodia</span>
+                  <span className="mt-0.5 block text-xs text-muted">Kartu Začínáme jste si dřív skryli — tady ji zase otevřete.</span>
+                </span>
+              </Link>
+            )}
             {loading && <div className="p-4 text-sm text-muted">Načítám…</div>}
             {!loading && items.length === 0 && <div className="p-4 text-sm text-muted">Zatím žádné notifikace.</div>}
             {items.map((n) => {
