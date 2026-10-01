@@ -154,9 +154,3 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
     };
   });
 }
-
-/** Standalone add-ons purchasable on top of the lower tiers (Smart HR, Účetní). */
-export const ADDONS = [
-  { name: "Smart HR", monthlyPrice: 200, note: "predikce kapacity, trendy, rychlost schvalování" },
-  { name: "Účetní", monthlyPrice: 100, note: "doplňková role jen pro čtení mzdových podkladů" },
-];

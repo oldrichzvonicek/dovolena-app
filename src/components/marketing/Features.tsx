@@ -203,7 +203,7 @@ export function Features() {
             points={[
               "Vlastní typy absencí a pravidla čerpání přesně podle vaší firmy.",
               "Import zaměstnanců a hromadné akce — rozjezd za minuty, ne za týdny.",
-              "Role HR zdarma na jakémkoli tarifu, Účetní jako doplněk — každý vidí jen to, co má.",
+              "Role HR zdarma na jakémkoli tarifu, role Účetní od tarifu Starter — každý vidí jen to, co má.",
             ]}
           />
         </div>

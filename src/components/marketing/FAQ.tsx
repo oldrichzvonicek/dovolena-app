@@ -73,7 +73,7 @@ const CATEGORIES = [
       },
       {
         q: "Co je Smart HR?",
-        a: "Nástroje pro řízení týmu navíc k evidenci — predikce kapacity oddělení, upozornění na nerovnoměrné čerpání dovolené v týmu a přehled, kdo si dovolenou skutečně vybírá. Součást tarifu Pro, nebo jako doplněk k nižším tarifům.",
+        a: "Nástroje pro řízení týmu navíc k evidenci — predikce kapacity oddělení, upozornění na nerovnoměrné čerpání dovolené v týmu a přehled, kdo si dovolenou skutečně vybírá. Součást tarifu Pro.",
       },
       {
         q: "Jsme vázáni dlouhodobou smlouvou?",

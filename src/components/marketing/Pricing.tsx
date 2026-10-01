@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Container } from "./Container";
 import { CheckIcon } from "./icons";
-import { ADDONS, getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/dodio-pricing";
+import { getPlanPricing, type BillingPeriod, type PlanId } from "@/lib/dodio-pricing";
 
 // Each tier's feature list is cumulative — Starter includes everything Free
 // has plus its own additions, and so on up to Pro. Matches how the tiers
@@ -151,31 +151,6 @@ export function Pricing() {
               </a>
             </div>
           ))}
-        </div>
-
-        <div className="flex flex-col gap-4 rounded-dodio-lg border border-dodio-border p-6 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:p-8">
-          <div className="flex flex-col gap-1.5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
-              Doplňky k dokoupení pro nižší tarify
-            </div>
-            <div className="text-sm text-dodio-ink-muted">
-              Smart HR a role Účetní nejsou jen ve vyšších tarifech — dokoupíte je samostatně, i když je
-              ještě nepotřebujete jako celý balíček.
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {ADDONS.map((addon) => (
-              <div
-                key={addon.name}
-                className="rounded-dodio-md border border-dodio-border bg-dodio-surface px-4 py-3"
-              >
-                <div className="text-sm font-semibold text-dodio-ink">
-                  {addon.name} <span className="font-normal text-dodio-ink-muted">— {addon.monthlyPrice} Kč / měs.</span>
-                </div>
-                <div className="text-xs text-dodio-ink-muted">{addon.note}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </Container>
     </section>
