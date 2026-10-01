@@ -82,7 +82,7 @@ export default async function ApprovePage(props: { params: Promise<{ token: stri
     return (
       <Message
         title={justNow ? `Hotovo — žádost je ${done}` : `Žádost už je ${done}`}
-        text={`${profile?.name ?? "Zaměstnanec"}: ${type}, ${range}.${justNow ? " Zaměstnanci jsme dali vědět." : ""}${req.status === "rejected" && req.rejection_reason ? ` Důvod: ${req.rejection_reason}` : ""}`}
+        text={`${profile?.name ?? "Zaměstnanec"}, ${type.toLowerCase()} na ${range}.${justNow ? " Zaměstnanci jsme dali vědět." : ""}${req.status === "rejected" && req.rejection_reason ? ` Důvod: ${req.rejection_reason}` : ""}`}
         tone={justNow ? "ok" : "info"}
       />
     );
