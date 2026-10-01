@@ -73,12 +73,20 @@ export function OnboardingChecklist() {
       const seen = readSeen(cid);
       setSteps([
         {
-          key: "company",
-          title: "Doplňte údaje o firmě",
-          hint: "Logo a fakturační údaje (lze načíst z ARES podle IČO).",
+          key: "logo",
+          title: "Nahrajte logo firmy",
+          hint: "Zobrazí se v appce a v e-mailech kolegům.",
           href: "/admin/settings?sekce=general",
-          cta: "Nastavit",
-          done: !!company.data?.logo_url || !!billing.data?.billing_ico,
+          cta: "Nahrát logo",
+          done: !!company.data?.logo_url,
+        },
+        {
+          key: "billing",
+          title: "Doplňte fakturační údaje",
+          hint: "IČO, DIČ a adresu lze načíst automaticky podle IČO (ARES).",
+          href: "/admin/settings?sekce=billing",
+          cta: "Doplnit",
+          done: !!billing.data?.billing_ico,
         },
         {
           key: "departments",

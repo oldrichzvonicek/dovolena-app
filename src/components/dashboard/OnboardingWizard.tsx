@@ -124,8 +124,8 @@ export function OnboardingWizard() {
             <OptionRow
               icon={<Upload size={16} className="text-teal-dark" />}
               title="1. Přidejte zaměstnance"
-              hint="Nahrajte CSV z mzdového systému, nebo pozvěte lidi jednotlivě."
-              href="/admin/settings?sekce=users&akce=import"
+              hint="Pozvěte lidi jednotlivě, odkazem, nebo rovnou hromadně nahrajte CSV."
+              href="/admin/settings?sekce=users"
               onClick={dismiss}
             />
             <OptionRow
