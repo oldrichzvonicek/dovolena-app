@@ -338,8 +338,9 @@ function EditDepartmentModal({
               </Select>
             </div>
             <div>
-              <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
-                Zástupce vedoucího {!features.loading && !canDeputy && <PlanTag feature="escalation" />}
+              <label className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
+                <span>Zástupce vedoucího</span>
+                {!features.loading && !canDeputy && <PlanTag feature="escalation" />}
               </label>
               <Select value={deputyId} onValueChange={setDeputyId} disabled={!canDeputy}>
                 <SelectTrigger>

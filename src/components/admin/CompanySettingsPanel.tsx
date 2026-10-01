@@ -313,7 +313,9 @@ export function CompanySettingsPanel() {
               else e.target.value = company.name;
             }}
           />
-          <p className="mt-1 text-xs text-muted">Zobrazuje se v hlavičce, e-mailech a na faktuře.</p>
+          <p className="mt-1 text-xs text-muted">
+            Zobrazuje se v hlavičce a e-mailech. Na faktuře se použije jen tehdy, když ve Fakturaci nevyplníte vlastní obchodní název.
+          </p>
         </div>
 
         <div className="mt-4">
