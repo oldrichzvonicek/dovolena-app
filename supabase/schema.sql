@@ -1125,7 +1125,9 @@ declare
   blackout_label text;
   notif_title text;
   notif_body text;
+  type_key text;
   type_label text;
+  type_phrase text;
   date_range text;
   mgr record;
 begin
@@ -1145,18 +1147,25 @@ begin
   where company_id = requester_company_id and start_date <= new.end_date and end_date >= new.start_date
   limit 1;
 
-  select label into type_label from leave_types where id = new.leave_type_id;
+  select key, label into type_key, type_label from leave_types where id = new.leave_type_id;
   date_range := case
     when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
     else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
   end;
+  -- Typ (leave_types.label) je volný text, který si firma může přejmenovat nebo přidat vlastní, takže ho
+  -- obecně nejde skloňovat. Pro výchozí "Dovolená" (drtivá většina žádostí) proto zní rovnou "o dovolenou";
+  -- u všeho ostatního je typ jen nálepka v pomlčkách, ať nenutíme "o absenci (Sick Day)".
+  type_phrase := case
+    when type_key = 'dovolena' then 'o dovolenou (' || date_range || ')'
+    else '— ' || coalesce(type_label, 'absence') || ', ' || date_range || ' —'
+  end;
 
   if blackout_label is not null then
     notif_title := '⚠️ Žádost v blokovaném termínu';
-    notif_body := requester_name || ' přesto podal(a) žádost o absenci (' || coalesce(type_label, 'absence') || ', ' || date_range || ') v blokovaném termínu „' || blackout_label || '“. Rozhodněte prosím, zda ji schválíte.';
+    notif_body := requester_name || ' přesto podal(a) žádost ' || type_phrase || ' v blokovaném termínu „' || blackout_label || '“. Rozhodněte prosím, zda ji schválíte.';
   else
-    notif_title := 'Nová žádost o absenci';
-    notif_body := requester_name || ' žádá o absenci: ' || coalesce(type_label, 'absence') || ', ' || date_range || '. Žádost čeká na vaše schválení.';
+    notif_title := case when type_key = 'dovolena' then 'Nová žádost o dovolenou' else 'Nová žádost o absenci' end;
+    notif_body := requester_name || ' vám poslal(a) žádost ' || type_phrase || ' — mrkněte se na ni, až budete mít chvíli.';
   end if;
 
   for mgr in
@@ -1187,30 +1196,35 @@ language plpgsql
 security definer
 as $$
 declare
+  type_key text;
   type_label text;
+  type_phrase text;
   date_range text;
 begin
   if new.status = old.status then
     return new;
   end if;
 
-  select label into type_label from leave_types where id = new.leave_type_id;
+  select key, label into type_key, type_label from leave_types where id = new.leave_type_id;
   date_range := case
     when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
     else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
+  end;
+  -- Viz pozn. u notify_on_leave_request_insert — typ se neskloňuje obecně, jen "Dovolená" má vlastní tvar.
+  type_phrase := case
+    when type_key = 'dovolena' then 'o dovolenou (' || date_range || ')'
+    else '— ' || coalesce(type_label, 'absence') || ', ' || date_range || ' —'
   end;
 
   if new.status = 'approved' then
     insert into notifications (profile_id, type, leave_request_id, title, body)
     values (new.profile_id, 'request_approved', new.id, 'Žádost schválena',
-      -- Typ se jmenuje přímo v závorce hned vedle "žádost" (ne přes obecné "absenci"), ať je hned na první
-      -- pohled jasné, co bylo schváleno: dovolená / sick day / home office apod.
-      'Vaše žádost (' || coalesce(type_label, 'absence') || ', ' || date_range || ') byla schválena.');
+      'Vaše žádost ' || type_phrase || ' byla schválena.');
   elsif new.status = 'rejected' then
     insert into notifications (profile_id, type, leave_request_id, title, body)
     values (
       new.profile_id, 'request_rejected', new.id, 'Žádost zamítnuta',
-      'Vaše žádost (' || coalesce(type_label, 'absence') || ', ' || date_range || ') byla zamítnuta.'
+      'Vaše žádost ' || type_phrase || ' byla zamítnuta.'
         || case when new.rejection_reason is not null and new.rejection_reason <> ''
              then ' Důvod: ' || new.rejection_reason
              else ''

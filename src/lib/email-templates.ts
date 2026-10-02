@@ -21,9 +21,18 @@ export interface EmailTemplate {
   cta?: { label: string; path: string };
   /** Věta v patičce — u provozních/právních e-mailů nejde vypnout. */
   optOut?: boolean;
+  /** Přebije `TEMPLATE_SAMPLE` pro proměnné, kde obecná ukázková hodnota nedává v kontextu téhle šablony smysl. */
+  sample?: Vars;
 }
 
 const hello = (v: Vars) => `Dobrý den${v.jmeno ? ` ${v.jmeno}` : ""},`;
+
+// Typ absence (leave_types.label) je volný text, který si firma může přejmenovat nebo přidat vlastní, takže ho
+// obecně nejde skloňovat. Výchozí "Dovolená" (drtivá většina žádostí) má proto vlastní tvar "o dovolenou"; u
+// všeho ostatního je typ jen nálepka v pomlčkách. Stejná logika je v SQL triggerech (schema.sql) a v
+// api/cron/daily/route.ts — tahle šablona jen zrcadlí, co se doopravdy posílá.
+const typPhrase = (v: Vars, withTermin: boolean) =>
+  v.typ === "Dovolená" ? `o dovolenou${withTermin ? ` (${v.termin})` : ""}` : `— ${v.typ}${withTermin ? `, ${v.termin}` : ""} —`;
 
 export const EMAIL_TEMPLATES: EmailTemplate[] = [
   // ------------------------------------------------------------------ žádosti o absenci
@@ -34,8 +43,8 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     to: "Schvalovatel (nadřízený, vedoucí / zástupce oddělení, admin)",
     live: true,
     vars: ["zadatel", "typ", "termin"],
-    subject: () => "Nová žádost o absenci",
-    paragraphs: (v) => [`${v.zadatel} vám poslal(a) žádost o absenci (${v.typ}, ${v.termin}) — mrkněte se na ni, až budete mít chvíli.`],
+    subject: (v) => (v.typ === "Dovolená" ? "Nová žádost o dovolenou" : "Nová žádost o absenci"),
+    paragraphs: (v) => [`${v.zadatel} vám poslal(a) žádost ${typPhrase(v, true)} — mrkněte se na ni, až budete mít chvíli.`],
     cta: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
     optOut: true,
   },
@@ -47,7 +56,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["zadatel", "typ", "termin", "blokace"],
     subject: () => "⚠️ Žádost v blokovaném termínu",
-    paragraphs: (v) => [`${v.zadatel} poslal(a) žádost o absenci (${v.typ}, ${v.termin}) i přesto, že termín spadá do blokovaného období „${v.blokace}“. Mrkněte se na ni a rozhodněte, jestli ji přesto pustíte dál.`],
+    paragraphs: (v) => [`${v.zadatel} přesto podal(a) žádost ${typPhrase(v, true)} v blokovaném termínu „${v.blokace}“. Rozhodněte prosím, zda ji schválíte.`],
     cta: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
     optOut: true,
   },
@@ -59,7 +68,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["typ", "termin"],
     subject: () => "Žádost schválena",
-    paragraphs: (v) => [`Dobrá zpráva — žádost o absenci (${v.typ}, ${v.termin}) je schválená, můžete s tím počítat.`],
+    paragraphs: (v) => [`Vaše žádost ${typPhrase(v, true)} byla schválena.`],
     cta: { label: "Zobrazit moje žádosti", path: "/requests" },
     optOut: true,
   },
@@ -71,7 +80,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["typ", "termin", "duvod"],
     subject: () => "Žádost zamítnuta",
-    paragraphs: (v) => [`Mrzí nás to, ale žádost o absenci (${v.typ}, ${v.termin}) tentokrát neprošla.`, `Důvod: ${v.duvod}`],
+    paragraphs: (v) => [`Vaše žádost ${typPhrase(v, true)} byla zamítnuta.`, `Důvod: ${v.duvod}`],
     cta: { label: "Upravit a poslat znovu", path: "/requests" },
     optOut: true,
   },
@@ -107,7 +116,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["zadatel", "typ", "duvod"],
     subject: () => "Žádost čeká na schválení",
-    paragraphs: (v) => [`${v.zadatel} čeká na rozhodnutí o žádosti (${v.typ}) — zaskakujete za schvalovatele (${v.duvod}), tak to prosím vyřiďte.`],
+    paragraphs: (v) => [`${v.zadatel} čeká na rozhodnutí o žádosti ${typPhrase(v, false)} — zaskakujete za schvalovatele (${v.duvod}), tak to prosím vyřiďte.`],
     cta: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
     optOut: true,
   },
@@ -268,6 +277,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     ],
     cta: { label: "Porovnat tarify", path: "/admin/settings?sekce=billing" },
     optOut: false,
+    // Obecné pocet/limit z TEMPLATE_SAMPLE (5 z 15) nedávají pro "blížíte se limitu" smysl — tady musí pocet
+    // být těsně pod limitem, ať náhled odpovídá tomu, kdy se e-mail doopravdy pošle.
+    sample: { pocet: "14", limit: "15" },
   },
   {
     key: "plan_limit_reached",
@@ -280,6 +292,8 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     paragraphs: (v) => [hello(v), `ve firmě máte ${v.pocet} lidí, ale tarif ${v.tarif} pokrývá jen ${v.limit}.`, "Než půjde přidat někoho dalšího, bude potřeba přejít na vyšší tarif."],
     cta: { label: "Zvolit tarif", path: "/admin/settings?sekce=billing" },
     optOut: false,
+    // Tady naopak pocet musí být NAD limitem (viz pozn. u plan_limit_90 výš).
+    sample: { pocet: "17", limit: "15" },
   },
   {
     key: "invoice_issued",
@@ -345,7 +359,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     paragraphs: (v) => [
       hello(v),
       `upravili jsme dokument „${v.dokument}“ a nová verze platí od ${v.od_data}.`,
-      "Co přesně se změnilo, najdete v přehledu na odkazu níže. Kdyby vám nové znění nesedělo, do data účinnosti můžete službu ukončit.",
+      "Co přesně se změnilo, najdete v přehledu na odkazu níže.",
     ],
     cta: { label: "Přečíst novou verzi", path: "/help" },
     optOut: false,
@@ -502,7 +516,7 @@ export const FOOTER_TRANSACTIONAL = "Tento e-mail je provozní a nelze ho vypnou
 export function renderTemplate(key: string, vars: Vars, baseUrl: string) {
   const t = templateByKey(key);
   if (!t) throw new Error(`Neznámá šablona: ${key}`);
-  const safe = new Proxy(vars, { get: (o, k: string) => o[k] ?? `[${k}]` }) as Vars;
+  const safe = new Proxy({ ...vars, ...t.sample }, { get: (o, k: string) => o[k] ?? `[${k}]` }) as Vars;
   const subject = t.subject(safe);
   const paragraphs = t.paragraphs(safe);
   const cta = t.cta ? { label: t.cta.label, url: vars.odkaz && t.key === "invite" ? vars.odkaz : `${baseUrl.replace(/\/$/, "")}${t.cta.path}` } : undefined;

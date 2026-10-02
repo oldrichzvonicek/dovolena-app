@@ -53,7 +53,7 @@ export async function GET(req: Request) {
       supabase.from("departments").select("id, head_profile_id, deputy_head_profile_id").eq("company_id", company.id),
       supabase
         .from("leave_requests")
-        .select("id, created_at, start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(id, name, manager_id, department_id, company_id), leave_type:leave_types(label)")
+        .select("id, created_at, start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(id, name, manager_id, department_id, company_id), leave_type:leave_types(key, label)")
         .eq("status", "pending")
         .is("escalated_at", null),
       supabase
@@ -80,7 +80,7 @@ export async function GET(req: Request) {
       start_date: string;
       end_date: string;
       profile: { id: string; name: string; manager_id: string | null; department_id: string | null; company_id: string } | null;
-      leave_type: { label: string } | null;
+      leave_type: { key: string; label: string } | null;
     };
     for (const r of ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id)) {
       const p = r.profile!;
@@ -98,13 +98,17 @@ export async function GET(req: Request) {
       if (targets.length === 0) continue;
 
       const reason = approverAway ? "schvalovatel je dnes nepřítomen" : `čeká už ${Math.floor(ageHours)} h`;
+      // Typ (leave_type.label) je volný text, který firma může přejmenovat — obecně ho nejde skloňovat.
+      // Výchozí "Dovolená" má proto vlastní tvar, zbytek je jen nálepka v pomlčkách (viz schema.sql: stejná
+      // logika v notify_on_leave_request_insert/notify_on_leave_request_status_change).
+      const typePhrase = r.leave_type?.key === "dovolena" ? "o dovolenou" : `— ${r.leave_type?.label ?? "absence"} —`;
       await supabase.from("notifications").insert(
         targets.map((t) => ({
           profile_id: t,
           type: "request_created",
           leave_request_id: r.id,
           title: "Žádost čeká na schválení",
-          body: `${p.name} čeká na rozhodnutí o žádosti (${r.leave_type?.label ?? "absence"}) — zaskakujete za schvalovatele (${reason}), tak to prosím vyřiďte.`,
+          body: `${p.name} čeká na rozhodnutí o žádosti ${typePhrase} — zaskakujete za schvalovatele (${reason}), tak to prosím vyřiďte.`,
         }))
       );
       await supabase.from("leave_requests").update({ escalated_at: now.toISOString() }).eq("id", r.id);
