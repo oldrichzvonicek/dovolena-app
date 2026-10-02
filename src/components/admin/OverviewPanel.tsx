@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { addDays, addMonths, addYears, endOfMonth, endOfQuarter, endOfYear, format, getISOWeek, getISOWeekYear, getQuarter, isWeekend, parseISO, startOfMonth, startOfQuarter, startOfYear, subMonths, subYears } from "date-fns";
 import { cs } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Lock, Printer } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { LeaveBadge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { canSeeInsights } from "@/lib/access";
+import { unlockHint } from "@/components/shared/FeatureGate";
 import { reducesPresence } from "@/lib/leave-kinds";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { PrintPreviewModal } from "@/components/ui/print-preview-modal";
@@ -536,13 +537,25 @@ export function OverviewPanel() {
       {/* Not scoped to the month/year switcher above — always "starting from today", so it's pulled visually apart with its own heading + divider rather than sitting right under the monthly cards. */}
       {state && section === "plan" && (
         <div className="space-y-6">
-          {canSeeInsights(profile) && (
+          {canSeeInsights(profile) && features.has("hr_insights") && (
             <Link href="/admin/insights" className="card flex items-center justify-between gap-3 p-4 text-sm hover:bg-paper">
               <span>
                 <span className="font-display text-h2">Smart HR</span>
                 <span className="mt-0.5 block text-xs text-muted">Shrnutí týdne, předpověď kapacity, hokejka dovolené, zástupy a další přehledy najdete na samostatné stránce.</span>
               </span>
               <span className="shrink-0 font-medium text-teal-dark">Otevřít →</span>
+            </Link>
+          )}
+          {/* Firma bez Smart HR: odkaz rovnou na Fakturaci, ne na /admin/insights — tam by narazila jen na zamčenou stránku. */}
+          {canSeeInsights(profile) && !features.loading && !features.has("hr_insights") && (
+            <Link href="/admin/settings?sekce=billing" className="card flex items-center justify-between gap-3 p-4 text-sm hover:bg-paper">
+              <span>
+                <span className="flex items-center gap-1.5 font-display text-h2">
+                  <Lock size={14} className="text-muted" /> Smart HR
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">Shrnutí týdne, předpověď kapacity, hokejka dovolené, zástupy a další přehledy. {unlockHint("hr_insights")}</span>
+              </span>
+              <span className="shrink-0 font-medium text-teal-dark">Zobrazit tarify →</span>
             </Link>
           )}
 

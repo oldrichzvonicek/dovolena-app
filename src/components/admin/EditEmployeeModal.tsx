@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useFeatures } from "@/lib/use-features";
 import { PlanTag } from "@/components/shared/FeatureGate";
+import { InfoTip } from "@/components/ui/info-tip";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -230,37 +231,46 @@ export function EditEmployeeModal({
               </SelectContent>
             </Select>
             <p className="mt-1 text-xs text-muted">Přidává práva k základní roli (zaměstnanec/manažer/admin výše). Nastavuje jen admin. Role Účetní je od tarifu Starter v ceně, jinak jde o doplněk — role HR je zdarma na jakémkoli tarifu.</p>
-            <div className="mt-2 overflow-hidden rounded border border-line text-xs">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-paper text-left text-muted">
-                    <th className="px-2 py-1.5 font-medium">Co role přidává</th>
-                    <th className="px-2 py-1.5 text-center font-medium">HR</th>
-                    <th className="px-2 py-1.5 text-center font-medium">Účetní</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {[
-                    ["Spravuje lidi (oddělení, nadřízený, nároky, pozvánky)", true, false],
-                    ["Aktivuje a deaktivuje uživatele", true, false],
-                    ["Zadá absenci za kohokoli ve firmě", true, false],
-                    ["Vidí všechny absence, včetně nemoci", true, true],
-                    ["Analytika a Exporty (podklady pro mzdy)", true, true],
-                    ["Schvaluje žádosti o absenci", false, false],
-                  ].map(([label, hr, acc]) => (
-                    <tr key={label as string}>
-                      <td className="px-2 py-1.5">{label}</td>
-                      <td className="px-2 py-1.5 text-center">{hr ? "✓" : "—"}</td>
-                      <td className="px-2 py-1.5 text-center">{acc ? "✓" : "—"}</td>
+            <details className="mt-2 text-xs">
+              <summary className="cursor-pointer select-none font-medium text-teal-dark">Co přesně role přidává?</summary>
+              <div className="mt-2 overflow-hidden rounded border border-line">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-paper text-left text-muted">
+                      <th className="px-2 py-1.5 font-medium">Co role přidává</th>
+                      <th className="px-2 py-1.5 text-center font-medium">HR</th>
+                      <th className="px-2 py-1.5 text-center font-medium">Účetní</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {[
+                      ["Spravuje lidi (oddělení, nadřízený, nároky, pozvánky)", true, false],
+                      ["Aktivuje a deaktivuje uživatele", true, false],
+                      ["Zadá absenci za kohokoli ve firmě", true, false],
+                      ["Vidí všechny absence, včetně nemoci", true, true],
+                      ["Analytika a Exporty (podklady pro mzdy)", true, true],
+                      ["Schvaluje žádosti o absenci", false, false],
+                    ].map(([label, hr, acc]) => (
+                      <tr key={label as string}>
+                        <td className="px-2 py-1.5">{label}</td>
+                        <td className="px-2 py-1.5 text-center">{hr ? "✓" : "—"}</td>
+                        <td className="px-2 py-1.5 text-center">{acc ? "✓" : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Datum nástupu (volitelné)</label>
+            <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+              Datum nástupu (volitelné)
+              <InfoTip
+                label="O přepočtu nároku podle data nástupu"
+                text="Poměrná dovolená v roce nástupu (Nastavení → Typy absencí) a příplatek za odpracované roky se počítají automaticky jen při zakládání účtu. Když datum nástupu měníte dodatečně, tlačítkem Přepočítat si nechte pod tím do pole „Dovolená / rok“ doplnit odpovídající počet dní a uložte."
+              />
+            </label>
             <div className="flex gap-2">
               <input
                 type="date"
@@ -275,10 +285,6 @@ export function EditEmployeeModal({
                 </Button>
               )}
             </div>
-            <p className="mt-1 text-xs text-muted">
-              Poměrná dovolená v roce nástupu (Nastavení → Typy absencí) a příplatek za odpracované roky se počítají automaticky jen při zakládání účtu. Když datum
-              nástupu měníte dodatečně, tlačítkem Přepočítat si nechte pod tím do pole „Dovolená / rok“ doplnit odpovídající počet dní a uložte.
-            </p>
           </div>
 
           <div className="contents">

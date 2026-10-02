@@ -8,7 +8,8 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { fetchAll } from "@/lib/fetch-all";
 import { useFeatures } from "@/lib/use-features";
-import { ADDONS, formatKc } from "@/lib/plans";
+import { ADDONS } from "@/lib/plans";
+import { unlockHint } from "@/components/shared/FeatureGate";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Card, Empty, Row } from "@/components/admin/insight-ui";
 import { ExtraCards, ExtraSummary, useExtraInsights } from "@/components/admin/SmartInsightsExtra";
@@ -612,7 +613,7 @@ function FairRota({ data, periodKey, onSelectPerson }: { data: Data; periodKey: 
   );
 }
 
-/** Zamčená ukázka pro firmy bez Smart HR (Free / Starter / Team): vysvětlení a cesta k doplňku nebo vyššímu tarifu. */
+/** Zamčená ukázka pro firmy bez Smart HR (Free / Basic / Starter): vysvětlení a cesta na vyšší tarif (Pro). */
 function LockedInsights() {
   const addon = ADDONS.find((a) => a.key === "hr_insights")!;
   return (
@@ -624,9 +625,7 @@ function LockedInsights() {
         Shrnutí týdne, předpověď kapacity, hokejka dovolené, zástupy a kolize vedoucích, trendy, anonymní nemocnost, závazek z dovolené a férové plánování. Ve vašem tarifu nejsou zahrnuty.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-        <span>
-          Přikoupit za <strong>{formatKc(addon.monthly)}</strong> měsíčně, nebo v tarifu Pro v ceně.
-        </span>
+        <span>{unlockHint("hr_insights")}</span>
         <Link href="/admin/settings?sekce=billing" className="font-medium text-teal-dark underline underline-offset-2">
           Tarify a doplňky
         </Link>
