@@ -4,6 +4,8 @@
 // `live: false` = připraveno k zapojení (fakturace, trial se NEpoužívá — tarif Free je trvale zdarma).
 // Zdravotní údaje se do e-mailů nikdy nepíšou; u soukromých absencí (nemoc) se typ uvádí jen schvalovateli.
 
+import { weeklyDigestIntro } from "@/lib/czech";
+
 export type Vars = Record<string, string>;
 
 export interface EmailTemplate {
@@ -131,7 +133,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     subject: () => "Týdenní přehled absencí — Dodio",
     // v.seznam je už rozdělený po typech absence (nadpis typu, prázdný řádek, odrážky) — rozdělíme ho zpátky
     // na jednotlivé odstavce, ať se každá skupina vykreslí jako vlastní krátký seznam (viz api/cron/daily).
-    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, `tady je váš týdenní přehled — tento týden chybí ${v.pocet} lidí a čeká na vás ${v.cekajici} žádosti ke schválení.`, ...v.seznam.split("\n\n")],
+    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, weeklyDigestIntro(Number(v.pocet), Number(v.cekajici)), ...v.seznam.split("\n\n")],
     cta: { label: "Otevřít kalendář", path: "/calendar" },
     optOut: true,
   },

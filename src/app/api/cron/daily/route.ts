@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { addDays, format } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCron } from "@/lib/email";
+import { weeklyDigestIntro } from "@/lib/czech";
 import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
 import { DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
 import { hasFeature } from "@/lib/plans";
@@ -149,8 +150,6 @@ export async function GET(req: Request) {
         .gte("end_date", today);
       type W = { start_date: string; end_date: string; profile: { id: string; name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean } | null };
       const weekRows = ((week as unknown as W[]) ?? []).filter((w) => w.profile?.company_id === company.id);
-      const personWord = (n: number) => (n === 1 ? "člověk" : n >= 2 && n <= 4 ? "lidé" : "lidí");
-      const requestWord = (n: number) => (n === 1 ? "žádost" : n >= 2 && n <= 4 ? "žádosti" : "žádostí");
       // Seskupené podle typu absence (Dovolená, Home Office, …), ať je hned vidět, čeho je nejvíc — ne jen
       // chronologický výpis. Skupiny seřazené podle počtu lidí sestupně.
       const byType = new Map<string, W[]>();
@@ -164,10 +163,9 @@ export async function GET(req: Request) {
           .map(([label, items]) => `${label}\n\n${items.slice(0, 12).map((w) => `• ${w.profile!.name} — ${formatRange(w.start_date, w.end_date)}`).join("\n")}`)
           .join("\n\n") || "Tento týden nikdo nechybí.";
       const pendingCount = ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id).length;
-      const introLine =
-        weekRows.length === 0
-          ? "tady je váš týdenní přehled — tento týden nikdo nechybí."
-          : `tady je váš týdenní přehled — tento týden chybí ${weekRows.length} ${personWord(weekRows.length)}${pendingCount > 0 ? ` a čeká na vás ${pendingCount} ${requestWord(pendingCount)} ke schválení` : ""}.`;
+      // Skloňování (chybí 1 člověk / chybějí 3 lidé / chybí 5 lidí; čeká 1 žádost / čekají 2 žádosti) řeší sdílená funkce,
+      // kterou používá i ukázka v Nastavení → E-maily, aby se text e-mailu a jeho náhled nerozešly.
+      const introLine = weeklyDigestIntro(weekRows.length, pendingCount);
 
       // Firma může jednotlivé druhy e-mailů vypnout (Nastavení → E-maily); chybějící hodnota = zapnuto.
       const emailSettings = ((company as { email_settings?: Record<string, boolean> | null }).email_settings ?? {}) as Record<string, boolean>;
