@@ -129,7 +129,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["jmeno", "cekajici", "pocet", "seznam"],
     subject: () => "Týdenní přehled absencí — Dodio",
-    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, `tady je váš týdenní přehled — čeká na vás ${v.cekajici} žádostí, absencí tento týden: ${v.pocet}.`, v.seznam],
+    // v.seznam je už rozdělený po typech absence (nadpis typu, prázdný řádek, odrážky) — rozdělíme ho zpátky
+    // na jednotlivé odstavce, ať se každá skupina vykreslí jako vlastní krátký seznam (viz api/cron/daily).
+    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, `tady je váš týdenní přehled — tento týden chybí ${v.pocet} lidí a čeká na vás ${v.cekajici} žádosti ke schválení.`, ...v.seznam.split("\n\n")],
     cta: { label: "Otevřít kalendář", path: "/calendar" },
     optOut: true,
   },
@@ -419,7 +421,7 @@ export const TEMPLATE_SAMPLE: Vars = {
   vysledek: "schváleno",
   cekajici: "2",
   pocet: "5",
-  seznam: "• Petr Novák — Dovolená (12. 10. – 16. 10.)\n• Jana Malá — Sick Day (13. 10. 2026)\n• Karel Beneš — Home Office (14. 10. – 15. 10.)",
+  seznam: "Dovolená\n\n• Petr Novák — 12. 10. – 16. 10. 2026\n• Karel Beneš — 14. 10. – 15. 10. 2026\n\nSick Day\n\n• Jana Malá — 13. 10. 2026",
   firma: "NaturaMed s.r.o.",
   pozvatel: "Oldřich Zvoníček",
   odkaz: "https://app.dodio.cz/login",

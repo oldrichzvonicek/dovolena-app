@@ -149,8 +149,25 @@ export async function GET(req: Request) {
         .gte("end_date", today);
       type W = { start_date: string; end_date: string; profile: { id: string; name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean } | null };
       const weekRows = ((week as unknown as W[]) ?? []).filter((w) => w.profile?.company_id === company.id);
-      const lines = weekRows.slice(0, 12).map((w) => `• ${w.profile!.name} — ${w.leave_type?.hide_from_colleagues ? "Nepřítomen" : w.leave_type?.label} (${formatRange(w.start_date, w.end_date)})`);
+      const personWord = (n: number) => (n === 1 ? "člověk" : n >= 2 && n <= 4 ? "lidé" : "lidí");
+      const requestWord = (n: number) => (n === 1 ? "žádost" : n >= 2 && n <= 4 ? "žádosti" : "žádostí");
+      // Seskupené podle typu absence (Dovolená, Home Office, …), ať je hned vidět, čeho je nejvíc — ne jen
+      // chronologický výpis. Skupiny seřazené podle počtu lidí sestupně.
+      const byType = new Map<string, W[]>();
+      for (const w of weekRows) {
+        const label = w.leave_type?.hide_from_colleagues ? "Nepřítomen" : (w.leave_type?.label ?? "Absence");
+        (byType.get(label) ?? byType.set(label, []).get(label)!).push(w);
+      }
+      const whoText =
+        [...byType.entries()]
+          .sort((a, b) => b[1].length - a[1].length)
+          .map(([label, items]) => `${label}\n\n${items.slice(0, 12).map((w) => `• ${w.profile!.name} — ${formatRange(w.start_date, w.end_date)}`).join("\n")}`)
+          .join("\n\n") || "Tento týden nikdo nechybí.";
       const pendingCount = ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id).length;
+      const introLine =
+        weekRows.length === 0
+          ? "tady je váš týdenní přehled — tento týden nikdo nechybí."
+          : `tady je váš týdenní přehled — tento týden chybí ${weekRows.length} ${personWord(weekRows.length)}${pendingCount > 0 ? ` a čeká na vás ${pendingCount} ${requestWord(pendingCount)} ke schválení` : ""}.`;
 
       // Firma může jednotlivé druhy e-mailů vypnout (Nastavení → E-maily); chybějící hodnota = zapnuto.
       const emailSettings = ((company as { email_settings?: Record<string, boolean> | null }).email_settings ?? {}) as Record<string, boolean>;
@@ -161,7 +178,7 @@ export async function GET(req: Request) {
           category: "weekly_digest",
           to_email: p.email!,
           subject: "Týdenní přehled absencí — Dodio",
-          body: `Dobré ráno ${p.name.split(" ")[0]},\n\ntady je váš týdenní přehled — čeká na vás ${pendingCount} žádostí, absencí tento týden: ${weekRows.length}.\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
+          body: `Dobré ráno ${p.name.split(" ")[0]},\n\n${introLine}\n\n${whoText}`,
         }));
       if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
 
