@@ -39,6 +39,7 @@ function BalanceCard({
   label,
   used,
   upcoming,
+  planned = 0,
   total,
   unit,
   color,
@@ -47,6 +48,8 @@ function BalanceCard({
   label: string;
   used: number;
   upcoming: number;
+  /** Soukromé návrhy (leave_plans) — vlastní řádek, nepočítá se do "zbývá". */
+  planned?: number;
   total: number;
   unit: string;
   color: Color;
@@ -91,6 +94,11 @@ function BalanceCard({
         <span className="flex items-center gap-1.5">
           <span className={cn("h-2 w-2 shrink-0 rounded-sm", lightClass[color])} /> Naplánováno: {fmt(upcoming)} {dayWord(upcoming)}
         </span>
+        {planned > 0 && (
+          <span className="flex items-center gap-1.5" title="Soukromý návrh — vidíte jen vy, dokud ho nepodáte ke schválení. Nepočítá se do „zbývá“.">
+            <span className="h-2 w-2 shrink-0 rounded-sm border border-dashed border-line" /> V návrhu: {fmt(planned)} {dayWord(planned)}
+          </span>
+        )}
       </div>
       {explain && (
         <dl className="mt-2 space-y-1 rounded border border-line bg-paper p-3 text-xs">
@@ -116,7 +124,13 @@ function BalanceCard({
             <dt>Zbývá</dt>
             <dd>{fmt(remaining)} {unit}</dd>
           </div>
-          <p className="pt-1 text-muted">Žádosti čekající na schválení se do zůstatku nepočítají, dokud je nikdo neschválí.</p>
+          {planned > 0 && (
+            <div className="flex justify-between border-t border-line pt-1 text-muted">
+              <dt>V návrhu (soukromé, nepočítáno výše)</dt>
+              <dd>{fmt(planned)}</dd>
+            </div>
+          )}
+          <p className="pt-1 text-muted">Žádosti čekající na schválení a soukromé návrhy se do zůstatku nepočítají, dokud je nikdo nepodá a neschválí.</p>
         </dl>
       )}
     </div>
@@ -127,8 +141,8 @@ export function BalanceCards() {
   const now = new Date();
   const workingDaysThisMonth = countWorkingDays(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`, new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString("sv-SE"));
   const { profile } = useAuth();
-  const [vacation, setVacation] = useState({ used: 0, upcoming: 0, total: 0, carryover: 0 });
-  const [sick, setSick] = useState({ used: 0, upcoming: 0, total: 0 });
+  const [vacation, setVacation] = useState({ used: 0, upcoming: 0, planned: 0, total: 0, carryover: 0 });
+  const [sick, setSick] = useState({ used: 0, upcoming: 0, planned: 0, total: 0 });
   const [homeOffice, setHomeOffice] = useState<HomeOfficeYear>({ used: 0, taken: 0, planned: 0, thisMonth: 0, limit: null });
   const [loading, setLoading] = useState(true);
 
@@ -165,8 +179,8 @@ export function BalanceCards() {
 
   return (
     <div className="flex flex-col gap-4 md:flex-row">
-      <BalanceCard label="Dovolená" used={vacation.used} upcoming={vacation.upcoming} total={vacation.total} carryover={vacation.carryover} unit="dní" color="teal" />
-      <BalanceCard label="Sick Days" used={sick.used} upcoming={sick.upcoming} total={sick.total} unit="dní" color="rust" />
+      <BalanceCard label="Dovolená" used={vacation.used} upcoming={vacation.upcoming} planned={vacation.planned} total={vacation.total} carryover={vacation.carryover} unit="dní" color="teal" />
+      <BalanceCard label="Sick Days" used={sick.used} upcoming={sick.upcoming} planned={sick.planned} total={sick.total} unit="dní" color="rust" />
       {/* Se stanoveným limitem má Home Office stejnou strukturu (zbývá / pruh / vyčerpáno+naplánováno) jako ostatní dvě karty.
           Bez limitu (firma ho nenastavila) zůstává jednodušší — nedá se počítat "zbývá" bez celkového nároku. */}
       {homeOffice.limit !== null ? (

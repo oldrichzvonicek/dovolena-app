@@ -10,9 +10,12 @@ export interface Balance {
   used: number;
   /** Approved but still ahead. */
   upcoming: number;
+  /** Soukromé návrhy (leave_plans) — zatím nic neschváleného, proto se nepočítají do "zbývá" (viz remainingOf). */
+  planned: number;
   carryover: number;
 }
 
+/** "Zbývá" nezahrnuje soukromé návrhy (b.planned) — dokud je nikdo nepodá a neschválí, dny ještě nejsou pryč. */
 export const remainingOf = (b: Balance) => b.total - b.used - b.upcoming;
 
 interface EntRow {
@@ -78,9 +81,11 @@ export function computeBalance(
   return {
     total: sum(curEnts.map((e) => e.total_days)) + carryover,
     used: sum(curEnts.map((e) => e.opening_used_days)) + sum(catReqs.filter((r) => !r.isDraft && r.end_date < today).map((r) => inYear(r, year))),
-    // Návrhy (leave_plans) se počítají jako "naplánováno" vždycky, bez ohledu na datum — je to plán do
-    // budoucna z podstaty věci, i kdyby si někdo výjimečně naplánoval den, který mezitím uplynul.
-    upcoming: sum(catReqs.filter((r) => r.isDraft || r.end_date >= today).map((r) => inYear(r, year))),
+    upcoming: sum(catReqs.filter((r) => !r.isDraft && r.end_date >= today).map((r) => inYear(r, year))),
+    // Návrhy (leave_plans) se počítají zvlášť, ne do "upcoming" — jsou to soukromé plány, ne schválené
+    // žádosti, takže by neměly tiše ukrajovat ze "zbývá" (viz remainingOf). Vždy "naplánováno" bez ohledu
+    // na datum, i kdyby si někdo výjimečně naplánoval den, který mezitím uplynul.
+    planned: sum(catReqs.filter((r) => r.isDraft).map((r) => inYear(r, year))),
     carryover,
   };
 }

@@ -45,11 +45,12 @@ describe("computeBalance", () => {
     expect(b.total).toBe(5);
   });
 
-  it("counts a draft plan as upcoming, never as used, even for a past date", () => {
+  it("counts a draft plan as planned, never as used or upcoming, even for a past date", () => {
     const draftPast = { ...req("2026-01-02", "2026-01-03", 2), isDraft: true };
     const draftFuture = { ...req("2026-12-01", "2026-12-02", 2), isDraft: true };
     const b = computeBalance("vacation", [ent(2026, 20)], [draftPast, draftFuture], 2026, "2026-09-25", noCarry);
     expect(b.used).toBe(0);
-    expect(b.upcoming).toBe(4);
+    expect(b.upcoming).toBe(0);
+    expect(b.planned).toBe(4);
   });
 });
