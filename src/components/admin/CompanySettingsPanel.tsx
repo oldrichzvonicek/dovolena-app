@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { DbBlackoutPeriod, DbCompany, DbDepartment, DbLeaveType, ShiftPattern } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
-import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
+import { useSaveStatus } from "@/components/shared/SaveStatus";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -145,6 +145,12 @@ export function CompanySettingsPanel() {
   const { profile } = useAuth();
   const features = useFeatures();
   const [company, setCompany] = useState<DbCompany | null>(null);
+  // Poslední uložený stav — zdroj pravdy pro "Zrušit" a pro to, které pole se při "Uložit změny" odešlou.
+  const [saved, setSaved] = useState<DbCompany | null>(null);
+  const [dirtyKeys, setDirtyKeys] = useState<ReadonlySet<keyof DbCompany>>(new Set());
+  // Číselná pole (UnitInput apod.) jsou needitovaná (defaultValue) kvůli psaní bez poskakování kurzoru — po
+  // "Zrušit" se samy nepřekreslí na starou hodnotu, dokud je nepřinutíme se znovu examountovat.
+  const [resetToken, setResetToken] = useState(0);
   const [leaveTypes, setLeaveTypes] = useState<DbLeaveType[]>([]);
   const [blackouts, setBlackouts] = useState<DbBlackoutPeriod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,6 +165,9 @@ export function CompanySettingsPanel() {
       fetchBlackoutPeriods(profile.company_id),
     ]);
     setCompany(c);
+    setSaved(c);
+    setDirtyKeys(new Set());
+    setResetToken((n) => n + 1);
     setLeaveTypes(lt);
     setBlackouts(bp);
     setLoading(false);
@@ -169,10 +178,13 @@ export function CompanySettingsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
-  async function patch(fields: Partial<DbCompany>) {
-    if (!profile || !company) return;
+  // Firemní pravidla se dřív ukládala při každé změně — u kritických nastavení (mínus, schvalování, 2FA…)
+  // je bezpečnější dát adminovi šanci rozmyšlenou úpravu i vzít zpět, než ji nevratně propsat celé firmě.
+  // patch() proto jen upraví koncept; uloží/zahodí ho až spodní lišta.
+  function patch(fields: Partial<DbCompany>) {
+    if (!company) return;
     setCompany({ ...company, ...fields });
-    await save.run(() => updateCompany(profile.company_id, fields));
+    setDirtyKeys((prev) => new Set([...prev, ...(Object.keys(fields) as (keyof DbCompany)[])]));
   }
 
   function toggleWorkDay(iso: number) {
@@ -180,6 +192,38 @@ export function CompanySettingsPanel() {
     const has = company.work_days.includes(iso);
     const next = has ? company.work_days.filter((d) => d !== iso) : [...company.work_days, iso].sort();
     patch({ work_days: next });
+  }
+
+  const dirty = dirtyKeys.size > 0;
+
+  // Varování při zavření/obnovení karty s neuloženou změnou — in-app navigace v appce neprochází (Next.js
+  // router to nezachytí bez větších zásahů), ale tohle pokryje nejčastější riziko ztráty rozepsané úpravy.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  function cancelChanges() {
+    if (!saved) return;
+    setCompany(saved);
+    setDirtyKeys(new Set());
+    setResetToken((n) => n + 1);
+  }
+
+  function saveChanges() {
+    if (!profile || !company || !dirty) return;
+    const fields: Partial<DbCompany> = {};
+    for (const k of dirtyKeys) (fields as Record<string, unknown>)[k] = company[k];
+    save.run(async () => {
+      await updateCompany(profile.company_id, fields);
+      setSaved(company);
+      setDirtyKeys(new Set());
+    });
   }
 
   if (loading || !company) return <LoadingCard rows={8} />;
@@ -192,7 +236,7 @@ export function CompanySettingsPanel() {
       <SegmentedControl as="tabs" ariaLabel="Sekce nastavení" value={tab} onChange={setTab} options={tabs.map((t) => ({ key: t.key, label: t.label }))} />
 
       {tab === "kalendar" && (
-      <div className="card p-5">
+      <div key={resetToken} className="card p-5">
         <SectionHeader icon={<Settings size={15} />} title="Kalendář a směny" />
 
         <div className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
@@ -257,7 +301,7 @@ export function CompanySettingsPanel() {
       )}
 
       {tab === "pravidla" && (
-      <div className="card p-5">
+      <div key={resetToken} className="card p-5">
         <SectionHeader icon={<CalendarOff size={15} />} title="Pravidla pro žádosti" className="bg-warning-light text-warning-dark" />
 
         <div className="mt-4 space-y-4">
@@ -335,7 +379,7 @@ export function CompanySettingsPanel() {
       )}
 
       {tab === "kapacita" && (
-      <div className="card p-5">
+      <div key={resetToken} className="card p-5">
         <SectionHeader icon={<AlertTriangle size={15} />} title="Kapacita a přeposílání žádostí" className="bg-danger-light text-danger" />
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -421,7 +465,19 @@ export function CompanySettingsPanel() {
 
       {tab === "celozavodni" && <CompanyWideLeaveSection companyId={profile!.company_id} leaveTypes={leaveTypes} />}
 
-      <SaveStatusBar status={save.status} error={save.error} />
+      {dirty && (
+        <div className="sticky bottom-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-white px-4 py-3 shadow-[0_8px_30px_rgba(22,35,59,0.16)]">
+          <span className="text-sm text-muted">{save.status === "error" ? <span className="text-danger">Uložení se nezdařilo{save.error ? `: ${save.error}` : ""}</span> : "Neuložené změny"}</span>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={cancelChanges} disabled={save.status === "saving"}>
+              Zrušit
+            </Button>
+            <Button variant="primary" onClick={saveChanges} disabled={save.status === "saving"}>
+              {save.status === "saving" ? "Ukládám…" : "Uložit změny"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
