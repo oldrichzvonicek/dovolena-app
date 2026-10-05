@@ -23,6 +23,21 @@ const ITEMS = [
   },
 ];
 
+const SITUATIONS = [
+  {
+    title: "Přecházíte z Excelu?",
+    body: "Jak Dodio nahradí tabulku, vzorce i ruční přepisování do podkladů pro mzdy.",
+    href: "/bez-excelu",
+    cta: "Jak přejít z Excelu",
+  },
+  {
+    title: "Jste malá firma?",
+    body: "Jednoduchá evidence pro týmy, kde dovolené řeší jednatel nebo office manažerka vedle své práce.",
+    href: "/pro-male-firmy",
+    cta: "Dodio pro malé firmy",
+  },
+];
+
 export function WhatWeTrack() {
   return (
     <section className="font-dodio-sans">
@@ -48,13 +63,24 @@ export function WhatWeTrack() {
             </a>
           ))}
         </div>
-        <p className="m-0 text-[15px] leading-[23px] text-dodio-ink-muted">
-          Přerostli jste Excel, ale nechcete drahý HR systém?{" "}
-          <a href="/pro-male-firmy" className="font-medium text-dodio-teal-dark no-underline hover:underline">
-            Podívejte se, jak Dodio sedí malým firmám
-          </a>
-          .
-        </p>
+        <div className="flex flex-col gap-4 border-t border-dodio-border pt-8 lg:pt-10">
+          <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
+            Podle vaší situace
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5">
+            {SITUATIONS.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="flex flex-col gap-2 rounded-dodio-lg border-2 border-dodio-teal-dark bg-white p-6 no-underline hover:bg-dodio-surface-card"
+              >
+                <div className="font-dodio-display text-lg font-bold text-dodio-ink">{item.title}</div>
+                <p className="m-0 text-[15px] leading-[22px] text-dodio-ink-muted">{item.body}</p>
+                <span className="mt-1 text-sm font-medium text-dodio-teal-dark">{item.cta} →</span>
+              </a>
+            ))}
+          </div>
+        </div>
       </Container>
     </section>
   );
