@@ -38,6 +38,7 @@ import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { DbDepartment, DbLeaveType, Role } from "@/lib/supabase/types";
 import { errorMessage } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { RowMenu } from "@/components/ui/row-menu";
 import { isHr } from "@/lib/access";
 
 const roleLabel: Record<Role, string> = {
@@ -636,35 +637,20 @@ export function UsersPanel() {
                           >
                             <Pencil size={12} /> Upravit
                           </button>
-                          {canManagePeople && r.id !== profile?.id && r.employee.active !== false && (
-                            <button
-                              onClick={() => handleToggleActive(r, false)}
-                              disabled={deletingId === r.id}
-                              className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-warning/50 hover:bg-warning-light hover:text-warning-dark disabled:opacity-50"
-                            >
-                              <UserX size={12} /> Deaktivovat
-                            </button>
-                          )}
-                          {canManagePeople && r.id !== profile?.id && r.employee.active === false && (
-                            <button
-                              onClick={() => handleToggleActive(r, true)}
-                              disabled={deletingId === r.id}
-                              className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark disabled:opacity-50"
-                            >
-                              <UserCheck size={12} /> Aktivovat
-                            </button>
-                          )}
-                          {isAdmin && r.id !== profile?.id && r.employee.active === false && (
-                            <button
-                              onClick={() => handleDeleteEmployee(r)}
-                              disabled={deletingId === r.id}
-                              className="rounded border border-line p-1.5 text-muted hover:border-danger/40 hover:bg-danger-light hover:text-danger disabled:opacity-50"
-                              aria-label={`Trvale smazat ${r.name}`}
-                              title="Trvale smazat včetně historie"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
+                          <RowMenu
+                            label={`Další akce — ${r.name}`}
+                            items={[
+                              ...(canManagePeople && r.id !== profile?.id && r.employee.active !== false
+                                ? [{ label: "Deaktivovat", icon: <UserX size={14} />, onSelect: () => handleToggleActive(r, false), disabled: deletingId === r.id }]
+                                : []),
+                              ...(canManagePeople && r.id !== profile?.id && r.employee.active === false
+                                ? [{ label: "Aktivovat", icon: <UserCheck size={14} />, onSelect: () => handleToggleActive(r, true), disabled: deletingId === r.id }]
+                                : []),
+                              ...(isAdmin && r.id !== profile?.id && r.employee.active === false
+                                ? [{ label: "Trvale smazat", icon: <Trash2 size={14} />, onSelect: () => handleDeleteEmployee(r), disabled: deletingId === r.id, danger: true }]
+                                : []),
+                            ]}
+                          />
                         </div>
                       ) : (
                         <button

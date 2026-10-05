@@ -14,6 +14,7 @@ import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { SeniorityCard } from "@/components/admin/SeniorityCard";
 import { FeatureGate } from "@/components/shared/FeatureGate";
+import { OptionalNumber } from "@/components/ui/optional-number";
 import { setPresenceKeys } from "@/lib/leave-kinds";
 
 // These two keys are load-bearing (hardcoded into onboarding, invite-claim
@@ -211,26 +212,23 @@ export function LeaveTypesPanel() {
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted">Home Office / rok (0 = bez limitu)</label>
-            <input
-              type="number"
-              min={0}
+            <label className="mb-1.5 block text-xs font-medium text-muted">Home Office / rok</label>
+            <OptionalNumber
+              enabled={company.default_home_office_days !== 0}
+              onToggle={(on) => patchDefaults({ default_home_office_days: on ? 60 : 0 })}
+              value={company.default_home_office_days === 0 ? null : company.default_home_office_days}
+              onCommit={(n) => patchDefaults({ default_home_office_days: n })}
+              unit="dní"
               step={0.5}
-              defaultValue={company.default_home_office_days}
-              onBlur={(e) => patchDefaults({ default_home_office_days: Number(e.target.value) })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
+              offLabel="Bez omezení"
+              onLabel="Nejvýše"
             />
           </div>
         </div>
-        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            defaultChecked={company.prorate_new_hires}
-            onChange={(e) => patchDefaults({ prorate_new_hires: e.target.checked })}
-            className="h-4 w-4"
-          />
+        <div className="mt-3 flex items-center gap-2 text-sm">
+          <Switch checked={company.prorate_new_hires} onCheckedChange={(v) => patchDefaults({ prorate_new_hires: v })} label="Poměrná dovolená pro nováčky během roku" />
           Poměrná dovolená pro nováčky během roku (krátí se podle měsíce nástupu — je-li vyplněné datum nástupu, jinak podle dne založení účtu)
-        </label>
+        </div>
       </div>
 
       <FeatureGate feature="seniority" description="Automatický příplatek k ročnímu nároku podle počtu let ve firmě a poměrná dovolená pro nováčky.">

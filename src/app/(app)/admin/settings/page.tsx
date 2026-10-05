@@ -28,6 +28,18 @@ const titles: Record<string, string> = {
   audit: "Historie změn",
 };
 
+const subtitles: Record<string, string> = {
+  users: "Pozvánky, role a aktivace lidí ve firmě.",
+  departments: "Vedoucí, zástupci a kapacita jednotlivých oddělení.",
+  "leave-types": "Dovolená, sick days a další typy absencí — co čerpají a jak se schvalují.",
+  profile: "Zobrazovaný název, logo a ID firmy.",
+  general: "Pracovní doba, pravidla pro žádosti, kapacita a firemní absence.",
+  billing: "Tarif, fakturační údaje a archiv faktur.",
+  integrations: "Napojení na Slack, Teams a další nástroje.",
+  emails: "Které e-maily appka posílá a komu.",
+  audit: "Kdo, kdy a co ve firmě změnil.",
+};
+
 function SettingsContent() {
   const section = useSearchParams().get("sekce") ?? "users";
   const { profile } = useAuth();
@@ -43,7 +55,7 @@ function SettingsContent() {
 
   return (
     <div>
-      <Header title={`Nastavení firmy — ${titles[active]}`} subtitle="Sekce nastavení najdete v menu vlevo" />
+      <Header title={`Nastavení firmy — ${titles[active]}`} subtitle={subtitles[active]} />
       {/* Bez max-width tady — některé sekce jsou tabulky (Uživatelé, Historie změn), které širokou obrazovku
           využijí; sekce s formulářem (Kalendář a provoz) si šířku omezuje sama, viz CompanySettingsPanel. */}
       <div className="p-4 sm:p-8">

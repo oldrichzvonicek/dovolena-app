@@ -25,6 +25,7 @@ import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { OptionalNumber, UnitInput } from "@/components/ui/optional-number";
 
 const shiftLabel: Record<ShiftPattern, string> = {
   none: "Jednosměnný (standardní pracovní doba)",
@@ -52,55 +53,6 @@ const tabs: { key: SettingsTab; label: string }[] = [
   { key: "blokace", label: "Blokované termíny" },
   { key: "celozavodni", label: "Celozávodní dovolená" },
 ];
-
-/** Číselný vstup s pevnou jednotkou vpravo (dní, hodin, %), ať je zřejmé, co číslo znamená. */
-function UnitInput({ unit, className, ...props }: { unit: string } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <span className={cn("inline-flex items-stretch overflow-hidden rounded border border-line bg-white focus-within:ring-2 focus-within:ring-teal/40", props.disabled && "opacity-60", className)}>
-      <input type="number" {...props} className="w-16 bg-transparent px-2 py-1.5 text-right text-sm outline-none" />
-      <span className="flex items-center border-l border-line bg-paper px-2 text-xs text-muted">{unit}</span>
-    </span>
-  );
-}
-
-/** Volitelná hodnota: přepínač Zapnuto/Vypnuto a vedle něj číslo s jednotkou (žádné „0 = vypnuto“). */
-function OptionalNumber({
-  enabled,
-  onToggle,
-  value,
-  onCommit,
-  unit,
-  offLabel,
-  onLabel,
-  disabled,
-  min = 0,
-  step = 1,
-}: {
-  enabled: boolean;
-  onToggle: (on: boolean) => void;
-  value: number | null;
-  onCommit: (n: number) => void;
-  unit: string;
-  offLabel: string;
-  onLabel: string;
-  disabled?: boolean;
-  min?: number;
-  step?: number;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Switch checked={enabled} onCheckedChange={onToggle} disabled={disabled} label={onLabel} />
-      {enabled ? (
-        <>
-          <span className="text-sm">{onLabel}</span>
-          <UnitInput unit={unit} min={min} step={step} disabled={disabled} defaultValue={value ?? ""} aria-label={onLabel} onBlur={(e) => e.target.value !== "" && onCommit(Number(e.target.value))} />
-        </>
-      ) : (
-        <span className="text-sm text-muted">{offLabel}</span>
-      )}
-    </div>
-  );
-}
 
 /** Roční pás s vyznačenými blokovanými termíny: rychlá vizuální kontrola, kdy se nedá žádat. */
 function YearStrip({ ranges }: { ranges: { label: string; start: string; end: string }[] }) {
@@ -243,20 +195,15 @@ export function CompanySettingsPanel() {
       <div className="card p-5">
         <SectionHeader icon={<Settings size={15} />} title="Kalendář a směny" />
 
-        <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
+        <div className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
           <div>
             <div className="text-sm font-medium">Víkendový provoz</div>
             <p className="mt-0.5 text-sm text-muted">
               Když je vypnuto, týmový kalendář soboty a neděle vůbec nezobrazuje — nezabírají zbytečně místo.
             </p>
           </div>
-          <input
-            type="checkbox"
-            checked={company.weekend_operations}
-            onChange={(e) => patch({ weekend_operations: e.target.checked })}
-            className="h-5 w-5 shrink-0 rounded border-line accent-teal"
-          />
-        </label>
+          <Switch checked={company.weekend_operations} onCheckedChange={(v) => patch({ weekend_operations: v })} label="Víkendový provoz" />
+        </div>
 
         <div className="mt-3">
           <label className="mb-1.5 block text-sm font-medium">Směnný provoz</label>
@@ -331,7 +278,7 @@ export function CompanySettingsPanel() {
             </div>
           </div>
 
-          <label className="flex items-center justify-between gap-4 rounded border border-line p-4">
+          <div className="flex items-center justify-between gap-4 rounded border border-line p-4">
             <div>
               <div className="text-sm font-medium">Zpětné zadávání absencí</div>
               <p className="mt-0.5 text-sm text-muted">
@@ -344,15 +291,10 @@ export function CompanySettingsPanel() {
                 </div>
               )}
             </div>
-            <input
-              type="checkbox"
-              checked={company.backdating_allowed}
-              onChange={(e) => patch({ backdating_allowed: e.target.checked })}
-              className="h-5 w-5 shrink-0 rounded border-line accent-teal"
-            />
-          </label>
+            <Switch checked={company.backdating_allowed} onCheckedChange={(v) => patch({ backdating_allowed: v })} label="Zpětné zadávání absencí" />
+          </div>
 
-          <label className="flex items-center justify-between gap-4 rounded border border-line p-4">
+          <div className="flex items-center justify-between gap-4 rounded border border-line p-4">
             <div>
               <div className="text-sm font-medium">Čerpání do mínusu</div>
               <p className="mt-0.5 text-sm text-muted">Povolit žádost i bez dostatečného zůstatku, do zadaného limitu.</p>
@@ -363,18 +305,13 @@ export function CompanySettingsPanel() {
                 </div>
               )}
             </div>
-            <input
-              type="checkbox"
-              checked={company.allow_negative_balance}
-              onChange={(e) => patch({ allow_negative_balance: e.target.checked })}
-              className="h-5 w-5 shrink-0 rounded border-line accent-teal"
-            />
-          </label>
+            <Switch checked={company.allow_negative_balance} onCheckedChange={(v) => patch({ allow_negative_balance: v })} label="Čerpání do mínusu" />
+          </div>
 
           <div className="rounded border border-line p-4">
             <div className="text-sm font-medium">Převod a expirace dovolené</div>
             <p className="mt-0.5 text-sm text-muted">
-              Nevyčerpaná dovolená z minulého roku propadne k tomuto datu (prázdné = nikdy nepropadá).
+              Nevyčerpaná dovolená z minulého roku propadne k tomuto datu, nebo zvolte „Nikdy nepropadá“.
             </p>
             <MonthDayPicker value={company.carryover_expiry_md} onChange={(v) => patch({ carryover_expiry_md: v })} />
 
@@ -434,57 +371,49 @@ export function CompanySettingsPanel() {
       {tab === "zabezpeceni" && (
       <div className="card p-5">
         <SectionHeader icon={<ShieldCheck size={15} />} title="Zabezpečení a schvalování" />
-        <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
+        <div className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
           <div>
             <div className="text-sm font-medium">Vyžadovat dvoufázové ověření pro admina, HR a účetní</div>
             <p className="mt-0.5 text-sm text-muted">
               Tito lidé vidí data všech kolegů. Když je volba zapnutá, musí si nastavit ověřovací aplikaci (Můj účet), jinak se do aplikace nedostanou. Ostatní zaměstnanci si 2FA mohou zapnout dobrovolně.
             </p>
           </div>
-          <input
-            type="checkbox"
+          <Switch
             checked={company.require_mfa_staff === true}
-            onChange={(e) => patch(e.target.checked ? { require_mfa_staff: true, email_approval_enabled: false } : { require_mfa_staff: false })}
-            className="h-5 w-5 shrink-0 rounded border-line accent-teal"
+            onCheckedChange={(v) => patch(v ? { require_mfa_staff: true, email_approval_enabled: false } : { require_mfa_staff: false })}
+            label="Vyžadovat dvoufázové ověření pro admina, HR a účetní"
           />
-        </label>
+        </div>
 
         {company.require_mfa_staff === true && (
           <p className="mt-2 rounded border border-warning/40 bg-warning-light px-3 py-2 text-xs text-warning-dark">
             Při vyžadovaném dvoufázovém ověření je schvalování z e-mailu vypnuté: odkaz z e-mailu nevyžaduje přihlášení, takže by 2FA obcházel. Žádosti se schvalují v aplikaci (po přihlášení a ověření kódem).
           </p>
         )}
-        <label className={cn("mt-4 flex items-center justify-between gap-4 rounded border border-line p-4", company.require_mfa_staff === true && "opacity-60")}>
+        <div className={cn("mt-4 flex items-center justify-between gap-4 rounded border border-line p-4", company.require_mfa_staff === true && "opacity-60")}>
           <div>
             <div className="text-sm font-medium">Schvalování přímo z e-mailu</div>
             <p className="mt-0.5 text-sm text-muted">
               E-mail o nové žádosti obsahuje tlačítka Schválit a Zamítnout. Vedou na potvrzovací stránku (rozhodnutí se nikdy neuloží samo kliknutím z náhledu e-mailu), odkaz platí 7 dní a jde použít jen pro čekající žádost. Vypněte, pokud chcete, aby se schvalovalo jen po přihlášení.
             </p>
           </div>
-          <input
-            type="checkbox"
+          <Switch
             checked={company.email_approval_enabled !== false && company.require_mfa_staff !== true}
             disabled={company.require_mfa_staff === true}
-            title={company.require_mfa_staff === true ? "Vypnuto, protože je vyžadováno dvoufázové ověření" : undefined}
-            onChange={(e) => patch({ email_approval_enabled: e.target.checked })}
-            className="h-5 w-5 shrink-0 rounded border-line accent-teal"
+            onCheckedChange={(v) => patch({ email_approval_enabled: v })}
+            label="Schvalování přímo z e-mailu"
           />
-        </label>
+        </div>
 
-        <label className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
+        <div className="mt-4 flex items-center justify-between gap-4 rounded border border-line p-4">
           <div>
             <div className="text-sm font-medium">Absence jen v rámci vlastního oddělení</div>
             <p className="mt-0.5 text-sm text-muted">
               Zaměstnanci a manažeři uvidí v Týmovém kalendáři a widgetu „Kdo dnes chybí“ absence jen kolegů ze svého oddělení. Přímé podřízené a lidi ve svém oddělení vidí manažer vždy, i když formálně patří jinam. Admin, HR a účetní vidí vždy vše.
             </p>
           </div>
-          <input
-            type="checkbox"
-            checked={company.department_scoped_visibility === true}
-            onChange={(e) => patch({ department_scoped_visibility: e.target.checked })}
-            className="h-5 w-5 shrink-0 rounded border-line accent-teal"
-          />
-        </label>
+          <Switch checked={company.department_scoped_visibility === true} onCheckedChange={(v) => patch({ department_scoped_visibility: v })} label="Absence jen v rámci vlastního oddělení" />
+        </div>
       </div>
       )}
 

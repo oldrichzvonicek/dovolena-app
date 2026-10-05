@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { Switch } from "@/components/ui/switch";
 import { fetchDepartments } from "@/lib/data";
 import {
   AdminEmployeeRow,
@@ -359,10 +360,10 @@ function EditDepartmentModal({
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={useCustomCapacity} onChange={(e) => setUseCustomCapacity(e.target.checked)} className="h-4 w-4 accent-teal" />
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Switch checked={useCustomCapacity} onCheckedChange={setUseCustomCapacity} label="Vlastní kapacitní pravidlo pro toto oddělení" />
               Vlastní kapacitní pravidlo pro toto oddělení
-            </label>
+            </div>
             <p className="mt-1 text-xs text-muted">
               Jinak platí firemní výchozí hodnota ({companyCapacityDefault} %). Manažer dostane varování při schvalování, když bude
               mimo víc lidí z oddělení, než je limit.

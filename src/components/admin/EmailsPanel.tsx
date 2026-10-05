@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Bell, CheckCircle2, Clock, Eye, RefreshCw, RotateCcw, Send } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, ChevronLeft, ChevronRight, Clock, Eye, RefreshCw, RotateCcw, Send } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { EMAIL_TEMPLATES, renderTemplate, TEMPLATE_SAMPLE } from "@/lib/email-templates";
@@ -198,10 +198,16 @@ const badgeClass: Record<EmailStatus, string> = {
   failed: "bg-danger-light text-danger-dark",
 };
 
+const PAGE_SIZES = [20, 50, 100];
+
 function SentLog() {
   const [rows, setRows] = useState<LogRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "problem">("all");
+  // Výchozí "problem" — admin sem chodí hlavně řešit, proč někomu něco nedorazilo; "Žádný e-mail nečeká ani
+  // neselhal." je i jako výchozí stav v pořádku (potvrzuje, že je vše v pořádku).
+  const [filter, setFilter] = useState<"all" | "problem">("problem");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -233,8 +239,11 @@ function SentLog() {
     }
   }
 
-  const shown = (rows ?? []).filter((r) => filter === "all" || r.status !== "sent");
+  const filtered = (rows ?? []).filter((r) => filter === "all" || r.status !== "sent");
   const problems = (rows ?? []).filter((r) => r.status === "failed" || r.status === "retrying").length;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const shown = filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
 
   return (
     <div className="space-y-4">
@@ -249,7 +258,14 @@ function SentLog() {
           <div className="flex items-center gap-2">
             <div className="flex overflow-hidden rounded border border-line text-sm">
               {(["all", "problem"] as const).map((f) => (
-                <button key={f} onClick={() => setFilter(f)} className={cn("px-3 py-1.5", filter === f ? "bg-teal-light font-medium text-teal-dark" : "text-muted hover:bg-paper")}>
+                <button
+                  key={f}
+                  onClick={() => {
+                    setFilter(f);
+                    setPage(0);
+                  }}
+                  className={cn("px-3 py-1.5", filter === f ? "bg-teal-light font-medium text-teal-dark" : "text-muted hover:bg-paper")}
+                >
                   {f === "all" ? "Všechny" : `Nevyřízené${problems > 0 ? ` (${problems})` : ""}`}
                 </button>
               ))}
@@ -312,6 +328,43 @@ function SentLog() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {filtered.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3 text-sm text-muted">
+            <label className="flex items-center gap-2">
+              Řádků na stránku
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(0);
+                }}
+                className="rounded border border-line bg-white px-2 py-1"
+              >
+                {PAGE_SIZES.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span>
+              {currentPage * pageSize + 1}–{Math.min(filtered.length, (currentPage + 1) * pageSize)} z {filtered.length}
+            </span>
+            {pageCount > 1 && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(Math.max(0, currentPage - 1))} disabled={currentPage === 0} aria-label="Předchozí stránka" className="rounded border border-line bg-white p-1.5 hover:bg-paper disabled:opacity-40">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="px-2">
+                  {currentPage + 1} / {pageCount}
+                </span>
+                <button onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))} disabled={currentPage >= pageCount - 1} aria-label="Další stránka" className="rounded border border-line bg-white p-1.5 hover:bg-paper disabled:opacity-40">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
