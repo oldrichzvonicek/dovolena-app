@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DbProfile } from "@/lib/supabase/types";
 import { completeOnboarding } from "@/lib/onboarding-intent";
 import { setPresenceKeys } from "@/lib/leave-kinds";
+import { applyPlanPrices } from "@/lib/plans";
 
 interface AuthContextValue {
   session: Session | null;
@@ -59,13 +60,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [session, loadProfile]);
 
   useEffect(() => {
+    // Ceník (tabulka plans) je veřejný a mění ho provozovatel; načte se dřív, než se cokoli vykreslí. Chyba = platí ceny ze souboru plans.ts.
+    const pricesReady = Promise.resolve(supabase.from("plans").select("code, price_monthly, price_yearly, price_extra_user_monthly, price_extra_user_yearly, valid_from"))
+      .then(({ data }) => {
+        if (data) applyPlanPrices(data);
+      })
+      .catch(() => undefined);
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      if (data.session?.user.id) {
-        loadProfile(data.session.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
+      const profileReady = data.session?.user.id ? loadProfile(data.session.user.id) : Promise.resolve();
+      Promise.all([profileReady, pricesReady]).finally(() => setLoading(false));
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
