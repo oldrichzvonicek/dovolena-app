@@ -17,6 +17,7 @@ import { MyLeavePlans } from "@/components/dashboard/MyLeavePlans";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { cancelLeaveRequest, requestLeaveCancellation } from "@/lib/data";
+import { showToast } from "@/lib/toast";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { LeaveColor, RequestStatus } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
@@ -52,6 +53,9 @@ export default function RequestsPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [editingRow, setEditingRow] = useState<Row | null>(null);
   const [resubmitRow, setResubmitRow] = useState<Row | null>(null);
+  // Úprava schválené žádosti nejde upravit "na místě" (schválení už proběhlo) — založí se nová se stejnými
+  // hodnotami předvyplněnými a zároveň se požádá o zrušení té původní, ať se dny nepočítaly dvakrát.
+  const [editApprovedRow, setEditApprovedRow] = useState<Row | null>(null);
   const [detailRow, setDetailRow] = useState<Row | null>(null);
   // Odkaz z kolizní hlášky ve formuláři (?open=ID): rovnou otevře akci pro danou žádost, ať uživatel
   // nemusí danou žádost v seznamu sám dohledávat.
@@ -179,6 +183,23 @@ export default function RequestsPage() {
     }
   }
 
+  // Nová žádost s upravenými hodnotami už je v tu chvíli odeslaná (viz RequestLeaveModal.onSaved) — tohle jen
+  // doplní žádost o zrušení původní. Když se to nepovede, nová žádost zůstává v pořádku; jen upozorní, ať
+  // o zrušení staré požádá ručně (tlačítko "Požádat o zrušení" u ní pořád funguje).
+  async function handleEditApprovedSaved() {
+    const r = editApprovedRow;
+    setEditApprovedRow(null);
+    load();
+    if (!r) return;
+    try {
+      await requestLeaveCancellation(r.id);
+      emitDataChanged();
+      showToast("Nová žádost je odeslaná ke schválení a o zrušení té původní jsme rovnou požádali.", "success");
+    } catch (e) {
+      showToast(`Nová žádost je odeslaná, ale o zrušení té původní se nepodařilo požádat automaticky: ${errorMessage(e)}`, "error");
+    }
+  }
+
   function renderActions(r: Row, compact = false) {
     const canCancelApproved = r.status === "approved" && r.end_date >= todayISO;
     const dangerBtn = "flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-danger/40 hover:bg-danger-light hover:text-danger disabled:opacity-50";
@@ -239,6 +260,17 @@ export default function RequestsPage() {
         ),
         menu: { label: "Duplikovat", icon: <Copy size={13} />, onClick: () => setResubmitRow(r) },
       });
+      if (canCancelApproved && !r.cancellation_requested_at) {
+        items.push({
+          key: "editapproved",
+          node: (
+            <button onClick={() => setEditApprovedRow(r)} className={btn}>
+              <Pencil size={12} /> Upravit
+            </button>
+          ),
+          menu: { label: "Upravit", icon: <Pencil size={13} />, onClick: () => setEditApprovedRow(r) },
+        });
+      }
       if (canCancelApproved) {
         items.push({
           key: "cancelreq",
@@ -564,6 +596,26 @@ export default function RequestsPage() {
             setResubmitRow(null);
             load();
           }}
+        />
+      )}
+
+      {/* Schválenou žádost nejde upravit "na místě" (schválení už proběhlo) — tohle založí novou se stejnými
+          hodnotami předvyplněnými a po jejím odeslání rovnou požádá o zrušení té původní (handleEditApprovedSaved). */}
+      {editApprovedRow && (
+        <RequestLeaveModal
+          trigger={null}
+          open={!!editApprovedRow}
+          onOpenChange={(o) => !o && setEditApprovedRow(null)}
+          heading="Upravit a znovu odeslat ke schválení"
+          prefill={{
+            leave_type_id: editApprovedRow.leave_type.id,
+            half_day: editApprovedRow.half_day,
+            start_date: editApprovedRow.start_date,
+            end_date: editApprovedRow.end_date,
+            note: editApprovedRow.note,
+            covering_profile_id: editApprovedRow.covering_profile_id,
+          }}
+          onSaved={handleEditApprovedSaved}
         />
       )}
 

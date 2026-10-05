@@ -62,6 +62,8 @@ interface RequestLeaveModalProps {
   editingRequest?: EditingRequest;
   initialDates?: { start: string; end: string };
   prefill?: PrefillRequest;
+  /** Přebije výchozí nadpis dialogu — např. "Upravit a znovu odeslat ke schválení" pro úpravu schválené žádosti (ta vždy zakládá novou, viz PrefillRequest). */
+  heading?: string;
 }
 
 export function RequestLeaveModal({
@@ -72,6 +74,7 @@ export function RequestLeaveModal({
   editingRequest,
   initialDates,
   prefill,
+  heading,
 }: RequestLeaveModalProps) {
   const { profile } = useAuth();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -404,7 +407,7 @@ export function RequestLeaveModal({
 
   const dialog = (
     <DialogContent
-      title={isEditing ? "Upravit žádost o absenci" : "Nová žádost o absenci"}
+      title={heading ?? (isEditing ? "Upravit žádost o absenci" : "Nová žádost o absenci")}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setOpen(false)}>

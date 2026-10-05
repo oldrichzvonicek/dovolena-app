@@ -71,7 +71,7 @@ export const sections: HelpSection[] = [
       "Záložky Všechny / Čekající / Schválené / Zamítnuté / Zrušené a filtr roku a typu. Na telefonu se žádosti zobrazí jako karty.",
       "U každé žádosti je vidět počet dní (i půldny), kdo ji schválil a barevný stav.",
       "U zamítnuté žádosti se zobrazí důvod a tlačítko „Upravit a poslat znovu“.",
-      "Čekající žádost jde upravit nebo zrušit. U schválené žádosti požádáte o zrušení — rozhodne schvalovatel.",
+      "Čekající žádost jde upravit přímo. U schválené žádosti tlačítko „Upravit“ založí novou se stejnými údaji a zároveň požádá o zrušení té původní — rozhodne schvalovatel.",
       "Akce „Duplikovat“ a „Do kalendáře“ jsou v menu ⋯ u každé žádosti.",
     ],
   },
@@ -283,7 +283,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Zadal(a) jsem špatný termín. Jak to opravím?",
-    a: "Dokud žádost čeká na schválení, upravíte ji nebo zrušíte v Moje žádosti. Už schválenou žádost zrušíte přes „Požádat o zrušení“ (rozhodne schvalovatel) a potom zadáte správný termín znovu. Šablonu s předvyplněnými údaji nabízí „Duplikovat“.",
+    a: "Dokud žádost čeká na schválení, upravíte ji přímo v Moje žádosti. U už schválené žádosti použijte „Upravit“ — založí se nová se správným termínem a zároveň se požádá o zrušení té původní (rozhodne schvalovatel). Šablonu s předvyplněnými údaji bez zrušení té staré nabízí „Duplikovat“.",
     section: "Moje žádosti",
   },
   {
