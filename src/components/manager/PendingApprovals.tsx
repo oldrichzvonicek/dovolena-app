@@ -299,10 +299,10 @@ export function PendingApprovals() {
 
   if (pending.length === 0) {
     return (
-      <div className="card p-8 text-center text-sm text-muted">
-        <p>Žádné žádosti nečekají na schválení.</p>
+      <div className="card p-8 text-sm text-muted">
+        <p className="text-center">Žádné žádosti nečekají na schválení.</p>
         {recentDecided && recentDecided.length > 0 && (
-          <div className="mx-auto mt-4 max-w-sm text-left">
+          <div className="mt-6 border-t border-line pt-4">
             <p className="mb-1.5 text-xs font-medium text-ink">Naposledy rozhodnuté</p>
             <ul className="space-y-1">
               {recentDecided.map((r) => (
