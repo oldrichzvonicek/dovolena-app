@@ -84,7 +84,7 @@ export interface PlanPricing {
 }
 
 const CTA_LABEL: Record<PlanId, string> = {
-  free: "Založit účet zdarma",
+  free: "Vyzkoušet zdarma",
   starter: "Vybrat Starter",
   team: "Vybrat Team",
   pro: "Vybrat Pro",

@@ -1,5 +1,6 @@
 import { Container } from "./Container";
 import { CONTACT_EMAIL } from "@/lib/dodio-links";
+import { TemplateEmailForm } from "./TemplateEmailForm";
 
 function ChevronIcon() {
   return (
@@ -143,6 +144,32 @@ export function FAQ() {
             </a>
             .
           </p>
+
+          <div className="mt-2 flex flex-col gap-3 rounded-dodio-lg bg-[#EAF3EF] p-5">
+            <h3 className="m-0 font-dodio-display text-base font-bold text-dodio-ink">
+              Ještě to řešíte v Excelu?
+            </h3>
+            <p className="m-0 text-sm leading-[21px] text-dodio-ink-muted">
+              Dáme vám aspoň naši šablonu na evidenci pracovní doby, dovolené, sick days a home office pro
+              rok 2027, ať v tom máte pořádek, než se rozhodnete.{" "}
+              <a href="/sablona-dochazky-2027" className="text-dodio-teal-dark underline underline-offset-2">
+                Co všechno šablona umí
+              </a>
+              .
+            </p>
+            <p className="m-0 text-sm leading-[21px] text-dodio-ink-muted">
+              Nevíte, kolik dovolené vám letos patří?{" "}
+              <a href="/kalkulacka-dovolene" className="text-dodio-teal-dark underline underline-offset-2">
+                Spočítejte si to v kalkulačce
+              </a>
+              .
+            </p>
+            <TemplateEmailForm
+              layoutClassName="sm:flex-col"
+              inputClassName="h-11 w-full rounded-dodio-md border border-dodio-border bg-white px-4 text-sm text-dodio-ink placeholder:text-dodio-ink-muted"
+              buttonClassName="flex h-11 w-full items-center justify-center rounded-dodio-md bg-dodio-teal-dark text-sm font-semibold text-white disabled:opacity-70"
+            />
+          </div>
         </div>
         <div className="flex flex-col gap-8 lg:gap-10">
           {CATEGORIES.map((category) => (

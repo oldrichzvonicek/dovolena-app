@@ -8,7 +8,6 @@ import { SmartHR } from "@/components/marketing/SmartHR";
 import { Integrations } from "@/components/marketing/Integrations";
 import { Security } from "@/components/marketing/Security";
 import { Pricing } from "@/components/marketing/Pricing";
-import { LeadMagnet } from "@/components/marketing/LeadMagnet";
 import { FAQ } from "@/components/marketing/FAQ";
 import { FinalCTA } from "@/components/marketing/FinalCTA";
 import { Footer } from "@/components/marketing/Footer";
@@ -47,7 +46,6 @@ export default function LandingPage() {
         <Security />
         <Pricing />
         <FAQ />
-        <LeadMagnet />
         <FinalCTA />
       </main>
       <Footer />

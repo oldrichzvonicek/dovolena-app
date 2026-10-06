@@ -144,13 +144,13 @@ export function TeamCalendar() {
             <div className="col-start-1 row-start-5 flex items-center gap-2.5 border-b border-[#EFEDE6] px-4 text-sm">
               <span className="font-medium">Ondřej Veselý</span>
             </div>
-            <div className="z-[2] col-start-8 col-end-10 row-start-5 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-danger text-xs font-semibold text-white">
+            <div className="z-[2] col-start-9 col-end-11 row-start-5 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-danger text-xs font-semibold text-white">
               Sick Day
             </div>
             <div className="col-start-1 row-start-6 flex items-center gap-2.5 px-4 text-sm">
               <span className="font-medium">Veronika Sedláková</span>
             </div>
-            <div className="z-[2] col-start-10 col-end-11 row-start-6 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-border text-xs font-semibold text-dodio-ink-muted">
+            <div className="z-[2] col-start-10 col-end-12 row-start-6 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-border text-xs font-semibold text-dodio-ink">
               Nepřítomen
             </div>
 
