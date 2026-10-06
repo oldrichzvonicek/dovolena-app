@@ -243,7 +243,14 @@ function LoginForm() {
       return;
     }
     try {
-      await claimInvite();
+      // null = účet se založil, ale tahle konkrétní pozvánka k žádné firmě nepatří (např. byla mezitím
+      // použita nebo smazána) — bez téhle kontroly by to tiše přešlo na /dashboard s navždy chybějícím
+      // profilem (viz AppLayout: "Připravuji účet…", co se nikdy nenačte).
+      const claimedCompanyId = await claimInvite();
+      if (!claimedCompanyId) {
+        setError("Tato pozvánka už není platná (byla už použita nebo mezitím zrušená). Požádejte administrátora firmy o novou.");
+        return;
+      }
       await refreshProfile();
       router.push("/dashboard");
     } catch (err) {
