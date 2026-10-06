@@ -519,8 +519,8 @@ export function RequestLeaveModal({
                   {hoursValue <= 0
                     ? "Konec musí být později než začátek."
                     : hoursValue > dailyHours
-                      ? `${formatNumber(hoursValue)} h přesahuje standardní úvazek (${dailyHours} h/den) — zkontrolujte časy.`
-                      : `${formatNumber(hoursValue)} hodin (ze standardního úvazku ${dailyHours} h/den)`}
+                      ? `${formatNumber(hoursValue)} h přesahuje standardní úvazek (${formatNumber(dailyHours)} h/den) — zkontrolujte časy.`
+                      : `${formatNumber(hoursValue)} hodin (ze standardního úvazku ${formatNumber(dailyHours)} h/den)`}
                 </p>
               </div>
             )}

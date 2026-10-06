@@ -167,8 +167,8 @@ function Names({ ids, nameOf, limit = 6, onSelect }: { ids: string[]; nameOf: (i
         </span>
       ))}
       {list.length > limit && (
-        <button type="button" onClick={() => setAll(!all)} className="ml-1.5 text-teal-dark underline underline-offset-2">
-          {all ? "méně" : `a dalších ${list.length - limit}`}
+        <button type="button" onClick={() => setAll(!all)} className="text-teal-dark underline underline-offset-2">
+          {all ? " méně" : ` a dalších ${list.length - limit}`}
         </button>
       )}
     </p>

@@ -505,7 +505,7 @@ export function OverviewPanel() {
             </Select>
             {section === "retro" && (<>
             <Button variant="secondary" size="sm" onClick={exportCsv} disabled={!canExport} title={canExport ? undefined : "Export do CSV je od tarifu Starter"}>
-              <Download size={13} /> Excel (CSV)
+              <Download size={13} /> CSV
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setPreviewOpen(true)} disabled={loading}>
               <Printer size={13} /> PDF (tisk)

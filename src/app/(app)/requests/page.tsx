@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Eye, LayoutGrid, Pencil, RefreshCw, Search, Table2, Undo2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Clock, Copy, Eye, LayoutGrid, Pencil, RefreshCw, Search, Table2, Undo2, X, XCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { Header } from "@/components/layout/Header";
@@ -413,12 +413,20 @@ export default function RequestsPage() {
             }}
             options={(
               [
-                ["all", "Všechny"],
-                ["pending", "⏳ Čekající"],
-                ["approved", "🟢 Schválené"],
-                ["rejected", "🔴 Zamítnuté"],
-              ] as [StatusTab, string][]
-            ).map(([key, label]) => ({ key, label: `${label} (${count(key)})` }))}
+                ["all", null, "Všechny"],
+                ["pending", <Clock key="i" size={12} />, "Čekající"],
+                ["approved", <CheckCircle2 key="i" size={12} />, "Schválené"],
+                ["rejected", <XCircle key="i" size={12} />, "Zamítnuté"],
+              ] as [StatusTab, React.ReactNode, string][]
+            ).map(([key, icon, label]) => ({
+              key,
+              label: (
+                <span className="inline-flex items-center gap-1">
+                  {icon}
+                  {label} ({count(key)})
+                </span>
+              ),
+            }))}
           />
         )}
         {actionError && <p className="mb-3 rounded bg-danger-light px-3 py-2 text-sm text-danger">{actionError}</p>}

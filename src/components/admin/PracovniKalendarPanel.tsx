@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useCompanyDraft } from "@/lib/use-company-draft";
 import { DbBlackoutPeriod, DbDepartment, DbLeaveType, ShiftPattern } from "@/lib/supabase/types";
-import { errorMessage } from "@/lib/utils";
+import { errorMessage, formatNumber } from "@/lib/utils";
 import { UnitInput } from "@/components/ui/optional-number";
 import { SectionHeader } from "@/components/admin/section-header";
 import { DraftSaveBar } from "@/components/shared/DraftSaveBar";
@@ -151,7 +151,7 @@ export function PracovniKalendarPanel() {
               <UnitInput unit="hodin / den" min={1} max={24} step={0.5} defaultValue={company.standard_daily_hours} aria-label="Standardní úvazek v hodinách za den" onBlur={(e) => patch({ standard_daily_hours: Number(e.target.value) })} className="[&_input]:w-16" />
             </div>
             <p className="pb-2 text-sm text-muted">
-              = {company.work_days.length * company.standard_daily_hours} h týdně ({company.work_days.length} {dayWord(company.work_days.length)})
+              = {formatNumber(company.work_days.length * company.standard_daily_hours)} h týdně ({company.work_days.length} {dayWord(company.work_days.length)})
             </p>
           </div>
         </div>

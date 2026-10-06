@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDays, format, getISOWeek, parseISO } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
 import { BatteryCharging, CalendarClock, Clock, HeartPulse, LineChart, Scale, Users, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -19,6 +19,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { createClient } from "@/lib/supabase/client";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { DEFAULT_WORK_DAYS, dayWord } from "@/lib/working-days";
+import { czPeople } from "@/lib/czech";
 import {
   MAIN_PERIODS,
   MIN_GROUP,
@@ -336,7 +337,7 @@ export function HrInsights({ departmentId = "all" }: { departmentId?: string }) 
                   <span />
                   {weekHeads.map((w) => (
                     <span key={w.weekStart} className="text-center text-[10px] text-muted" title={format(parseISO(w.weekStart), "d. M. yyyy", { locale: cs })}>
-                      {getISOWeek(parseISO(w.weekStart))}
+                      {format(parseISO(w.weekStart), "d. M.", { locale: cs })}
                     </span>
                   ))}
                   {data.heat.map((row) => (
@@ -580,8 +581,8 @@ function FairRota({ data, periodKey, onSelectPerson }: { data: Data; periodKey: 
                 {deptId ? data.deptNames.get(deptId) ?? "Oddělení" : "Bez oddělení"}
               </span>
               <span className="shrink-0 text-xs text-muted">
-                {rows.length} {rows.length === 1 ? "člověk" : "lidí"} · letos plánuje {planning}
-                {priority > 0 && <span className="ml-1.5 rounded-sm bg-teal-light px-1.5 py-0.5 text-teal-dark">{priority} bez loňska</span>}
+                {czPeople(rows.length)} · letos plánuje {czPeople(planning)}
+                {priority > 0 && <span className="ml-1.5 rounded-sm bg-teal-light px-1.5 py-0.5 text-teal-dark">{czPeople(priority)} bez loňska</span>}
               </span>
             </button>
             {isOpen && (
