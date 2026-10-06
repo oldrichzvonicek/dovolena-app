@@ -14,7 +14,7 @@ import { DbBlackoutPeriod, DbCompany, DbLeaveType, DbProfile } from "@/lib/supab
 import { createLeaveRequest, fetchMaskedAbsences, updateLeaveRequest } from "@/lib/data";
 import { fetchBlackoutPeriods, fetchCompany } from "@/lib/admin-data";
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
-import { hasOtherApprover } from "@/lib/approval-checks";
+import { hasApproverAbove } from "@/lib/approval-checks";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { reducesPresence } from "@/lib/leave-kinds";
 
@@ -373,8 +373,9 @@ export function RequestLeaveModal({
         start_time: durationMode === "hours" ? hoursStart : null,
         end_time: durationMode === "hours" ? hoursEnd : null,
       };
-      // Admin, nad kterým nikdo není (jediný schvalovatel ve firmě), si žádost schvaluje automaticky; jinak by čekala sama na sebe.
-      const topApprover = !isEditing && profile.role === "admin" && !(await hasOtherApprover(profile.company_id, profile.id));
+      // Admin, nad kterým nikdo není (žádný nadřízený ani vedoucí/zástupce jeho oddělení), si žádost schvaluje
+      // automaticky; jinak by čekala věčně, protože nikdo nemá právo o ní rozhodnout (viz approval-checks.ts).
+      const topApprover = !isEditing && profile.role === "admin" && !(await hasApproverAbove(profile.id));
       const autoApproved =
         topApprover ||
         selectedType?.requires_approval === false ||

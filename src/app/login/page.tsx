@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AppLockup } from "@/components/shared/AppLockup";
 import { claimInvite } from "@/lib/admin-data";
 import { joinCompanyByCode, publicCompanyNameByCode } from "@/lib/join-link";
-import { readOnboardingIntent, saveOnboardingIntent } from "@/lib/onboarding-intent";
+import { hasAnyOnboardingIntent, saveOnboardingIntent } from "@/lib/onboarding-intent";
 import { LEGAL } from "@/lib/legal";
 import { cn, errorMessage } from "@/lib/utils";
 
@@ -100,7 +100,7 @@ function LoginForm() {
       // Potvrzovací e-mail přesměruje sem bez jakéhokoli parametru, co by to prozradilo — uložená volba ze
       // signupu (viz onboarding-intent.ts) je jediná stopa, že člověk právě potvrdil registraci a jen neví,
       // co dál. Dokud se nepřihlásí (completeOnboarding ji pak smaže), má smysl mu to připomenout při každé návštěvě.
-      if (!flag && !legacyLink && readOnboardingIntent()) {
+      if (!flag && !legacyLink && hasAnyOnboardingIntent()) {
         setInfo("Pokud jste právě potvrdili e-mail z registrace, přihlaste se teď — vaše firma se dokončí automaticky.");
       }
     } catch {}
@@ -167,7 +167,7 @@ function LoginForm() {
     // If email confirmation is required, there's no session yet — the
     // onboarding RPC needs auth.uid(), so it has to wait until sign-in.
     if (!signUpData.session) {
-      saveOnboardingIntent({ kind: "create", name, companyName });
+      saveOnboardingIntent(email, { kind: "create", name, companyName });
       setLoading(false);
       setInfo("Účet vytvořen. Zkontrolujte e-mail a potvrďte registraci, pak se přihlaste — firma se založí při prvním přihlášení.");
       keepMessage.current = true;
@@ -267,7 +267,7 @@ function LoginForm() {
     }
 
     if (!signUpData.session) {
-      saveOnboardingIntent({ kind: "join", name, joinCode: inviteCode });
+      saveOnboardingIntent(email, { kind: "join", name, joinCode: inviteCode });
       setLoading(false);
       setInfo("Účet vytvořen. Zkontrolujte e-mail a potvrďte registraci, pak se přihlaste — připojení k firmě se dokončí při prvním přihlášení.");
       keepMessage.current = true;

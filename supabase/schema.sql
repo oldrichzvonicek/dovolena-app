@@ -1454,12 +1454,20 @@ begin
     raise exception 'Uveďte důvod zamítnutí.';
   end if;
 
+  -- Je nad tím člověkem vůbec někdo, kdo by mohl rozhodnout? Ne "existuje nějaký manažer/admin kdekoli ve
+  -- firmě" (to by zablokovalo i admina bez oddělení, i když na jeho žádost nikdo jiný stejně nedosáhne — viz
+  -- fetchDecisionScope v approval-scope.ts), ale konkrétně jeho nadřízený nebo vedoucí/zástupce jeho oddělení.
   if old.status = 'pending' and new.status in ('approved', 'rejected')
      and auth.uid() is not null and new.profile_id = auth.uid()
      and exists (
-       select 1 from profiles p
-       where p.company_id = (select company_id from profiles where id = auth.uid())
-         and p.role in ('manager', 'admin') and p.id <> auth.uid()
+       select 1 from profiles me
+       left join departments d on d.id = me.department_id
+       where me.id = auth.uid()
+         and (
+           me.manager_id is not null
+           or (d.head_profile_id is not null and d.head_profile_id <> me.id)
+           or (d.deputy_head_profile_id is not null and d.deputy_head_profile_id <> me.id)
+         )
      ) then
     raise exception 'Vlastní žádost nemůžete rozhodnout — požádejte jiného manažera nebo admina.';
   end if;

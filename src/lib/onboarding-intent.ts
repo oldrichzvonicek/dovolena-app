@@ -12,41 +12,61 @@ export interface OnboardingIntent {
   joinCode?: string;
 }
 
-const KEY = "dodio:onboarding-intent";
+const KEY_PREFIX = "dodio:onboarding-intent:";
 
-export function saveOnboardingIntent(intent: OnboardingIntent) {
+// Keyed by e-mail, not a single shared key — otherwise two people signing up on the same browser before
+// either confirms (shared/kiosk computer, or someone trying the flow twice) would overwrite each other's
+// choice, and completeOnboarding would apply the wrong name to whoever logs in first.
+const keyFor = (email: string) => KEY_PREFIX + email.trim().toLowerCase();
+
+export function saveOnboardingIntent(email: string, intent: OnboardingIntent) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(intent));
+    localStorage.setItem(keyFor(email), JSON.stringify(intent));
   } catch {
     /* private mode — the person will just have to choose again after signing in */
   }
 }
 
-export function readOnboardingIntent(): OnboardingIntent | null {
+export function readOnboardingIntent(email: string): OnboardingIntent | null {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(keyFor(email));
     return raw ? (JSON.parse(raw) as OnboardingIntent) : null;
   } catch {
     return null;
   }
 }
 
-export function clearOnboardingIntent() {
+export function clearOnboardingIntent(email: string) {
   try {
-    localStorage.removeItem(KEY);
+    localStorage.removeItem(keyFor(email));
   } catch {
     /* ignore */
   }
 }
 
+/** For the login page's "looks like you just confirmed a signup" nudge, shown before anyone has typed an e-mail. */
+export function hasAnyOnboardingIntent(): boolean {
+  try {
+    return Object.keys(localStorage).some((k) => k.startsWith(KEY_PREFIX));
+  } catch {
+    return false;
+  }
+}
+
 /** Creates the profile for a freshly signed-in user who has none: invite by e-mail first, then the remembered intent. Returns true when a profile was created. */
 export async function completeOnboarding(supabase: SupabaseClient): Promise<boolean> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const email = user?.email;
+
   const { data: claimed } = await supabase.rpc("claim_invite");
   if (claimed) {
-    clearOnboardingIntent();
+    if (email) clearOnboardingIntent(email);
     return true;
   }
-  const intent = readOnboardingIntent();
+  if (!email) return false;
+  const intent = readOnboardingIntent(email);
   if (!intent) return false;
   if (intent.kind === "join" && intent.joinCode) {
     const { error } = await supabase.rpc("join_company_by_code", { p_code: intent.joinCode, p_name: intent.name });
@@ -57,6 +77,6 @@ export async function completeOnboarding(supabase: SupabaseClient): Promise<bool
   } else {
     return false;
   }
-  clearOnboardingIntent();
+  clearOnboardingIntent(email);
   return true;
 }
