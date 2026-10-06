@@ -28,6 +28,8 @@ import { useOnDataChanged } from "@/lib/events";
 import { useSearchParams } from "next/navigation";
 import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
 import { fetchMaskedAbsencesStrict } from "@/lib/data";
+import { fetchMyDepartmentIds } from "@/lib/approval-checks";
+import { isAdminRole } from "@/lib/access";
 import { createClient } from "@/lib/supabase/client";
 import { DbDepartment, DbProfile, LeaveColor } from "@/lib/supabase/types";
 import { fetchAll } from "@/lib/fetch-all";
@@ -236,19 +238,30 @@ export function TeamCalendar() {
     const supabase = createClient();
 
     supabase.from("departments").select("*").eq("company_id", profile.company_id).then(({ data }) => setDepartments(data ?? []));
-    supabase.from("profiles").select("id, name, department_id").eq("company_id", profile.company_id).eq("active", true).then(({ data }) => setEmployees((data as unknown as DbProfile[]) ?? []));
     supabase
       .from("leave_types")
       .select("key, label, color")
       .eq("company_id", profile.company_id)
       .eq("active", true)
       .then(({ data }) => setLeaveTypesLegend(data ?? []));
-    supabase
-      .from("companies")
-      .select("weekend_operations")
-      .eq("id", profile.company_id)
-      .single()
-      .then(({ data }) => setWeekendOperations(data?.weekend_operations ?? true));
+
+    (async () => {
+      const [{ data: company }, { data: profs }] = await Promise.all([
+        supabase.from("companies").select("weekend_operations, department_scoped_visibility").eq("id", profile.company_id).single(),
+        supabase.from("profiles").select("id, name, department_id, manager_id, staff_role").eq("company_id", profile.company_id).eq("active", true),
+      ]);
+      setWeekendOperations(company?.weekend_operations ?? true);
+      const all = (profs as unknown as DbProfile[]) ?? [];
+      // Firma s "jen vlastní oddělení vidí jiná oddělení" (department_scoped_visibility): bez tohoto filtru by
+      // kalendář ukazoval jména lidí z cizích oddělení s prázdným řádkem (RLS jejich absence stejně skryje),
+      // což vypadá, jako že jsou v práci, i když ve skutečnosti třeba chybí.
+      if (company?.department_scoped_visibility && !isAdminRole(profile) && !profile.staff_role) {
+        const myDepts = await fetchMyDepartmentIds(profile.company_id, profile.id);
+        setEmployees(all.filter((e) => e.id === profile.id || e.department_id === profile.department_id || (e.department_id && myDepts.has(e.department_id)) || e.manager_id === profile.id));
+      } else {
+        setEmployees(all);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 

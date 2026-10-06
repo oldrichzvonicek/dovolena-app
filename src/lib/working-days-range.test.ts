@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countWorkingDays, daysWithin, mergeDateRanges } from "./working-days";
+import { countWorkingDays, daysWithin, mergeDateRanges, mergeDateRangesKeepingDays } from "./working-days";
 
 describe("countWorkingDays with a company working week", () => {
   it("defaults to Monday–Friday", () => {
@@ -66,5 +66,28 @@ describe("mergeDateRanges", () => {
   });
   it("is empty for empty input", () => {
     expect(mergeDateRanges([])).toEqual([]);
+  });
+});
+
+describe("mergeDateRangesKeepingDays", () => {
+  it("keeps a lone half-day's own working_days instead of recounting it as a whole day", () => {
+    const recompute = () => {
+      throw new Error("should not need to recompute an unmerged range");
+    };
+    expect(mergeDateRangesKeepingDays([{ start_date: "2026-11-05", end_date: "2026-11-05", working_days: 0.5 }], recompute)).toEqual([
+      { start_date: "2026-11-05", end_date: "2026-11-05", working_days: 0.5 },
+    ]);
+  });
+  it("recomputes via the callback only for a span that actually merged two requests", () => {
+    const recompute = (s: string, e: string) => countWorkingDays(s, e);
+    expect(
+      mergeDateRangesKeepingDays(
+        [
+          { start_date: "2026-11-05", end_date: "2026-11-06", working_days: 2 },
+          { start_date: "2026-11-05", end_date: "2026-11-27", working_days: 17 },
+        ],
+        recompute
+      )
+    ).toEqual([{ start_date: "2026-11-05", end_date: "2026-11-27", working_days: countWorkingDays("2026-11-05", "2026-11-27") }]);
   });
 });

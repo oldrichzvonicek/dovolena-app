@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { DEFAULT_WORK_DAYS, countWorkingDays, daysWithin, mergeDateRanges } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS, countWorkingDays, daysWithin, mergeDateRangesKeepingDays } from "@/lib/working-days";
 
 export type BalanceCategory = "vacation" | "sick";
 
@@ -212,8 +212,9 @@ export async function loadHomeOfficeYear(companyId: string, profileId: string): 
     (r) => r.leave_type?.key === "home_office"
   );
   // Two requests can overlap (e.g. Home Office booked twice for the same days) — merge the date ranges
-  // first, so the overlapping days are counted once instead of once per request.
-  const merged = mergeDateRanges(rows).map((r) => ({ ...r, days: countWorkingDays(r.start_date, r.end_date, workDays) }));
+  // first, so the overlapping days are counted once instead of once per request. A range that didn't
+  // actually overlap keeps its own stored working_days, so a lone half-day stays 0.5.
+  const merged = mergeDateRangesKeepingDays(rows, (s, e) => countWorkingDays(s, e, workDays)).map((r) => ({ ...r, days: r.working_days }));
   // A per-employee entitlement row overrides the company-wide default.
   const limit = own ? Number((own as unknown as { total_days: number }).total_days) : Number(company?.default_home_office_days ?? 0);
   return {

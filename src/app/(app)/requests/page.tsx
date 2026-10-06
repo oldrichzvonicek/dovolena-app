@@ -501,6 +501,9 @@ export default function RequestsPage() {
                       </td>
                       <td className="px-3 py-2">
                         <StatusBadge status={r.status} title={r.status === "rejected" ? (r.rejection_reason ?? undefined) : undefined} />
+                        {r.status === "rejected" && r.rejection_reason && (
+                          <div className="mt-1 max-w-[200px] text-[11px] text-danger">{r.rejection_reason}</div>
+                        )}
                       </td>
                       {showCoverCol && (
                         <td className="whitespace-nowrap px-3 py-2 text-xs">

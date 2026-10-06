@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Lock,
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { LeaveBadge } from "@/components/ui/badge";
-import { DEFAULT_WORK_DAYS, countWorkingDays, dayWord, formatRange, mergeDateRanges } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS, countWorkingDays, dayWord, formatRange, mergeDateRangesKeepingDays } from "@/lib/working-days";
 import { cn, formatNumber } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DbDepartment } from "@/lib/supabase/types";
@@ -220,8 +220,21 @@ export function OverviewPanel() {
       }
       const monthRows: MonthReq[] = [];
       for (const group of byPersonType.values()) {
-        for (const m of mergeDateRanges(group)) {
-          monthRows.push({ ...group[0], start_date: m.start_date, end_date: m.end_date, working_days: clipAndCount(m.start_date, m.end_date) });
+        // Clip each request to the month first (and keep its own working_days when it didn't need
+        // clipping, so a half-day stays 0.5 instead of being rounded up by a blind recount), then merge
+        // — a group that still overlaps after clipping (e.g. Home Office booked twice) falls back to
+        // clipAndCount for the merged span.
+        const clipped = group.map((r) => {
+          const fullyWithin = r.start_date >= monthStart && r.end_date <= monthEnd;
+          return {
+            ...r,
+            start_date: r.start_date > monthStart ? r.start_date : monthStart,
+            end_date: r.end_date < monthEnd ? r.end_date : monthEnd,
+            working_days: fullyWithin ? Number(r.working_days) : clipAndCount(r.start_date, r.end_date),
+          };
+        });
+        for (const m of mergeDateRangesKeepingDays(clipped, clipAndCount)) {
+          monthRows.push({ ...group[0], start_date: m.start_date, end_date: m.end_date, working_days: m.working_days });
         }
       }
 

@@ -119,6 +119,32 @@ export function mergeDateRanges<T extends { start_date: string; end_date: string
   return merged;
 }
 
+/**
+ * Same merge as mergeDateRanges, but keeps each result's day count accurate: a range that didn't actually
+ * overlap with anything else keeps its own stored working_days (so a lone half-day request stays 0.5 instead
+ * of being rounded up to a whole day by a blind recount), and only a range that really absorbed 2+ overlapping
+ * requests falls back to `recompute` for the merged span (overlap of partial days can't be reconstructed exactly).
+ */
+export function mergeDateRangesKeepingDays<T extends { start_date: string; end_date: string; working_days: number }>(
+  ranges: T[],
+  recompute: (start: string, end: string) => number
+): { start_date: string; end_date: string; working_days: number }[] {
+  if (ranges.length === 0) return [];
+  const sorted = [...ranges].sort((a, b) => a.start_date.localeCompare(b.start_date));
+  const groups: T[][] = [[sorted[0]]];
+  for (const r of sorted.slice(1)) {
+    const last = groups[groups.length - 1];
+    const lastEnd = last.reduce((m, x) => (x.end_date > m ? x.end_date : m), last[0].end_date);
+    if (r.start_date <= lastEnd) last.push(r);
+    else groups.push([r]);
+  }
+  return groups.map((g) => {
+    const start_date = g.reduce((m, x) => (x.start_date < m ? x.start_date : m), g[0].start_date);
+    const end_date = g.reduce((m, x) => (x.end_date > m ? x.end_date : m), g[0].end_date);
+    return { start_date, end_date, working_days: g.length === 1 ? Number(g[0].working_days) : recompute(start_date, end_date) };
+  });
+}
+
 export function daysWithin(r: SpanLike, from: string, to: string, workDays: number[] = DEFAULT_WORK_DAYS): number {
   if (r.end_date < from || r.start_date > to) return 0;
   if (r.start_date >= from && r.end_date <= to) return Number(r.working_days);
