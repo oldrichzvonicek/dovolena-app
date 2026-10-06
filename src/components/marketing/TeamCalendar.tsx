@@ -6,7 +6,7 @@ const DAYS = [
   { label: "po", num: "28" },
   { label: "út", num: "29", today: true },
   { label: "st", num: "30" },
-  { label: "čt", num: "1", weekStart: true },
+  { label: "čt", num: "1" },
   { label: "pá", num: "2" },
   { label: "so", num: "3", weekend: true },
   { label: "ne", num: "4", weekend: true },
