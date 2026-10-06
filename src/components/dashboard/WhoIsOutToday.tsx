@@ -40,7 +40,6 @@ export function WhoIsOutToday() {
   const [allRows, setAllRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [showAllWeek, setShowAllWeek] = useState(false);
   const [coverNames, setCoverNames] = useState<Record<string, string>>({});
   const [tip, setTip] = useState<{ x: number; y: number; name: string; req: Row } | null>(null);
   useEffect(() => {
@@ -295,7 +294,7 @@ export function WhoIsOutToday() {
               </span>
             ))}
             {week.people.length === 0 && <span className="col-span-6 py-2 text-center">Tento týden nikdo nechybí.</span>}
-            {(showAllWeek ? week.people : week.people.slice(0, 6)).map((p) => (
+            {week.people.map((p) => (
               <Fragment key={p.name}>
                 <span className="truncate text-xs text-ink" title={p.name}>
                   <span className="hidden sm:inline">{p.name}</span>
@@ -330,11 +329,6 @@ export function WhoIsOutToday() {
             </div>
           )}
           <p className="mt-2 text-xs text-muted">Barevný pruh (viz vysvětlivky výše) = nepřítomen, prázdné pole = v práci. Dnešní den je podtržený a orámovaný.</p>
-          {week.people.length > 6 && (
-            <button onClick={() => setShowAllWeek((v) => !v)} aria-expanded={showAllWeek} className="mt-2 text-xs font-medium text-teal-dark underline underline-offset-2">
-              {showAllWeek ? "Zobrazit méně" : `Zobrazit všech ${week.people.length} lidí, kteří tento týden chybí (dalších ${week.people.length - 6})`}
-            </button>
-          )}
         </div>
       )}
       {tip && (
