@@ -205,7 +205,15 @@ export function Hero() {
             Absence bez tabulek, e-mailů a administrativy.
           </h1>
           <p className="m-0 max-w-[540px] text-[17px] leading-[26px] text-dodio-ink-muted lg:text-xl lg:leading-[30px]">
-            Dodio sjednotí žádosti o dovolenou, schvalování a přehled absencí na jednom místě.
+            Dodio je jednoduchá{" "}
+            <a
+              href="/evidence-absenci"
+              data-link-location="hero-perex"
+              className="text-dodio-ink-muted underline underline-offset-2 hover:text-dodio-teal-dark"
+            >
+              evidence absencí
+            </a>{" "}
+            pro celý tým. Žádosti, schvalování a přehled všech nepřítomností na jednom místě.
           </p>
           <div className="flex flex-col gap-2.5">
             <a

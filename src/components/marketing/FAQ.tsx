@@ -28,6 +28,20 @@ const CATEGORIES = [
       {
         q: "Jak složitý je přechod z Excelu do Dodio?",
         a: "Stačí naimportovat seznam zaměstnanců ze souboru a rovnou můžete schvalovat — žádné ruční zakládání účtů jeden po druhém.",
+        node: (
+          <>
+            Stačí naimportovat seznam zaměstnanců ze souboru a rovnou můžete schvalovat — žádné ruční
+            zakládání účtů jeden po druhém. Víc na stránce{" "}
+            <a
+              href="/bez-excelu"
+              data-link-location="faq-answer"
+              className="font-medium text-dodio-teal-dark no-underline hover:underline"
+            >
+              evidence dovolené bez Excelu
+            </a>
+            .
+          </>
+        ),
       },
     ],
   },
@@ -58,6 +72,20 @@ const CATEGORIES = [
       {
         q: "Kolik Dodio stojí?",
         a: "Do 5 lidí napořád zdarma. Placené tarify začínají na 290 Kč/měsíc a rostou podle velikosti týmu — přesné ceny najdete v ceníku výše.",
+        node: (
+          <>
+            Do 5 lidí napořád zdarma. Placené tarify začínají na 290 Kč/měsíc a rostou podle velikosti
+            týmu — přesné ceny najdete v ceníku výše.{" "}
+            <a
+              href="/pro-male-firmy"
+              data-link-location="faq-answer"
+              className="font-medium text-dodio-teal-dark no-underline hover:underline"
+            >
+              Jak Dodio sedí malým firmám
+            </a>
+            .
+          </>
+        ),
       },
       {
         q: "Co se stane, když překročím 5 zaměstnanců?",
@@ -119,7 +147,7 @@ export function FAQ() {
                     {item.q}
                   </summary>
                   <p className="m-0 mt-3 text-[15px] leading-[24px] text-dodio-ink-muted lg:text-base lg:leading-[25px]">
-                    {item.a}
+                    {item.node ?? item.a}
                   </p>
                 </details>
               ))}

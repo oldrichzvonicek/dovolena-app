@@ -15,3 +15,29 @@ export const NAV_LINKS = [
   { href: "/#cenik", label: "Ceník" },
   { href: "/#faq", label: "Časté otázky" },
 ] as const;
+
+// Two-column "Řešení" dropdown in the main nav and its mobile accordion
+// counterpart. Anchor text here is intentionally shorter/different from the
+// same URLs' links elsewhere on the homepage (hero, calendar legend, FAQ,
+// footer) — each place uses its own wording, per the no-repeated-anchor rule.
+export const SOLUTIONS_MENU = {
+  label: "Řešení",
+  columns: [
+    {
+      heading: "Podle typu absence",
+      links: [
+        { href: "/evidence-absenci", label: "Evidence absencí" },
+        { href: "/evidence-dovolene", label: "Dovolená" },
+        { href: "/home-office", label: "Home office" },
+        { href: "/sick-days", label: "Sick days" },
+      ],
+    },
+    {
+      heading: "Podle situace",
+      links: [
+        { href: "/bez-excelu", label: "Bez Excelu a tabulek" },
+        { href: "/pro-male-firmy", label: "Pro malé firmy" },
+      ],
+    },
+  ],
+} as const;

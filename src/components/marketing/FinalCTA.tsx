@@ -24,12 +24,21 @@ export function FinalCTA() {
             </p>
           </div>
           <div className="relative flex flex-col items-start gap-2.5 lg:items-end">
-            <a
-              href={SIGNUP_URL}
-              className="shrink-0 rounded-dodio-md bg-dodio-coral px-7 py-4 text-center text-base font-bold text-dodio-coral-dark no-underline lg:px-[30px] lg:py-[18px] lg:text-lg"
-            >
-              Vyzkoušet zdarma
-            </a>
+            <div className="flex flex-col items-start gap-2.5 sm:flex-row sm:items-center sm:gap-5">
+              <a
+                href={SIGNUP_URL}
+                className="shrink-0 rounded-dodio-md bg-dodio-coral px-7 py-4 text-center text-base font-bold text-dodio-coral-dark no-underline lg:px-[30px] lg:py-[18px] lg:text-lg"
+              >
+                Vyzkoušet zdarma
+              </a>
+              <a
+                href="/bez-excelu"
+                data-link-location="final-cta-secondary"
+                className="text-sm font-medium text-white no-underline hover:underline"
+              >
+                Jak přejít z Excelu →
+              </a>
+            </div>
             <span className="text-sm text-[#D7EEE6]">Do 5 lidí zdarma. Bez platební karty.</span>
           </div>
         </div>

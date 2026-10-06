@@ -1,6 +1,5 @@
 import { SiteHeader } from "@/components/marketing/SiteHeader";
 import { Hero } from "@/components/marketing/Hero";
-import { AbsenceTypeTabs } from "@/components/marketing/AbsenceTypeTabs";
 import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { ProblemSolution } from "@/components/marketing/ProblemSolution";
 import { Features } from "@/components/marketing/Features";
@@ -8,7 +7,6 @@ import { TeamCalendar } from "@/components/marketing/TeamCalendar";
 import { SmartHR } from "@/components/marketing/SmartHR";
 import { Integrations } from "@/components/marketing/Integrations";
 import { Security } from "@/components/marketing/Security";
-import { ChooseYourPath } from "@/components/marketing/ChooseYourPath";
 import { Pricing } from "@/components/marketing/Pricing";
 import { LeadMagnet } from "@/components/marketing/LeadMagnet";
 import { FAQ } from "@/components/marketing/FAQ";
@@ -40,7 +38,6 @@ export default function LandingPage() {
       <SiteHeader />
       <main>
         <Hero />
-        <AbsenceTypeTabs />
         <HowItWorks />
         <Features />
         <ProblemSolution />
@@ -48,7 +45,6 @@ export default function LandingPage() {
         <TeamCalendar />
         <SmartHR />
         <Security />
-        <ChooseYourPath />
         <Pricing />
         <LeadMagnet />
         <FAQ />

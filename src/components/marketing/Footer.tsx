@@ -21,6 +21,27 @@ export function Footer() {
 
         <div className="flex flex-wrap gap-10 text-sm lg:gap-16">
           <div className="flex flex-col gap-3">
+            <div className="font-semibold text-dodio-ink">Řešení</div>
+            <a href="/evidence-absenci" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Systém pro evidenci absencí
+            </a>
+            <a href="/evidence-dovolene" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Evidence dovolené zaměstnanců
+            </a>
+            <a href="/home-office" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Evidence home office zaměstnanců
+            </a>
+            <a href="/sick-days" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Evidence sick days zaměstnanců
+            </a>
+            <a href="/bez-excelu" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Náhrada Excelu pro dovolenou
+            </a>
+            <a href="/pro-male-firmy" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+              Evidence dovolené pro malé firmy
+            </a>
+          </div>
+          <div className="flex flex-col gap-3">
             <div className="font-semibold text-dodio-ink">Produkt</div>
             <a href="/#funkce" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Pro koho

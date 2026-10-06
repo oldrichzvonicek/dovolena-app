@@ -19,14 +19,38 @@ const DAYS = [
   { label: "ne", num: "11", weekend: true },
 ];
 
-const LEGEND = [
-  { label: "Dovolená", swatch: "bg-dodio-teal" },
-  { label: "Lékař", swatch: "bg-dodio-coral" },
-  { label: "Náhradní volno", swatch: "bg-dodio-warning" },
-  { label: "Sick Day", swatch: "bg-dodio-danger" },
-  { label: "Home Office", swatch: "bg-[#4A7FC9]" },
-  { label: "Nepřítomen", swatch: "bg-dodio-border" },
-  { label: "Státní svátek", swatch: "bg-[#F3F0E8] border border-dodio-border" },
+// Linked legend shown below the calendar — same colors as the tags inside
+// the grid above (Nemoc reuses the "Lékař" coral, the calendar's only
+// illness-related example), each pointing to that absence type's own page.
+const CALENDAR_LINKS = [
+  {
+    label: "Dovolená",
+    swatch: "bg-dodio-teal",
+    body: "Zůstatky, plánování a schvalování jedním klikem",
+    href: "/evidence-dovolene",
+    linkLabel: "evidence dovolené",
+  },
+  {
+    label: "Nemoc",
+    swatch: "bg-dodio-coral",
+    body: "Evidence nemoci odděleně od dovolené",
+    href: "/evidence-absenci",
+    linkLabel: "evidence absencí zaměstnanců",
+  },
+  {
+    label: "Home office",
+    swatch: "bg-[#4A7FC9]",
+    body: "Žádosti o práci z domova s přehledem, kdo je kde",
+    href: "/home-office",
+    linkLabel: "evidence home office",
+  },
+  {
+    label: "Sick days",
+    swatch: "bg-dodio-danger",
+    body: "Limit sick days a jejich čerpání na jednom místě",
+    href: "/sick-days",
+    linkLabel: "evidence sick days",
+  },
 ];
 
 export function TeamCalendar() {
@@ -68,15 +92,6 @@ export function TeamCalendar() {
             <span>28. 9. – 11. 10. 2026</span>
             <span className="rounded-dodio-sm border border-dodio-border px-2.5 py-1 text-xs font-semibold">Dnes</span>
           </div>
-        </div>
-
-        <div className="flex flex-wrap gap-4 text-[13px] text-dodio-ink-muted">
-          {LEGEND.map((item) => (
-            <span key={item.label} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-3.5 rounded-[3px] ${item.swatch}`} />
-              {item.label}
-            </span>
-          ))}
         </div>
 
         <div className="overflow-x-auto rounded-dodio-lg border border-dodio-border">
@@ -156,6 +171,30 @@ export function TeamCalendar() {
             <div className="z-[2] col-start-2 col-end-6 row-start-9 mx-1 flex h-8 items-center self-center rounded-dodio-md bg-dodio-teal px-3 text-xs font-semibold text-white">
               Dovolená
             </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
+            Co v kalendáři uvidíte
+          </div>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
+            {CALENDAR_LINKS.map((item) => (
+              <div key={item.href} className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-dodio-ink">
+                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.swatch}`} aria-hidden="true" />
+                  {item.label}
+                </div>
+                <p className="m-0 text-[13px] leading-[19px] text-dodio-ink-muted">{item.body}</p>
+                <a
+                  href={item.href}
+                  data-link-location="calendar-legend"
+                  className="text-[13px] font-medium text-dodio-teal-dark no-underline hover:underline"
+                >
+                  {item.linkLabel} →
+                </a>
+              </div>
+            ))}
           </div>
         </div>
       </Container>

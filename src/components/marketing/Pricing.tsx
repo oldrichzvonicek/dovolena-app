@@ -69,6 +69,16 @@ export function Pricing() {
             Začněte zdarma a plaťte, až Dodio používá celý váš tým — žádná zkušební lhůta, která vyprší.
             Bez platební karty. Při roční platbě máte 2 měsíce zdarma.
           </p>
+          <p className="m-0 text-sm text-dodio-ink-muted">
+            Jste malá firma?{" "}
+            <a
+              href="/pro-male-firmy"
+              data-link-location="pricing-subhead"
+              className="font-medium text-dodio-teal-dark no-underline hover:underline"
+            >
+              Podívejte se, jak Dodio využívají malé týmy
+            </a>
+          </p>
         </div>
 
         <div className="flex lg:justify-center">
