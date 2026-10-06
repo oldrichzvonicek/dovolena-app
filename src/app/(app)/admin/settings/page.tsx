@@ -106,7 +106,7 @@ function SettingsContent() {
         {active === "billing" && <BillingPanel />}
         {active === "integrations" && <IntegrationsPanel />}
         {active === "audit" && (
-          <FeatureGate feature="audit_log" description="Kdo, kdy a co změnil: žádosti, lidé, nastavení. Záznamy se ukládají i v nižším tarifu, po přechodu na Pro je uvidíte.">
+          <FeatureGate feature="audit_log" description="Kdo, kdy a co změnil: žádosti, lidé, nastavení. Záznamy se ukládají i v nižším tarifu, po přechodu na Team je uvidíte.">
             <AuditLogPanel />
           </FeatureGate>
         )}

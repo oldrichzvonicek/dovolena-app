@@ -178,7 +178,7 @@ export default function AccountPage() {
             <dt className="text-muted">Oddělení</dt>
             <dd>{department ?? "—"}</dd>
           </dl>
-          <p className="mt-3 text-xs text-muted">Jméno, oddělení, nadřízeného a roli nastavuje admin nebo HR (Nastavení firmy → Uživatelé).</p>
+          <p className="mt-3 text-xs text-muted">Jméno, oddělení, nadřízeného a roli nastavuje admin nebo HR (Nastavení firmy → Lidé).</p>
         </div>
 
         <div className="card p-5">
