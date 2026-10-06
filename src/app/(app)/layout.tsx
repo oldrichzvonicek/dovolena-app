@@ -13,11 +13,16 @@ import { ConfirmHost } from "@/components/shared/ConfirmHost";
 import { Toaster } from "@/components/ui/toaster";
 import { MfaGate } from "@/components/layout/MfaGate";
 import { CompanyAccessGate } from "@/components/layout/CompanyAccessGate";
+import { claimInvite } from "@/lib/admin-data";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, profile, loading, signOut, refreshProfile } = useAuth();
   // If a signed-in user's profile never shows up (e.g. sign-up was interrupted) offer a way out instead of a dead screen.
   const [waitedTooLong, setWaitedTooLong] = useState(false);
+  // Self-heal: a pending invite that wasn't claimed yet (e.g. the user arrived here straight from an email
+  // link without going through the invite form) looks identical to "no profile" — try claiming once before
+  // telling them they probably never had an invite, which would wrongly push them toward founding a new company.
+  const [retriedInvite, setRetriedInvite] = useState(false);
   // Dokončit založení firmy rovnou tady — bez toho by jediná cesta ven byla odhlásit se a registrovat znovu
   // (viz completeOnboarding: uložená volba ze signupu se smaže, jakmile ji jednou zkusí a nevyjde).
   const [setupOpen, setSetupOpen] = useState(false);
@@ -48,6 +53,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const t = setTimeout(() => setWaitedTooLong(true), 8000);
     return () => clearTimeout(t);
   }, [loading, session, profile]);
+
+  useEffect(() => {
+    if (!waitedTooLong || retriedInvite || profile) return;
+    setRetriedInvite(true);
+    claimInvite()
+      .then((companyId) => {
+        if (companyId) refreshProfile();
+      })
+      .catch(() => {});
+  }, [waitedTooLong, retriedInvite, profile, refreshProfile]);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -93,17 +108,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {waitedTooLong && !setupOpen && (
           <>
             <p className="max-w-sm">
-              Trvá to déle než obvykle. Nejspíš jste neměli pozvánku do žádné firmy — rovnou si ji tady založte, nebo to zkuste jinak.
+              Trvá to déle než obvykle. Pokud jste přišli přes pozvánku do firmy, zkuste stránku obnovit nebo se znovu přihlásit přes odkaz z e-mailu. Firmu si založte, jen pokud jste se registrovali bez pozvánky.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              <button onClick={() => setSetupOpen(true)} className="rounded bg-teal-dark px-4 py-2 text-white hover:bg-teal-dark/90">
-                Založit firmu
-              </button>
-              <button onClick={() => window.location.reload()} className="rounded border border-line bg-white px-4 py-2 text-ink hover:bg-paper">
+              <button onClick={() => window.location.reload()} className="rounded bg-teal-dark px-4 py-2 text-white hover:bg-teal-dark/90">
                 Obnovit stránku
               </button>
               <button onClick={() => signOut()} className="rounded border border-line bg-white px-4 py-2 text-ink hover:bg-paper">
                 Odhlásit se
+              </button>
+              <button onClick={() => setSetupOpen(true)} className="rounded border border-line bg-white px-4 py-2 text-xs text-muted hover:bg-paper">
+                Registroval(a) jsem se bez pozvánky, založit firmu
               </button>
             </div>
           </>
