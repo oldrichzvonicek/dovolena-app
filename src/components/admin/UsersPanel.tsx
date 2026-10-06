@@ -36,7 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { DbDepartment, DbLeaveType, Role } from "@/lib/supabase/types";
-import { errorMessage } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { RowMenu } from "@/components/ui/row-menu";
 import { isHr } from "@/lib/access";
@@ -80,6 +80,7 @@ export function UsersPanel() {
   const [bulkTarget, setBulkTarget] = useState("");
   const [bulkSick, setBulkSick] = useState("");
   const [onlyNoApprover, setOnlyNoApprover] = useState(false);
+  const [onlyNoPersonalNumber, setOnlyNoPersonalNumber] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [autoApplied, setAutoApplied] = useState(false);
   // Z karty "Začínáme": rovnou vyfiltruje a vybere lidi bez schvalovatele, ať je jasné, na koho kliknout a co dál.
@@ -150,6 +151,9 @@ export function UsersPanel() {
     return ids;
   }, [employees, departments]);
   const pendingJoiners = useMemo(() => employees.filter((e) => e.join_pending && e.active === false), [employees]);
+  // Osobní číslo se hodí do mzdových podkladů (Exporty) — ne každý ho ale má vyplněné; admin chce rychle najít,
+  // komu chybí, ne procházet celý seznam.
+  const noPersonalNumberIds = useMemo(() => new Set(employees.filter((e) => e.active !== false && !e.join_pending && !e.personal_number?.trim()).map((e) => e.id)), [employees]);
 
   useEffect(() => {
     if (!autoApprover || autoApplied || loading) return;
@@ -165,10 +169,11 @@ export function UsersPanel() {
       if (departmentFilter !== "all" && r.department_id !== departmentFilter) return false;
       if (roleFilter !== "all" && r.role !== roleFilter) return false;
       if (onlyNoApprover && !(r.status === "active" && noApproverIds.has(r.id))) return false;
+      if (onlyNoPersonalNumber && !(r.status === "active" && noPersonalNumberIds.has(r.id))) return false;
       if (q && !r.name.toLowerCase().includes(q) && !(r.email ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [rows, search, departmentFilter, roleFilter, onlyNoApprover, noApproverIds]);
+  }, [rows, search, departmentFilter, roleFilter, onlyNoApprover, noApproverIds, onlyNoPersonalNumber, noPersonalNumberIds]);
 
   const selectableIds = useMemo(() => filteredRows.filter((r) => r.status === "active" && r.employee.active !== false).map((r) => r.id), [filteredRows]);
 
@@ -447,7 +452,13 @@ export function UsersPanel() {
             ))}
           </SelectContent>
         </Select>
-        <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-muted">
+        {noPersonalNumberIds.size > 0 && (
+          <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-muted">
+            <input type="checkbox" checked={onlyNoPersonalNumber} onChange={(e) => setOnlyNoPersonalNumber(e.target.checked)} className="h-3.5 w-3.5" />
+            Bez osobního čísla ({noPersonalNumberIds.size})
+          </label>
+        )}
+        <label className={cn("flex cursor-pointer items-center gap-2 text-sm text-muted", noPersonalNumberIds.size === 0 && "ml-auto")}>
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="h-3.5 w-3.5" />
           Zobrazit deaktivované
         </label>
