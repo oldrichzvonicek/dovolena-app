@@ -91,10 +91,19 @@ export function computeBalance(
 }
 
 /** Loads entitlements + approved absences (this and last year) once and returns a per-profile balance getter. */
-export async function loadBalances(companyId: string, opts: { profileId?: string; excludeRequestId?: string } = {}) {
+export async function loadBalances(
+  companyId: string,
+  opts: {
+    profileId?: string;
+    excludeRequestId?: string;
+    carryOverride?: { max: number | null; expiryMD: string | null };
+    /** Pro náhled dopadu: "co kdyby dnes bylo toto datum" (např. den po expiraci, ať se spočítá projekce propadnutí). */
+    todayOverride?: string;
+  } = {}
+) {
   const supabase = createClient();
   const year = new Date().getFullYear();
-  const today = new Date().toLocaleDateString("sv-SE");
+  const today = opts.todayOverride ?? new Date().toLocaleDateString("sv-SE");
 
   let entQ = supabase
     .from("leave_entitlements")
@@ -131,7 +140,9 @@ export async function loadBalances(companyId: string, opts: { profileId?: string
   const entRows = (ents as unknown as EntRow[]) ?? [];
   const planRows = ((plansRes.data as unknown as ReqRow[]) ?? []).map((r) => ({ ...r, isDraft: true }));
   const reqRows = [...((reqs as unknown as ReqRow[]) ?? []), ...planRows].filter((r) => r.id !== opts.excludeRequestId);
-  const carry = {
+  // carryOverride umožňuje simulovat dopad ještě neuložené změny pravidel (Nároky a zůstatky → náhled dopadu)
+  // na reálná data, bez nutnosti změnu napřed uložit.
+  const carry = opts.carryOverride ?? {
     max: company?.max_carryover_days !== null && company?.max_carryover_days !== undefined ? Number(company.max_carryover_days) : null,
     expiryMD: (company?.carryover_expiry_md as string | null) ?? null,
   };

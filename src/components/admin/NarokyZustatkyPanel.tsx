@@ -1,14 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { AlertTriangle, CalendarClock, Gift } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 import { useCompanyDraft } from "@/lib/use-company-draft";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { OptionalNumber, UnitInput } from "@/components/ui/optional-number";
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { SeniorityCard } from "@/components/admin/SeniorityCard";
 import { SectionHeader } from "@/components/admin/section-header";
 import { DraftSaveBar } from "@/components/shared/DraftSaveBar";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { fetchCompanyEmployees } from "@/lib/admin-data";
+import { loadBalances } from "@/lib/balances";
+import { formatNumber } from "@/lib/utils";
+import { dayWord } from "@/lib/working-days";
 
 const MONTHS = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"];
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -58,8 +65,65 @@ function MonthDayPicker({ value, onChange }: { value: string | null; onChange: (
 
 /** Životní cyklus dovolené: nárok → úprava během roku → čerpání → konec roku. Vše na jednom místě — dřív bylo
  *  rozdělené mezi Typy absencí (výchozí nároky) a Kalendář a provoz (převod, mínus). */
+/** "MM-DD" → den po tomto datu v aktuálním roce, jako "YYYY-MM-DD" (přetéká korektně i přes konec roku). */
+function dayAfterExpiry(mmdd: string): string {
+  const [mm, dd] = mmdd.split("-").map(Number);
+  const d = new Date(Date.UTC(new Date().getFullYear(), mm - 1, dd));
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+interface CarryPreview {
+  carryoverDays: number;
+  carryoverPeople: number;
+  forfeitedDays: number;
+  forfeitedPeople: number;
+}
+
 export function NarokyZustatkyPanel() {
+  const { profile } = useAuth();
   const { company, loading, patch, dirty, resetToken, cancel, save, saveStatus, saveError } = useCompanyDraft();
+  const [preview, setPreview] = useState<CarryPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Spočítá dopad TOHOTO konceptu (i neuloženého) na reálné zůstatky — "při dnešních datech by se převedlo
+  // X dní, propadlo Y" — než admin pravidlo doopravdy uloží pro celou firmu. "Propadlo" je projekce k datu
+  // expirace (den po něm), ne jen to, co už propadlo dnes.
+  async function computePreview() {
+    if (!profile || !company) return;
+    setPreviewLoading(true);
+    try {
+      const carryOverride = { max: company.max_carryover_days, expiryMD: company.carryover_expiry_md };
+      const [employees, before, after] = await Promise.all([
+        fetchCompanyEmployees(profile.company_id),
+        loadBalances(profile.company_id, { carryOverride }),
+        company.carryover_expiry_md ? loadBalances(profile.company_id, { carryOverride, todayOverride: dayAfterExpiry(company.carryover_expiry_md) }) : null,
+      ]);
+      const active = employees.filter((e) => e.active !== false && !e.join_pending);
+      let carryoverDays = 0;
+      let carryoverPeople = 0;
+      let forfeitedDays = 0;
+      let forfeitedPeople = 0;
+      for (const e of active) {
+        const b = before.get(e.id, "vacation");
+        if (b.carryover > 0) {
+          carryoverDays += b.carryover;
+          carryoverPeople++;
+        }
+        if (after) {
+          const a = after.get(e.id, "vacation");
+          const lost = Math.max(0, b.carryover - a.carryover);
+          if (lost > 0) {
+            forfeitedDays += lost;
+            forfeitedPeople++;
+          }
+        }
+      }
+      setPreview({ carryoverDays, carryoverPeople, forfeitedDays, forfeitedPeople });
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   if (loading || !company) return <LoadingCard rows={8} />;
 
@@ -139,21 +203,62 @@ export function NarokyZustatkyPanel() {
         <p className="mt-1 text-sm text-muted">
           Nevyčerpaná dovolená z minulého roku propadne k tomuto datu, nebo zvolte „Nikdy nepropadá“.
         </p>
-        <MonthDayPicker value={company.carryover_expiry_md} onChange={(v) => patch({ carryover_expiry_md: v })} />
+        <MonthDayPicker
+          value={company.carryover_expiry_md}
+          onChange={(v) => {
+            patch({ carryover_expiry_md: v });
+            setPreview(null);
+          }}
+        />
 
         <div className="mt-3 border-t border-line pt-3">
           <div className="text-sm font-medium">Maximální počet dní k převodu</div>
           <p className="mt-0.5 mb-2 text-sm text-muted">Kolik nevyčerpaných dní si zaměstnanec smí přenést do dalšího roku.</p>
           <OptionalNumber
             enabled={company.max_carryover_days !== null}
-            onToggle={(on) => patch({ max_carryover_days: on ? 5 : null })}
+            onToggle={(on) => {
+              patch({ max_carryover_days: on ? 5 : null });
+              setPreview(null);
+            }}
             value={company.max_carryover_days}
-            onCommit={(n) => patch({ max_carryover_days: n })}
+            onCommit={(n) => {
+              patch({ max_carryover_days: n });
+              setPreview(null);
+            }}
             unit="dní"
             step={0.5}
             offLabel="Bez omezení: převede se všechno"
             onLabel="Přenést nejvýše"
           />
+        </div>
+
+        <div className="mt-3 border-t border-line pt-3">
+          <Button variant="secondary" size="sm" onClick={computePreview} disabled={previewLoading}>
+            {previewLoading ? "Počítám…" : "Spočítat dopad na dnešní zůstatky"}
+          </Button>
+          {preview && (
+            <p className="mt-2 text-sm text-muted">
+              Při dnešních zůstatcích by{" "}
+              {preview.carryoverPeople > 0 ? (
+                <>
+                  se převedlo <strong className="text-ink">{formatNumber(preview.carryoverDays)}</strong> {dayWord(preview.carryoverDays)} u{" "}
+                  {preview.carryoverPeople} {preview.carryoverPeople === 1 ? "člověka" : "lidí"}
+                </>
+              ) : (
+                "se nepřevedlo nic — nikdo nemá nevyčerpaný zůstatek z loňska"
+              )}
+              {company.carryover_expiry_md &&
+                (preview.forfeitedPeople > 0 ? (
+                  <>
+                    , propadlo <strong className="text-ink">{formatNumber(preview.forfeitedDays)}</strong> {dayWord(preview.forfeitedDays)} u {preview.forfeitedPeople}{" "}
+                    {preview.forfeitedPeople === 1 ? "člověka" : "lidí"}
+                  </>
+                ) : (
+                  ", propadlo 0"
+                ))}
+              .
+            </p>
+          )}
         </div>
       </div>
 
