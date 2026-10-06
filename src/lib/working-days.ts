@@ -1,4 +1,5 @@
 import { addDays, isWeekend, isSameDay, parseISO, format } from "date-fns";
+import { formatNumber } from "@/lib/utils";
 
 /**
  * Czech state holidays. Fixed-date holidays only (the Czech calendar has no
@@ -143,7 +144,7 @@ export function dayWord(n: number): "den" | "dne" | "dny" | "dní" {
 export function workingDaysPhrase(n: number): string {
   const word = dayWord(n);
   const adjective = word === "dne" ? "pracovního" : word === "dní" ? "pracovních" : "pracovní";
-  return `${n} ${adjective} ${word}`;
+  return `${formatNumber(n)} ${adjective} ${word}`;
 }
 
 export function formatRange(startISO: string, endISO: string): string {
