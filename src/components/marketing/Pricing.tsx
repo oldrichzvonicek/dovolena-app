@@ -116,17 +116,10 @@ export function Pricing() {
               key={plan.id}
               className={`flex flex-col gap-4 rounded-dodio-lg p-6 lg:gap-4 lg:p-7 ${
                 plan.recommended
-                  ? "border-2 border-dodio-teal bg-white shadow-[0_24px_48px_-28px_rgba(8,80,65,0.45)] lg:gap-4"
-                  : plan.id === "free"
-                    ? "border-2 border-dodio-teal-dark bg-white"
-                    : "border border-dodio-border bg-dodio-surface"
+                  ? "border-2 border-dodio-teal bg-white shadow-[0_24px_48px_-28px_rgba(8,80,65,0.45)]"
+                  : "border border-dodio-border bg-dodio-surface"
               }`}
             >
-              {plan.id === "free" && (
-                <div className="-mx-6 -mt-6 rounded-t-[14px] bg-dodio-teal-dark px-6 py-2 text-center text-xs font-semibold text-white lg:-mx-7 lg:-mt-7">
-                  Pro malé týmy navždy zdarma
-                </div>
-              )}
               <div className="flex items-center justify-between">
                 <div className="font-dodio-display text-xl font-bold lg:text-[22px]">{plan.name}</div>
                 {plan.recommended && (
@@ -168,7 +161,11 @@ export function Pricing() {
               </div>
               <a
                 href={plan.ctaHref}
-                className="mt-auto rounded-dodio-md bg-dodio-teal-dark py-3.5 text-center text-base font-semibold text-white no-underline hover:bg-dodio-teal"
+                className={`mt-auto rounded-dodio-md py-3.5 text-center text-base font-semibold no-underline ${
+                  plan.recommended
+                    ? "bg-dodio-teal-dark text-white hover:bg-dodio-teal"
+                    : "border border-dodio-border text-dodio-ink hover:border-dodio-teal-dark"
+                }`}
               >
                 {plan.ctaLabel}
               </a>

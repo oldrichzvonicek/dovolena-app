@@ -27,6 +27,11 @@ const PAIRS = [
     problem: "Mzdová účetní shání podklady ručně — kdo měl kdy dovolenou a jestli sedí zůstatek.",
     solution: "Podklady pro mzdy jedním exportem — CSV, Excel i ODS.",
   },
+  {
+    question: "Zavádění nového nástroje zabere týdny?",
+    problem: "Konzultant, školení týmu, migrace dat — než se něco zvládne, uplyne měsíc.",
+    solution: "Nastavení za pár minut, zaměstnance naimportujete hromadně.",
+  },
 ];
 
 export function ProblemSolution() {

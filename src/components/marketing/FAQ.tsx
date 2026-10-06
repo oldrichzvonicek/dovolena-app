@@ -1,6 +1,20 @@
 import { Container } from "./Container";
 import { CONTACT_EMAIL } from "@/lib/dodio-links";
 
+function ChevronIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      className="shrink-0 text-dodio-ink-muted transition-transform duration-200 group-open:rotate-180"
+    >
+      <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const CATEGORIES = [
   {
     title: "Používání",
@@ -115,7 +129,7 @@ export function FAQ() {
   return (
     <section id="faq" className="scroll-mt-16 font-dodio-sans lg:scroll-mt-24">
       <Container className="grid grid-cols-1 gap-8 py-14 lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-20 lg:py-[112px]">
-        <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-3.5 lg:sticky lg:top-28 lg:self-start">
           <div className="text-xs font-semibold uppercase tracking-wide text-[#0B7A60] lg:text-[13px]">
             Časté otázky
           </div>
@@ -139,12 +153,13 @@ export function FAQ() {
               {category.questions.map((item, i) => (
                 <details
                   key={item.q}
-                  className={`border-t border-dodio-border py-5 lg:py-6 ${
+                  className={`group border-t border-dodio-border py-5 lg:py-6 ${
                     i === category.questions.length - 1 ? "border-b" : ""
                   }`}
                 >
-                  <summary className="cursor-pointer font-dodio-display text-lg font-bold lg:text-xl">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-dodio-display text-lg font-bold marker:content-none lg:text-xl [&::-webkit-details-marker]:hidden">
                     {item.q}
+                    <ChevronIcon />
                   </summary>
                   <p className="m-0 mt-3 text-[15px] leading-[24px] text-dodio-ink-muted lg:text-base lg:leading-[25px]">
                     {item.node ?? item.a}

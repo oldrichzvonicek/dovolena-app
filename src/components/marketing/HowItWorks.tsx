@@ -20,7 +20,7 @@ function Arrow({ className = "" }: { className?: string }) {
 export function HowItWorks() {
   return (
     <section className="font-dodio-sans">
-      <Container className="flex flex-col items-center gap-4 py-8 lg:py-10">
+      <Container className="flex flex-col items-center gap-4 py-12 lg:py-16">
         <div className="text-xs font-semibold uppercase tracking-wide text-[#0B7A60] lg:text-[13px]">
           Jak Dodio funguje
         </div>

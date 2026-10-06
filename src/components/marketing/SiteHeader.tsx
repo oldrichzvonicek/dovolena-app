@@ -146,7 +146,7 @@ function SolutionsAccordion({
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+  const firstLinkRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -179,12 +179,12 @@ export function SiteHeader() {
           </a>
 
           <nav aria-label="Hlavní menu" className="hidden items-center gap-9 text-[15px] font-medium lg:flex">
+            <SolutionsDropdown />
             {NAV_LINKS.map((link) => (
               <a key={link.href} href={link.href} className="text-dodio-ink no-underline hover:text-dodio-teal">
                 {link.label}
               </a>
             ))}
-            <SolutionsDropdown />
           </nav>
 
           <div className="hidden items-center gap-3 lg:flex">
@@ -234,18 +234,17 @@ export function SiteHeader() {
             </button>
           </div>
           <nav aria-label="Hlavní menu" className="flex flex-col gap-1 overflow-y-auto px-5 py-6 text-lg font-medium">
-            {NAV_LINKS.map((link, i) => (
+            <SolutionsAccordion onNavigate={() => setMenuOpen(false)} buttonRef={firstLinkRef} />
+            {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                ref={i === 0 ? firstLinkRef : undefined}
                 onClick={() => setMenuOpen(false)}
                 className="rounded-dodio-md px-2 py-3 text-dodio-ink no-underline"
               >
                 {link.label}
               </a>
             ))}
-            <SolutionsAccordion onNavigate={() => setMenuOpen(false)} />
           </nav>
           <div className="mt-auto flex flex-col gap-3 border-t border-dodio-border px-5 py-6">
             <a

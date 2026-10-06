@@ -38,16 +38,16 @@ export default function LandingPage() {
       <SiteHeader />
       <main>
         <Hero />
+        <ProblemSolution />
         <HowItWorks />
         <Features />
-        <ProblemSolution />
         <Integrations />
         <TeamCalendar />
         <SmartHR />
         <Security />
         <Pricing />
-        <LeadMagnet />
         <FAQ />
+        <LeadMagnet />
         <FinalCTA />
       </main>
       <Footer />

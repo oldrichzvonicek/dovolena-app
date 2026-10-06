@@ -10,7 +10,7 @@ function RequestIllustration() {
   return (
     <div
       aria-hidden="true"
-      className="flex w-full max-w-[380px] flex-col gap-3 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
+      className="flex w-full max-w-[440px] flex-col gap-3 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
     >
       <span className="text-sm font-semibold">Nová žádost o absenci</span>
       <div className="flex flex-col gap-1">
@@ -55,7 +55,7 @@ function ApprovalIllustration() {
   return (
     <div
       aria-hidden="true"
-      className="flex w-full max-w-[380px] flex-col gap-3 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
+      className="flex w-full max-w-[440px] flex-col gap-3 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
     >
       <div className="flex items-center gap-2 text-sm font-semibold">
         Čeká na vaše schválení
@@ -92,7 +92,7 @@ function ExportIllustration() {
   return (
     <div
       aria-hidden="true"
-      className="flex w-full max-w-[380px] flex-col gap-3.5 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
+      className="flex w-full max-w-[440px] flex-col gap-3.5 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
     >
       <div className="text-sm font-semibold">Export pro mzdy — říjen 2026</div>
       <div className="flex flex-col">
@@ -127,7 +127,7 @@ function PersonaRow({ iconBg, icon, title, lead, points, illustration, reverse }
         reverse ? "lg:flex-row-reverse" : "lg:flex-row"
       }`}
     >
-      <div className="flex w-full justify-center lg:w-1/2 lg:justify-start">{illustration}</div>
+      <div className="flex w-full justify-center lg:w-1/2">{illustration}</div>
       <div className="flex w-full flex-col gap-5 lg:w-1/2">
         <div className="flex items-center gap-3.5">
           <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] lg:h-[52px] lg:w-[52px] lg:rounded-xl ${iconBg}`}>

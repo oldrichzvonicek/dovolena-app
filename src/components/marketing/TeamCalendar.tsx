@@ -20,8 +20,10 @@ const DAYS = [
 ];
 
 // Linked legend shown below the calendar — same colors as the tags inside
-// the grid above (Nemoc reuses the "Lékař" coral, the calendar's only
-// illness-related example), each pointing to that absence type's own page.
+// the grid above. Nemoc is deliberately gray, same as "Nepřítomen": the
+// calendar hides illness from colleagues (see the privacy copy further
+// down the page), so showing it in a distinct color here would contradict
+// that claim instead of demonstrating it.
 const CALENDAR_LINKS = [
   {
     label: "Dovolená",
@@ -32,8 +34,8 @@ const CALENDAR_LINKS = [
   },
   {
     label: "Nemoc",
-    swatch: "bg-dodio-coral",
-    body: "Evidence nemoci odděleně od dovolené",
+    swatch: "bg-dodio-border",
+    body: "Nemoc a lékař jsou skryté, vidí je jen nadřízený a HR",
     href: "/evidence-absenci",
     linkLabel: "evidence absencí zaměstnanců",
   },
@@ -142,14 +144,14 @@ export function TeamCalendar() {
             <div className="col-start-1 row-start-5 flex items-center gap-2.5 border-b border-[#EFEDE6] px-4 text-sm">
               <span className="font-medium">Ondřej Veselý</span>
             </div>
-            <div className="z-[2] col-start-8 col-end-10 row-start-5 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-warning text-xs font-semibold text-dodio-warning-dark">
-              Náhradní volno
+            <div className="z-[2] col-start-8 col-end-10 row-start-5 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-danger text-xs font-semibold text-white">
+              Sick Day
             </div>
             <div className="col-start-1 row-start-6 flex items-center gap-2.5 px-4 text-sm">
               <span className="font-medium">Veronika Sedláková</span>
             </div>
-            <div className="z-[2] col-start-10 col-end-11 row-start-6 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-coral text-xs font-semibold text-dodio-coral-dark">
-              Lékař
+            <div className="z-[2] col-start-10 col-end-11 row-start-6 mx-1 flex h-8 items-center justify-center self-center rounded-dodio-md bg-dodio-border text-xs font-semibold text-dodio-ink-muted">
+              Nepřítomen
             </div>
 
             {/* DPO group */}
@@ -180,7 +182,7 @@ export function TeamCalendar() {
           </div>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
             {CALENDAR_LINKS.map((item) => (
-              <div key={item.href} className="flex flex-col gap-1.5">
+              <div key={item.href} className="flex h-full flex-col gap-1.5">
                 <div className="flex items-center gap-1.5 text-sm font-semibold text-dodio-ink">
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.swatch}`} aria-hidden="true" />
                   {item.label}
@@ -189,7 +191,7 @@ export function TeamCalendar() {
                 <a
                   href={item.href}
                   data-link-location="calendar-legend"
-                  className="text-[13px] font-medium text-dodio-teal-dark no-underline hover:underline"
+                  className="mt-auto text-[13px] font-medium text-dodio-teal-dark no-underline hover:underline"
                 >
                   {item.linkLabel} →
                 </a>

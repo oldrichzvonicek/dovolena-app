@@ -20,6 +20,10 @@ const TILES = [
     title: "Anonymní nemocnost po odděleních",
     body: "Jen u oddělení s 5+ lidmi, nikdy jmenovitě — bezpečné pro GDPR.",
   },
+  {
+    title: "Riziko propadnutí dovolené",
+    body: "Upozornění, komu hrozí propadnutí nevyčerpané dovolené do konce roku.",
+  },
 ];
 
 export function SmartHR() {
@@ -44,7 +48,7 @@ export function SmartHR() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
           {TILES.map((tile) => (
             <div
               key={tile.title}

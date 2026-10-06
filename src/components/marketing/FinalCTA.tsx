@@ -7,13 +7,13 @@ export function FinalCTA() {
       <Container className="pb-14 lg:pb-[112px]">
         <div className="relative flex flex-col gap-5 overflow-hidden rounded-dodio-xl bg-dodio-teal-dark p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-12 lg:p-[72px_80px]">
           <svg
-            width="220"
-            height="220"
-            viewBox="0 0 220 220"
+            width="160"
+            height="160"
+            viewBox="0 0 160 160"
             aria-hidden="true"
-            className="pointer-events-none absolute -right-10 -top-16"
+            className="pointer-events-none absolute -right-6 -top-10"
           >
-            <circle cx="110" cy="110" r="110" fill="#0F9D7C" opacity="0.35" />
+            <circle cx="80" cy="80" r="80" fill="#0F9D7C" opacity="0.35" />
           </svg>
           <div className="relative flex flex-col gap-3.5 lg:gap-3.5">
             <h2 className="m-0 max-w-[640px] font-dodio-display text-[30px] font-extrabold leading-[36px] text-white lg:text-[48px] lg:leading-[54px] lg:tracking-[-1px]">
@@ -34,7 +34,7 @@ export function FinalCTA() {
               <a
                 href="/bez-excelu"
                 data-link-location="final-cta-secondary"
-                className="text-sm font-medium text-white no-underline hover:underline"
+                className="whitespace-nowrap text-sm font-medium text-white no-underline hover:underline"
               >
                 Jak přejít z Excelu →
               </a>
