@@ -64,6 +64,45 @@ export function BezpecnostSoukromiPanel() {
       </div>
 
       <DraftSaveBar dirty={dirty} status={saveStatus} error={saveError} onSave={save} onCancel={cancel} />
+
+      <div className="card p-5">
+        <h2 className="font-display text-h2">Kdo co vidí</h2>
+        <p className="mt-1 text-sm text-muted">
+          Jen pro přehled — nejde to tu upravit. Které typy absencí jsou citlivé (jen „Nepřítomen“ pro kolegy) nastavíte v Typech absencí.
+        </p>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[480px] text-xs">
+            <thead>
+              <tr className="border-b border-line text-left text-muted">
+                <th className="py-1.5 pr-3 font-medium"></th>
+                <th className="py-1.5 pr-3 text-center font-medium">Kolega</th>
+                <th className="py-1.5 pr-3 text-center font-medium">Nadřízený / vedoucí</th>
+                <th className="py-1.5 text-center font-medium">Admin / HR / Účetní</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              <tr>
+                <td className="py-1.5 pr-3">Běžná absence (dovolená, home office…)</td>
+                <td className="py-1.5 pr-3 text-center">Typ a termín</td>
+                <td className="py-1.5 pr-3 text-center">Typ a termín</td>
+                <td className="py-1.5 text-center">Typ a termín</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-3">Citlivá absence (nemoc, lékař…)</td>
+                <td className="py-1.5 pr-3 text-center">Jen „Nepřítomen“</td>
+                <td className="py-1.5 pr-3 text-center">Typ a termín</td>
+                <td className="py-1.5 text-center">Typ a termín</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-3">Zůstatek dovolené</td>
+                <td className="py-1.5 pr-3 text-center">—</td>
+                <td className="py-1.5 pr-3 text-center">Svého týmu</td>
+                <td className="py-1.5 text-center">Všech</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

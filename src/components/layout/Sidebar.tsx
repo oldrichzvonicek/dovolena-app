@@ -8,7 +8,7 @@ import type { FeatureKey } from "@/lib/plans";
 import { FEATURE_LABELS } from "@/lib/plans";
 import { unlockHint } from "@/components/shared/FeatureGate";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Landmark, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock, Wallet, CalendarOff, ShieldCheck, Inbox } from "lucide-react";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Landmark, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock, Wallet, CalendarOff, ShieldCheck, Inbox, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -317,6 +317,11 @@ export function Sidebar() {
             )}
             {canSeeSettings(profile) && (settingsOpen || settingsSection !== null) && (
               <div id="sidebar-settings" className="ml-[22px] mt-0.5 space-y-2 border-l-2 border-line pl-2">
+                {isAdmin && (
+                  <div className="space-y-0.5">
+                    <NavLink href="/admin/settings?sekce=prehled" label="Přehled" icon={ListChecks} indent active={settingsSection === "prehled"} />
+                  </div>
+                )}
                 {settingsGroups.map((g) => {
                   const items = g.items.filter((i) => allowedSettingsSections(profile).includes(i.key));
                   if (items.length === 0) return null;

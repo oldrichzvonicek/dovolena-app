@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { allowedSettingsSections } from "@/lib/access";
 import { Header } from "@/components/layout/Header";
+import { PrehledPanel } from "@/components/admin/PrehledPanel";
 import { UsersPanel } from "@/components/admin/UsersPanel";
 import { DepartmentsPanel } from "@/components/admin/DepartmentsPanel";
 import { LeaveTypesPanel } from "@/components/admin/LeaveTypesPanel";
@@ -20,6 +21,7 @@ import { NotificationsPanel, EmailLogPanel } from "@/components/admin/EmailsPane
 import { FeatureGate } from "@/components/shared/FeatureGate";
 
 const titles: Record<string, string> = {
+  prehled: "Přehled",
   profile: "Firma",
   users: "Lidé",
   departments: "Oddělení a schvalování",
@@ -36,6 +38,7 @@ const titles: Record<string, string> = {
 };
 
 const subtitles: Record<string, string> = {
+  prehled: "Co ve firmě stojí za doplnění, jedním pohledem.",
   profile: "Zobrazovaný název, logo a ID firmy.",
   users: "Pozvánky, role a aktivace lidí ve firmě.",
   departments: "Vedoucí, zástupci, kapacita a eskalace schvalování.",
@@ -70,11 +73,13 @@ const groupOf: Record<string, string> = {
 };
 
 function SettingsContent() {
-  const section = useSearchParams().get("sekce") ?? "users";
+  const sekceParam = useSearchParams().get("sekce");
   const { profile } = useAuth();
   const router = useRouter();
   const allowed = allowedSettingsSections(profile);
-  const requested = section in titles ? section : "users";
+  // Bez ?sekce= v adrese skončí admin na Přehledu (allowed[0]), HR na prvním, co smí (Lidé).
+  const section = sekceParam ?? allowed[0] ?? "users";
+  const requested = section in titles ? section : allowed[0] ?? "users";
   // HR sees only some sections; anything else goes back to the first allowed one.
   const active = allowed.length === 0 || allowed.includes(requested) ? requested : allowed[0];
   useEffect(() => {
@@ -88,6 +93,7 @@ function SettingsContent() {
       {/* Bez max-width tady — některé sekce jsou tabulky (Lidé, Historie změn), které širokou obrazovku
           využijí; sekce s formulářem (Pracovní kalendář, Nároky a zůstatky…) si šířku omezují samy. */}
       <div className="p-4 sm:p-8">
+        {active === "prehled" && <PrehledPanel />}
         {active === "profile" && <CompanyProfilePanel />}
         {active === "users" && <UsersPanel />}
         {active === "departments" && <DepartmentsPanel />}

@@ -29,6 +29,7 @@ export const canSeeAnalytics = (p: Who) => canSeeReports(p) || p?.role === "mana
 export function allowedSettingsSections(p: Who): string[] {
   if (isAdminRole(p))
     return [
+      "prehled",
       "profile",
       "users",
       "departments",
