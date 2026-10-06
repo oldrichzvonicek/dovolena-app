@@ -43,23 +43,31 @@ interface Row {
 
 type EditableField = "department" | "manager" | "substitute";
 
-/** Balance chip: red when overdrawn, amber when nearly out (0–2 days left). */
-function BalanceChip({ total, used }: { total: number; used: number }) {
+/** Balance chip: red when overdrawn, amber when nearly out (0–2 days left). Overdrawn gets a direct shortcut
+ *  to fix the entitlement — jinak musel admin najít stejnou akci schovanou v tlačítku Upravit na konci řádku. */
+function BalanceChip({ total, used, onFix }: { total: number; used: number; onFix?: () => void }) {
   const remaining = total - used;
   const overdrawn = remaining < 0;
   const low = !overdrawn && total > 0 && remaining <= 2;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-sm",
-        overdrawn && "bg-danger-light font-medium text-danger-dark",
-        low && "bg-warning-light font-medium text-warning-dark",
-        !overdrawn && !low && "text-muted"
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-sm",
+          overdrawn && "bg-danger-light font-medium text-danger-dark",
+          low && "bg-warning-light font-medium text-warning-dark",
+          !overdrawn && !low && "text-muted"
+        )}
+        title={overdrawn ? "Zaměstnanec je v minusu" : low ? "Dochází dovolená" : undefined}
+      >
+        {overdrawn && "🔴"}
+        zbývá {formatNumber(remaining)} z {formatNumber(total)} dní
+      </span>
+      {overdrawn && onFix && (
+        <button onClick={onFix} className="rounded-sm border border-danger/30 px-1.5 py-0.5 text-xs font-medium text-danger-dark hover:bg-danger-light">
+          Upravit nárok
+        </button>
       )}
-      title={overdrawn ? "Zaměstnanec je v minusu" : low ? "Dochází dovolená" : undefined}
-    >
-      {overdrawn && "🔴"}
-      zbývá {formatNumber(remaining)} z {formatNumber(total)} dní
     </span>
   );
 }
@@ -436,7 +444,7 @@ export default function TeamPage() {
                             />
                           </td>
                           <td className="px-3 py-3" data-label="Dovolená">
-                            <BalanceChip total={e.vacationTotal} used={e.vacationUsed} />
+                            <BalanceChip total={e.vacationTotal} used={e.vacationUsed} onFix={isAdmin ? () => setEditingEmployeeId(e.id) : undefined} />
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex gap-1">

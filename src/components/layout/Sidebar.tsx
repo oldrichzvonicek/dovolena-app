@@ -5,6 +5,8 @@ import Link from "next/link";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useFeatures } from "@/lib/use-features";
 import type { FeatureKey } from "@/lib/plans";
+import { FEATURE_LABELS } from "@/lib/plans";
+import { unlockHint } from "@/components/shared/FeatureGate";
 import { usePathname, useSearchParams } from "next/navigation";
 import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Landmark, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,6 +65,55 @@ const settingsGroups = [
   },
 ];
 
+/** Zamčená položka menu: klik místo navigace na prázdnou zamčenou stránku otevře rovnou vysvětlení + odkaz na tarify. */
+function LockedNavPopover({ label, feature }: { label: string; feature?: FeatureKey }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded py-2 pl-3 pr-3 text-sm text-ink transition-colors hover:bg-paper"
+      >
+        <span className="flex items-center gap-2.5">
+          <Lock size={14} strokeWidth={2} className="text-muted" />
+          {label}
+        </span>
+      </button>
+      {open && feature && (
+        <div role="dialog" className="absolute left-0 top-full z-30 mt-1 w-64 rounded-lg border border-line bg-white p-3 text-left shadow-[0_8px_30px_rgba(22,35,59,0.16)]">
+          <div className="text-sm font-medium">{FEATURE_LABELS[feature]}</div>
+          <p className="mt-1 text-xs text-muted">{unlockHint(feature)}</p>
+          <Link
+            href="/admin/settings?sekce=billing"
+            onClick={() => setOpen(false)}
+            className="mt-2 inline-block text-xs font-medium text-teal-dark underline underline-offset-2"
+          >
+            Zobrazit tarify a doplňky
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavLink({
   href,
   label,
@@ -72,6 +123,7 @@ function NavLink({
   tourId,
   indent,
   locked,
+  feature,
   trailing,
 }: {
   href: string;
@@ -81,11 +133,13 @@ function NavLink({
   active: boolean;
   tourId?: string;
   indent?: boolean;
-  /** Funkce není v tarifu — položka zůstane, ale ukáže zámek a stránka vysvětlí, co odemkne. */
+  /** Funkce není v tarifu — místo odkazu na prázdnou zamčenou stránku rovnou vysvětlí, co odemkne (viz LockedNavPopover). */
   locked?: boolean;
+  feature?: FeatureKey;
   /** Doplněk na konci řádku (např. odznáček klávesové zkratky). */
   trailing?: React.ReactNode;
 }) {
+  if (locked) return <LockedNavPopover label={label} feature={feature} />;
   return (
     <Link
       href={href}
@@ -100,7 +154,6 @@ function NavLink({
         <Icon size={17} strokeWidth={2} />
         {label}
       </span>
-      {locked && <Lock size={12} className="text-muted" aria-label="Není v tarifu" />}
       {trailing}
       {!!badge && (
         <span className="rounded-full bg-warning px-1.5 py-0.5 text-[11px] font-semibold text-white leading-none">
@@ -259,6 +312,7 @@ export function Sidebar() {
                       active={settingsSection === i.key}
                       tourId={i.key === "users" ? "nav-admin-settings" : undefined}
                       locked={isLocked((i as { feature?: FeatureKey }).feature)}
+                      feature={(i as { feature?: FeatureKey }).feature}
                     />
                   ))}
               </div>
