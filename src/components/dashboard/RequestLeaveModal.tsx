@@ -227,7 +227,12 @@ export function RequestLeaveModal({
     const cat = type.counts_against;
     (async () => {
       const balances = await loadBalances(profile.company_id, { profileId: profile.id, excludeRequestId: isEditing ? editingRequest!.id : undefined });
-      setRemainingForType(remainingOf(balances.get(profile.id, cat)));
+      const bal = balances.get(profile.id, cat);
+      // Vlastní soukromé návrhy (leave_plans) se nepočítají do "zbývá" na nástěnce — dokud je nikdo nepodá,
+      // dny ještě nejsou pryč (viz remainingOf). Tady ale varujeme PŘED odesláním nové žádosti, takže je
+      // bezpečnější počítat i s tím, co si člověk sám už naplánoval, ať ho formulář nepustí do většího mínusu,
+      // než čeká.
+      setRemainingForType(remainingOf(bal) - bal.planned);
     })();
   }, [profile, open, typeId, leaveTypes, isEditing, editingRequest]);
 

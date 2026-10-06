@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countWorkingDays, daysWithin } from "./working-days";
+import { countWorkingDays, daysWithin, mergeDateRanges } from "./working-days";
 
 describe("countWorkingDays with a company working week", () => {
   it("defaults to Monday–Friday", () => {
@@ -33,5 +33,38 @@ describe("daysWithin splits requests across month boundaries", () => {
   });
   it("is 0 outside the range", () => {
     expect(daysWithin(r, "2026-11-01", "2026-11-30")).toBe(0);
+  });
+});
+
+describe("mergeDateRanges", () => {
+  it("merges two overlapping ranges into one", () => {
+    expect(mergeDateRanges([{ start_date: "2026-11-05", end_date: "2026-11-27" }, { start_date: "2026-11-05", end_date: "2026-11-06" }])).toEqual([
+      { start_date: "2026-11-05", end_date: "2026-11-27" },
+    ]);
+  });
+  it("merges touching ranges (one ends where the other starts)", () => {
+    expect(mergeDateRanges([{ start_date: "2026-11-01", end_date: "2026-11-10" }, { start_date: "2026-11-10", end_date: "2026-11-15" }])).toEqual([
+      { start_date: "2026-11-01", end_date: "2026-11-15" },
+    ]);
+  });
+  it("keeps separate ranges that don't overlap", () => {
+    expect(mergeDateRanges([{ start_date: "2026-11-01", end_date: "2026-11-05" }, { start_date: "2026-11-10", end_date: "2026-11-15" }])).toEqual([
+      { start_date: "2026-11-01", end_date: "2026-11-05" },
+      { start_date: "2026-11-10", end_date: "2026-11-15" },
+    ]);
+  });
+  it("sorts out-of-order input before merging", () => {
+    expect(
+      mergeDateRanges([
+        { start_date: "2026-11-20", end_date: "2026-11-25" },
+        { start_date: "2026-11-01", end_date: "2026-11-05" },
+      ])
+    ).toEqual([
+      { start_date: "2026-11-01", end_date: "2026-11-05" },
+      { start_date: "2026-11-20", end_date: "2026-11-25" },
+    ]);
+  });
+  it("is empty for empty input", () => {
+    expect(mergeDateRanges([])).toEqual([]);
   });
 });

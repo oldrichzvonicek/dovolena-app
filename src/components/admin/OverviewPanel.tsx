@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Lock,
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { LeaveBadge } from "@/components/ui/badge";
-import { DEFAULT_WORK_DAYS, countWorkingDays, dayWord, daysWithin, formatRange } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS, countWorkingDays, dayWord, formatRange, mergeDateRanges } from "@/lib/working-days";
 import { cn, formatNumber } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DbDepartment } from "@/lib/supabase/types";
@@ -202,13 +202,34 @@ export function OverviewPanel() {
           : pendingRes.count;
       const { data: comp } = await supabase.from("companies").select("work_days").eq("id", profile.company_id).single();
       const workDays = (comp?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
-      const monthRows = ((monthRequests as unknown as MonthReq[]) ?? [])
-        .filter((r) => inDept(r.profile?.department_id))
-        .map((r) => ({ ...r, working_days: daysWithin(r, monthStart, monthEnd, workDays) }));
+      // Dva schválené záznamy téhož typu se mohou u jednoho člověka překrývat (např. Home Office zadaný
+      // dvakrát na stejné dny) — rozsahy dat za člověka a typ se sloučí, než se dny sečtou, ať se souběh
+      // nepočítá dvakrát (viz i loadHomeOfficeYear v balances.ts, stejný princip).
+      const rawMonthRows = ((monthRequests as unknown as MonthReq[]) ?? []).filter((r) => inDept(r.profile?.department_id));
+      const clipAndCount = (start: string, end: string) => {
+        if (end < monthStart || start > monthEnd) return 0;
+        const s = start > monthStart ? start : monthStart;
+        const e = end < monthEnd ? end : monthEnd;
+        return countWorkingDays(s, e, workDays);
+      };
+      const byPersonType = new Map<string, MonthReq[]>();
+      for (const r of rawMonthRows) {
+        if (!r.profile || !r.leave_type) continue;
+        const key = `${r.profile.id}|${r.leave_type.key}`;
+        (byPersonType.get(key) ?? byPersonType.set(key, []).get(key)!).push(r);
+      }
+      const monthRows: MonthReq[] = [];
+      for (const group of byPersonType.values()) {
+        for (const m of mergeDateRanges(group)) {
+          monthRows.push({ ...group[0], start_date: m.start_date, end_date: m.end_date, working_days: clipAndCount(m.start_date, m.end_date) });
+        }
+      }
 
+      // "Podle typu" a "podle oddělení" musí ukazovat totéž — obojí jen skutečnou absenci (ne Home Office a
+      // podobné typy, kde člověk pracuje), jinak si čísla na první pohled odporují (viz monthDays níž).
       const byTypeMap = new Map<string, { label: string; color: LeaveColor; count: number; days: number }>();
       for (const r of monthRows) {
-        if (!r.leave_type) continue;
+        if (!r.leave_type || !reducesPresence(r.leave_type.key)) continue;
         const cur = byTypeMap.get(r.leave_type.label) ?? { label: r.leave_type.label, color: r.leave_type.color, count: 0, days: 0 };
         cur.count += 1;
         cur.days += Number(r.working_days);

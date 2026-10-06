@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { DEFAULT_WORK_DAYS, daysWithin } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS, countWorkingDays, daysWithin, mergeDateRanges } from "@/lib/working-days";
 
 export type BalanceCategory = "vacation" | "sick";
 
@@ -196,7 +196,7 @@ export async function loadHomeOfficeYear(companyId: string, profileId: string): 
       .eq("status", "approved")
       .gte("start_date", `${year}-01-01`)
       .lte("start_date", `${year}-12-31`),
-    supabase.from("companies").select("default_home_office_days").eq("id", companyId).single(),
+    supabase.from("companies").select("default_home_office_days, work_days").eq("id", companyId).single(),
   ]);
   const { data: own } = await supabase
     .from("leave_entitlements")
@@ -207,16 +207,20 @@ export async function loadHomeOfficeYear(companyId: string, profileId: string): 
     .maybeSingle();
 
   const today = now.toLocaleDateString("sv-SE");
+  const workDays = (company?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
   const rows = ((reqs as unknown as { working_days: number; start_date: string; end_date: string; leave_type: { key: string } | null }[]) ?? []).filter(
     (r) => r.leave_type?.key === "home_office"
   );
+  // Two requests can overlap (e.g. Home Office booked twice for the same days) — merge the date ranges
+  // first, so the overlapping days are counted once instead of once per request.
+  const merged = mergeDateRanges(rows).map((r) => ({ ...r, days: countWorkingDays(r.start_date, r.end_date, workDays) }));
   // A per-employee entitlement row overrides the company-wide default.
   const limit = own ? Number((own as unknown as { total_days: number }).total_days) : Number(company?.default_home_office_days ?? 0);
   return {
-    used: sum(rows.map((r) => r.working_days)),
-    taken: sum(rows.filter((r) => r.end_date < today).map((r) => r.working_days)),
-    planned: sum(rows.filter((r) => r.end_date >= today).map((r) => r.working_days)),
-    thisMonth: sum(rows.filter((r) => r.start_date.startsWith(month)).map((r) => r.working_days)),
+    used: sum(merged.map((r) => r.days)),
+    taken: sum(merged.filter((r) => r.end_date < today).map((r) => r.days)),
+    planned: sum(merged.filter((r) => r.end_date >= today).map((r) => r.days)),
+    thisMonth: sum(merged.filter((r) => r.start_date.startsWith(month)).map((r) => r.days)),
     limit: limit > 0 ? limit : null,
   };
 }

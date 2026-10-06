@@ -34,6 +34,7 @@ import { fetchDecisionScope } from "@/lib/approval-scope";
 interface Row {
   id: string;
   name: string;
+  role: string;
   department_id: string | null;
   manager_id: string | null;
   substitute_id: string | null;
@@ -104,12 +105,12 @@ export default function TeamPage() {
     const supabase = createClient();
 
     const [{ data: employees }, balances, { data: deps }] = await Promise.all([
-      supabase.from("profiles").select("id, name, department_id, manager_id, substitute_id").eq("company_id", profile.company_id).eq("active", true),
+      supabase.from("profiles").select("id, name, role, department_id, manager_id, substitute_id").eq("company_id", profile.company_id).eq("active", true),
       loadBalances(profile.company_id),
       supabase.from("departments").select("*").eq("company_id", profile.company_id),
     ]);
 
-    type Emp = { id: string; name: string; department_id: string | null; manager_id: string | null; substitute_id: string | null };
+    type Emp = { id: string; name: string; role: string; department_id: string | null; manager_id: string | null; substitute_id: string | null };
 
     // Visibility scope: admins see the whole company; a manager sees the people they may decide for
     // (direct reports, their department as head/deputy, or as a standing substitute) — see fetchDecisionScope.
@@ -121,7 +122,7 @@ export default function TeamPage() {
       const b = balances.get(e.id, "vacation");
       const vacationTotal = b.total;
       const vacationUsed = b.used + b.upcoming;
-      return { id: e.id, name: e.name, department_id: e.department_id, manager_id: e.manager_id, substitute_id: e.substitute_id, vacationTotal, vacationUsed };
+      return { id: e.id, name: e.name, role: e.role, department_id: e.department_id, manager_id: e.manager_id, substitute_id: e.substitute_id, vacationTotal, vacationUsed };
     });
 
     setRows(built);
@@ -154,12 +155,20 @@ export default function TeamPage() {
 
   const isOverdrawn = (r: Row) => r.vacationTotal - r.vacationUsed < 0;
   const overdrawnCount = rows.filter(isOverdrawn).length;
-  const noManagerCount = rows.filter((r) => !r.manager_id).length;
+  // Stejná definice jako na nástěnce (OnboardingChecklist) a v Nastavení firmy → Lidé: nejen manager_id, ale i
+  // vedoucí/zástupce vlastního oddělení se počítá jako schvalovatel. Admin se nepočítá vůbec (jemu schvaluje
+  // kdokoli z adminů, ne jen on sám).
+  const hasApproverAbove = (r: Row) => {
+    if (r.role === "admin" || r.manager_id) return true;
+    const d = departments.find((x) => x.id === r.department_id);
+    return !!d && (!!d.head_profile_id || !!d.deputy_head_profile_id);
+  };
+  const noManagerCount = rows.filter((r) => !hasApproverAbove(r)).length;
 
   const visibleRows = rows
     .filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()))
     .filter((r) => deptFilter === "all" || (deptFilter === "none" ? !r.department_id : r.department_id === deptFilter))
-    .filter((r) => quickFilter === "all" || (quickFilter === "overdrawn" ? isOverdrawn(r) : !r.manager_id));
+    .filter((r) => quickFilter === "all" || (quickFilter === "overdrawn" ? isOverdrawn(r) : !hasApproverAbove(r)));
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);

@@ -98,6 +98,26 @@ interface SpanLike {
  * its stored number (that covers half days and hours); one that crosses the boundary is re-counted for the
  * overlapping part, so a 28. 9. – 5. 10. absence is split between September and October.
  */
+/**
+ * Merges overlapping or touching [start_date, end_date] ranges (ISO, inclusive) into the minimal
+ * non-overlapping set, so a person with two approved requests that happen to overlap (e.g. Home Office
+ * booked twice for the same week) isn't counted twice when summing days across their requests.
+ */
+export function mergeDateRanges<T extends { start_date: string; end_date: string }>(ranges: T[]): { start_date: string; end_date: string }[] {
+  if (ranges.length === 0) return [];
+  const sorted = [...ranges].sort((a, b) => a.start_date.localeCompare(b.start_date));
+  const merged: { start_date: string; end_date: string }[] = [{ start_date: sorted[0].start_date, end_date: sorted[0].end_date }];
+  for (const r of sorted.slice(1)) {
+    const last = merged[merged.length - 1];
+    if (r.start_date <= last.end_date) {
+      if (r.end_date > last.end_date) last.end_date = r.end_date;
+    } else {
+      merged.push({ start_date: r.start_date, end_date: r.end_date });
+    }
+  }
+  return merged;
+}
+
 export function daysWithin(r: SpanLike, from: string, to: string, workDays: number[] = DEFAULT_WORK_DAYS): number {
   if (r.end_date < from || r.start_date > to) return 0;
   if (r.start_date >= from && r.end_date <= to) return Number(r.working_days);

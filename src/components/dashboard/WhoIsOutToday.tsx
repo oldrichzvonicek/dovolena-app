@@ -7,7 +7,7 @@ import { formatRange } from "@/lib/working-days";
 import { addDays, format, isWeekend, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { ABSENT_TYPE } from "@/lib/leave-kinds";
+import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
 import { fetchMaskedAbsences } from "@/lib/data";
 import { TeamCapacity } from "@/components/dashboard/TeamCapacity";
 import { LoadingLines } from "@/components/ui/skeleton";
@@ -116,7 +116,8 @@ export function WhoIsOutToday() {
         // Vlastní absence člověka může přijít z obou zdrojů (plná i zamaskovaná); stejný člověk a termín se ukáže jen jednou.
         const seen = new Set(mapped.map((m) => `${m.profile?.id}|${m.start_date}|${m.end_date}`));
         const extraHidden = hiddenRows.filter((h) => !seen.has(`${h.profile?.id}|${h.start_date}|${h.end_date}`));
-        setAllRows([...mapped, ...extraHidden].sort((a, b) => a.start_date.localeCompare(b.start_date)));
+        // Home Office a další typy, kde člověk pracuje (counts_as_present), nejsou "chybí" — tenhle widget je o absenci.
+        setAllRows([...mapped, ...extraHidden].filter((r) => reducesPresence(r.leave_type?.key)).sort((a, b) => a.start_date.localeCompare(b.start_date)));
         setLoading(false);
         const coverIds = Array.from(new Set(mapped.map((m) => m.covering_profile_id).filter((x): x is string => !!x)));
         if (coverIds.length > 0) {
