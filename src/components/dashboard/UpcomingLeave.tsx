@@ -161,13 +161,15 @@ export function UpcomingLeave() {
         </ul>
         <div className="mt-2 flex items-center gap-3">
           {rows.length > VISIBLE && (
+            // "Zobrazit dalších" (rozbalí tenhle seznam na místě), ne "Zobrazit všech" — to vedle odkazu
+            // na /requests vypadalo jako dva odkazy na totéž.
             <button onClick={() => setShowAll((v) => !v)} className="text-sm font-medium text-teal-dark hover:underline">
-              {showAll ? "Zobrazit méně" : `Zobrazit všech ${rows.length} →`}
+              {showAll ? "Zobrazit méně" : `Zobrazit dalších ${rows.length - VISIBLE} →`}
             </button>
           )}
           {rows.length > 0 && (
             <Link href="/requests" className="text-sm text-muted hover:underline">
-              Všechny žádosti →
+              Celá historie žádostí →
             </Link>
           )}
         </div>
