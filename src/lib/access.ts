@@ -27,7 +27,22 @@ export const canSeeAnalytics = (p: Who) => canSeeReports(p) || p?.role === "mana
 
 /** Settings sections the person may open (keys match the `?sekce=` values). */
 export function allowedSettingsSections(p: Who): string[] {
-  if (isAdminRole(p)) return ["users", "departments", "leave-types", "profile", "general", "billing", ...(CHAT_INTEGRATIONS_ENABLED ? ["integrations"] : []), "emails", "audit"];
+  if (isAdminRole(p))
+    return [
+      "profile",
+      "users",
+      "departments",
+      "leave-types",
+      "naroky",
+      "pravidla",
+      "kalendar",
+      "emails",
+      "bezpecnost",
+      "billing",
+      ...(CHAT_INTEGRATIONS_ENABLED ? ["integrations"] : []),
+      "audit",
+      "zaznamy-emaily",
+    ];
   if (isHr(p)) return ["users", "emails", "audit"];
   return [];
 }

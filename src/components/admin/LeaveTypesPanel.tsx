@@ -1,20 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronUp, Gift, GripVertical, Lock, Plus, Settings2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, GripVertical, Lock, Plus, Settings2, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchLeaveTypes } from "@/lib/data";
-import { createLeaveType, deleteLeaveType, fetchCompany, setLeaveTypeOrder, updateCompany, updateLeaveType } from "@/lib/admin-data";
+import { createLeaveType, deleteLeaveType, setLeaveTypeOrder, updateLeaveType } from "@/lib/admin-data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { DbCompany, DbLeaveType, LeaveColor } from "@/lib/supabase/types";
+import { DbLeaveType, LeaveColor } from "@/lib/supabase/types";
 import { cn, errorMessage } from "@/lib/utils";
 import { SaveStatusBar, useSaveStatus } from "@/components/shared/SaveStatus";
 import { LoadingCard } from "@/components/ui/skeleton";
-import { SeniorityCard } from "@/components/admin/SeniorityCard";
-import { FeatureGate } from "@/components/shared/FeatureGate";
-import { OptionalNumber } from "@/components/ui/optional-number";
 import { setPresenceKeys } from "@/lib/leave-kinds";
 
 // These two keys are load-bearing (hardcoded into onboarding, invite-claim
@@ -73,7 +70,6 @@ function slugify(label: string) {
 export function LeaveTypesPanel() {
   const { profile } = useAuth();
   const [types, setTypes] = useState<DbLeaveType[]>([]);
-  const [company, setCompany] = useState<DbCompany | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -88,17 +84,10 @@ export function LeaveTypesPanel() {
 
   async function load() {
     if (!profile) return;
-    const [lt, c] = await Promise.all([fetchLeaveTypes(profile.company_id), fetchCompany(profile.company_id)]);
+    const lt = await fetchLeaveTypes(profile.company_id);
     setPresenceKeys(lt.filter((t) => t.counts_as_present).map((t) => t.key));
     setTypes(lt);
-    setCompany(c);
     setLoading(false);
-  }
-
-  async function patchDefaults(fields: Partial<DbCompany>) {
-    if (!profile || !company) return;
-    setCompany({ ...company, ...fields });
-    await save.run(() => updateCompany(profile.company_id, fields));
   }
 
   useEffect(() => {
@@ -166,7 +155,7 @@ export function LeaveTypesPanel() {
     if (other) reorder(visibleTypes[index].id, other.id);
   }
 
-  if (loading || !company) return <LoadingCard rows={8} />;
+  if (loading) return <LoadingCard rows={8} />;
 
   const inactiveTypes = types.filter((t) => !t.active);
   const visibleTypes = showInactive ? types : types.filter((t) => t.active);
@@ -179,64 +168,10 @@ export function LeaveTypesPanel() {
   return (
     <div className="space-y-6">
       <div className="card p-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-light text-teal-dark">
-            <Gift size={15} />
-          </div>
-          <h2 className="font-display text-h2">Výchozí nároky pro nové zaměstnance</h2>
-        </div>
-        <p className="mt-1 text-sm text-muted">
-          Použije se při pozvání nového zaměstnance (odkazem) nebo založení firmy. Existujícím lidem se dá nárok upravit v záložce Uživatelé.
-        </p>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted">Dovolená / rok</label>
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              defaultValue={company.default_vacation_days}
-              onBlur={(e) => patchDefaults({ default_vacation_days: Number(e.target.value) })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted">Sick days / rok</label>
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              defaultValue={company.default_sick_days}
-              onBlur={(e) => patchDefaults({ default_sick_days: Number(e.target.value) })}
-              className="w-full rounded border border-line px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted">Home Office / rok</label>
-            <OptionalNumber
-              enabled={company.default_home_office_days !== 0}
-              onToggle={(on) => patchDefaults({ default_home_office_days: on ? 60 : 0 })}
-              value={company.default_home_office_days === 0 ? null : company.default_home_office_days}
-              onCommit={(n) => patchDefaults({ default_home_office_days: n })}
-              unit="dní"
-              step={0.5}
-              offLabel="Bez omezení"
-              onLabel="Nejvýše"
-            />
-          </div>
-        </div>
-        <div className="mt-3 flex items-center gap-2 text-sm">
-          <Switch checked={company.prorate_new_hires} onCheckedChange={(v) => patchDefaults({ prorate_new_hires: v })} label="Poměrná dovolená pro nováčky během roku" />
-          Poměrná dovolená pro nováčky během roku (krátí se podle měsíce nástupu — je-li vyplněné datum nástupu, jinak podle dne založení účtu)
-        </div>
-      </div>
-
-      <FeatureGate feature="seniority" description="Automatický příplatek k ročnímu nároku podle počtu let ve firmě a poměrná dovolená pro nováčky.">
-        <SeniorityCard companyId={company.id} enabled={company.seniority_enabled ?? false} rules={company.seniority_rules ?? []} defaultVacation={company.default_vacation_days} />
-      </FeatureGate>
-
-      <div className="card p-5">
         <h2 className="font-display text-h2">Typy absencí</h2>
+        <p className="mt-1 text-sm text-muted">
+          Výchozí roční nároky a nárok podle odpracovaných let najdete v Nároky a zůstatky.
+        </p>
 
         <div className="mt-4 space-y-2">
           {visibleTypes.map((t, i) => {

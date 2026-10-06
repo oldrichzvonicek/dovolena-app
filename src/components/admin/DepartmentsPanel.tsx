@@ -9,7 +9,6 @@ import {
   AdminEmployeeRow,
   createDepartment,
   deleteDepartment,
-  fetchCompany,
   fetchCompanyEmployees,
   mergeDuplicateDepartments,
   renameDepartment,
@@ -26,6 +25,10 @@ import { cn, errorMessage } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { PlanTag } from "@/components/shared/FeatureGate";
 import { useFeatures } from "@/lib/use-features";
+import { useCompanyDraft } from "@/lib/use-company-draft";
+import { OptionalNumber, UnitInput } from "@/components/ui/optional-number";
+import { SectionHeader } from "@/components/admin/section-header";
+import { DraftSaveBar } from "@/components/shared/DraftSaveBar";
 
 const colorDot: Record<LeaveColor, string> = {
   teal: "bg-teal",
@@ -59,9 +62,10 @@ const colors = Object.keys(colorLabel) as LeaveColor[];
 
 export function DepartmentsPanel() {
   const { profile } = useAuth();
+  const features = useFeatures();
+  const companyDraft = useCompanyDraft();
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
   const [employees, setEmployees] = useState<AdminEmployeeRow[]>([]);
-  const [companyCapacityDefault, setCompanyCapacityDefault] = useState(70);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const nameInput = useRef<HTMLInputElement>(null);
@@ -73,14 +77,9 @@ export function DepartmentsPanel() {
 
   async function load() {
     if (!profile) return;
-    const [deps, emps, company] = await Promise.all([
-      fetchDepartments(profile.company_id),
-      fetchCompanyEmployees(profile.company_id),
-      fetchCompany(profile.company_id),
-    ]);
+    const [deps, emps] = await Promise.all([fetchDepartments(profile.company_id), fetchCompanyEmployees(profile.company_id)]);
     setDepartments(deps);
     setEmployees(emps);
-    setCompanyCapacityDefault(company.capacity_warning_percent);
     setLoading(false);
   }
 
@@ -125,7 +124,9 @@ export function DepartmentsPanel() {
     }
   }
 
-  if (loading) return <LoadingCard rows={4} />;
+  if (loading || companyDraft.loading || !companyDraft.company) return <LoadingCard rows={4} />;
+  const company = companyDraft.company;
+  const companyCapacityDefault = company.capacity_warning_percent;
 
   const duplicateNames = new Set<string>();
   const seen = new Set<string>();
@@ -137,6 +138,45 @@ export function DepartmentsPanel() {
   const hasDuplicates = duplicateNames.size > 0;
 
   return (
+    <div className="space-y-4">
+    <div key={companyDraft.resetToken} className="card p-5">
+      <SectionHeader icon={<AlertTriangle size={15} />} title="Kapacita a eskalace" className="bg-danger-light text-danger" />
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Výchozí kapacitní varování</label>
+          <UnitInput
+            unit="% oddělení"
+            min={1}
+            max={100}
+            defaultValue={company.capacity_warning_percent}
+            aria-label="Kapacitní varování v procentech"
+            onBlur={(e) => companyDraft.patch({ capacity_warning_percent: Number(e.target.value) })}
+            className="[&_input]:w-16"
+          />
+          <p className="mt-1 text-xs text-muted">Manažer uvidí varování, pokud by schválení přesáhlo tento podíl oddělení. Jednotlivé oddělení si může nastavit vlastní hodnotu níže.</p>
+        </div>
+        <div>
+          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+            Eskalace — připomínka schvalovateli {!features.loading && !features.has("escalation") && <PlanTag feature="escalation" />}
+          </label>
+          <OptionalNumber
+            enabled={company.approval_reminder_hours !== null}
+            onToggle={(on) => companyDraft.patch({ approval_reminder_hours: on ? 24 : null })}
+            value={company.approval_reminder_hours}
+            onCommit={(n) => companyDraft.patch({ approval_reminder_hours: n })}
+            unit="hodin"
+            min={1}
+            disabled={!features.has("escalation")}
+            offLabel="Vypnuto"
+            onLabel="Po"
+          />
+          <p className="mt-1 text-xs text-muted">
+            Když žádost čeká déle než tolik hodin, denní kontrola ji přepošle zástupci vedoucího oddělení, jinak adminům. Stejně se přepošle, když je schvalovatel dnes nepřítomen (i při prázdném poli).
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div className="card p-5">
       <div className="flex items-start justify-between gap-4">
         <h2 className="font-display text-h2">Oddělení</h2>
@@ -244,6 +284,9 @@ export function DepartmentsPanel() {
           onDeleted={load}
         />
       )}
+    </div>
+
+    <DraftSaveBar dirty={companyDraft.dirty} status={companyDraft.saveStatus} error={companyDraft.saveError} onSave={companyDraft.save} onCancel={companyDraft.cancel} />
     </div>
   );
 }

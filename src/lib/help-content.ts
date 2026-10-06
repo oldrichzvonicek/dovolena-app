@@ -120,15 +120,19 @@ export const sections: HelpSection[] = [
     color: "sage",
     roles: ["admin"],
     items: [
-      "Menu „Nastavení firmy“ vlevo se rozbalí na sekce; změny se ukládají automaticky (u polí je vidět stav „Uloženo“).",
-      "Uživatelé — pozvání e-mailem, odkazem nebo CSV importem; hromadné akce (oddělení, nadřízený, nároky, deaktivace), roční nároky a individuální limit Home Office. Odcházející lidi deaktivujte — ztratí přístup a zmizí z kalendáře, historie zůstane.",
-      "Oddělení — vedoucí a zástupce vedoucího, sloučení duplicit.",
-      "Typy absencí — barvy, řazení přetažením, z jakého limitu se čerpá, automatické schválení do X dní, poměrné krácení nároku u nových zaměstnanců, výchozí nároky. Nepoužívané typy lze skrýt.",
-      "Profil firmy — zobrazovaný název, logo a ID firmy.",
-      "Kalendář a provoz — směny a pracovní dny, pravidla pro žádosti (předstih, zpětné zadávání, mínus), převod dovolenky do dalšího roku (max. dní a datum propadnutí), připomínky, kapacitní varování, blokované termíny a celozávodní dovolená.",
-      "Fakturace & tarify — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Team, Pro) a doplňky (Smart HR, Účetní), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
+      "Menu „Nastavení firmy“ vlevo se rozbalí na sekce v šesti skupinách (Organizace, Absence, Komunikace, Bezpečnost a soukromí, Předplatné, Záznamy). Jednotlivé přepínače se ukládají hned (stav „Uloženo“), firemní pravidla (Pracovní kalendář, Nároky a zůstatky, Pravidla žádostí, Bezpečnost a soukromí) mají tlačítko „Uložit změny“ dole.",
+      "Firma — zobrazovaný název, logo a ID firmy.",
+      "Lidé — pozvání e-mailem, odkazem nebo CSV importem; hromadné akce (oddělení, nadřízený, nároky, deaktivace), roční nároky a individuální limit Home Office. Odcházející lidi deaktivujte — ztratí přístup a zmizí z kalendáře, historie zůstane.",
+      "Oddělení a schvalování — vedoucí, zástupce vedoucího, sloučení duplicit, kapacitní varování a eskalace schvalování.",
+      "Typy absencí — barvy, řazení přetažením, z jakého limitu se čerpá, automatické schválení do X dní. Nepoužívané typy lze skrýt.",
+      "Nároky a zůstatky — výchozí roční nárok, nárok podle odpracovaných let, čerpání do mínusu, převod dovolené do dalšího roku a její expirace.",
+      "Pravidla žádostí — minimální předstih pro delší dovolenou, zpětné zadávání absencí.",
+      "Pracovní kalendář — směny, pracovní dny a hodiny, blokované termíny, celozávodní dovolená.",
+      "Notifikace — které e-maily appka posílá a komu.",
+      "Bezpečnost a soukromí — dvoufázové ověření, schvalování z e-mailu, viditelnost absencí mezi kolegy.",
+      "Tarif a fakturace — aktuální tarif s počtem uživatelů, srovnání tarifů (Free, Starter, Team, Pro) a doplňky (Smart HR, Účetní), fakturační údaje (načtení z ARES podle IČO) a způsob platby.",
       ...(CHAT_INTEGRATIONS_ENABLED ? ["Integrace — napojení Slack, Microsoft Teams, Mattermost, Discord, Google Chat nebo libovolného webhooku; vyberete, které události se do kanálu posílají."] : []),
-      "Historie změn — kdo, kdy a co v systému změnil.",
+      "Historie změn a Doručení e-mailů — kdo, kdy a co v systému změnil, a jak dopadlo posledních 200 odeslaných e-mailů.",
     ],
   },
   {
@@ -174,7 +178,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Co se stane s nevyčerpanou dovolenou na konci roku?",
     section: "Nástěnka",
-    a: "Část dní se převede do dalšího roku — kolik a do kdy je nastaveno ve firemních pravidlech (Kalendář a provoz). Převedené dny jsou na nástěnce vidět zvlášť a po datu propadnutí se odečtou.",
+    a: "Část dní se převede do dalšího roku — kolik a do kdy je nastaveno ve firemních pravidlech (Nároky a zůstatky). Převedené dny jsou na nástěnce vidět zvlášť a po datu propadnutí se odečtou.",
   },
   {
     q: "Jak funguje převod dovolené do dalšího roku?",
@@ -183,7 +187,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Jak nastavím převod dovolené do dalšího roku?",
-    a: "V Nastavení firmy → Kalendář a provoz, sekce „Převod a expirace dovolené“. Nastavíte datum, kdy převedená dovolená propadne (např. 31. 3.; prázdné = nikdy nepropadá), a maximální počet dní, které lze převést (prázdné = bez omezení). Změna platí pro výpočet zůstatků okamžitě a týká se převodu z minulého roku, nikoli už vyčerpaných dní.",
+    a: "V Nastavení firmy → Nároky a zůstatky, sekce „Převod a expirace dovolené“. Nastavíte datum, kdy převedená dovolená propadne (např. 31. 3.; prázdné = nikdy nepropadá), a maximální počet dní, které lze převést (prázdné = bez omezení). Změna platí pro výpočet zůstatků okamžitě a týká se převodu z minulého roku, nikoli už vyčerpaných dní.",
     section: "Nastavení firmy (admin)",
     roles: ["admin"],
   },
@@ -206,7 +210,7 @@ const ALL_FAQS: HelpFaq[] = [
     q: "Proč mi systém nedovolí odeslat žádost o absenci?",
     section: "Žádost o absenci",
     top: true,
-    a: "Nejspíš naráží na firemní pravidlo — blokovaný termín, příliš krátký předstih, zpětné zadávání, čerpání do mínusu, nebo vybraný termín obsahuje jen víkend a svátky (0 pracovních dní). Pravidla nastavuje admin v Nastavení firmy → Kalendář a provoz.",
+    a: "Nejspíš naráží na firemní pravidlo — blokovaný termín (Pracovní kalendář), příliš krátký předstih nebo zpětné zadávání (Pravidla žádostí), čerpání do mínusu (Nároky a zůstatky), nebo vybraný termín obsahuje jen víkend a svátky (0 pracovních dní). Pravidla nastavuje admin v Nastavení firmy.",
   },
   {
     q: "Kdo schvaluje moje žádosti?",
@@ -231,7 +235,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Můžu zadat absenci zpětně?",
-    a: "Záleží na pravidlech vaší firmy: admin může zpětné zadávání zakázat nebo omezit na několik dní (Nastavení firmy → Kalendář a provoz). Když to pravidla nedovolují, formulář vám to při odeslání napíše.",
+    a: "Záleží na pravidlech vaší firmy: admin může zpětné zadávání zakázat nebo omezit na několik dní (Nastavení firmy → Pravidla žádostí). Když to pravidla nedovolují, formulář vám to při odeslání napíše.",
     section: "Žádost o absenci",
   },
   {
@@ -272,7 +276,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Moje žádost čeká na schválení už dlouho. Co mám dělat?",
-    a: "Po době nastavené ve firmě (Kalendář a provoz → připomínka schvalovatele) se žádost automaticky předá zástupci vedoucího oddělení, případně adminům. Stejně se předá, když je schvalovatel dnes nepřítomen. Pokud spěchá, napište schvalovateli přímo. Kdo vaše žádosti schvaluje, zjistíte v otázce „Kdo schvaluje moje žádosti?“.",
+    a: "Po době nastavené ve firmě (Oddělení a schvalování → eskalace) se žádost automaticky předá zástupci vedoucího oddělení, případně adminům. Stejně se předá, když je schvalovatel dnes nepřítomen. Pokud spěchá, napište schvalovateli přímo. Kdo vaše žádosti schvaluje, zjistíte v otázce „Kdo schvaluje moje žádosti?“.",
     section: "Moje žádosti",
   },
   {
@@ -338,7 +342,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Jsem na dovolené. Kdo za mě schvaluje?",
-    a: "Požádejte admina nebo HR, ať vám nastaví zástup (Nastavení firmy → Uživatelé → Upravit). Když ho nemáte, žádosti po nastavené době přejdou na zástupce vedoucího oddělení a nakonec na adminy. Zástup schvaluje jen ty, kdo vám podléhají.",
+    a: "Požádejte admina nebo HR, ať vám nastaví zástup (Nastavení firmy → Lidé → Upravit). Když ho nemáte, žádosti po nastavené době přejdou na zástupce vedoucího oddělení a nakonec na adminy. Zástup schvaluje jen ty, kdo vám podléhají.",
     section: "Ke schválení (manažer)",
     roles: ["manager","admin"],
   },
@@ -358,7 +362,7 @@ const ALL_FAQS: HelpFaq[] = [
     q: "Jak pozvu nového kolegu do firmy?",
     section: "Můj tým",
     top: true,
-    a: "V Můj tým nebo v Nastavení firmy → Uživatelé zvolte „Pozvat uživatele“ (e-mail), „Kopírovat registrační odkaz“ nebo hromadný CSV import.",
+    a: "V Můj tým nebo v Nastavení firmy → Lidé zvolte „Pozvat uživatele“ (e-mail), „Kopírovat registrační odkaz“ nebo hromadný CSV import.",
     roles: ["manager", "admin"],
   },
   {
@@ -369,7 +373,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Proč nemůžu změnit nadřízeného nebo oddělení někomu ve firmě?",
-    a: "Manažer smí přeřazovat jen lidi, za které odpovídá. Ostatní přeřadí admin nebo HR (Nastavení firmy → Uživatelé → Upravit).",
+    a: "Manažer smí přeřazovat jen lidi, za které odpovídá. Ostatní přeřadí admin nebo HR (Nastavení firmy → Lidé → Upravit).",
     section: "Můj tým",
     roles: ["manager","admin"],
   },
@@ -381,7 +385,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Jak funguje registrační odkaz a jak ho zneplatním?",
-    a: "V Nastavení firmy → Uživatelé je karta „Registrační odkaz“. Odkaz obsahuje tajný kód; když unikne, vypněte ho nebo klikněte na „Nový odkaz“ — starý přestane fungovat. Ve výchozím stavu musí admin nově zaregistrované lidi schválit v seznamu uživatelů.",
+    a: "V Nastavení firmy → Lidé je karta „Registrační odkaz“. Odkaz obsahuje tajný kód; když unikne, vypněte ho nebo klikněte na „Nový odkaz“ — starý přestane fungovat. Ve výchozím stavu musí admin nově zaregistrované lidi schválit v seznamu uživatelů.",
     section: "Nastavení firmy (admin)",
     top: true,
     roles: ["admin"],
@@ -389,13 +393,13 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Jak převedu zůstatky dovolené z Excelu?",
     section: "Nastavení firmy (admin)",
-    a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a přepněte na záložku „Zůstatky dovolené“. Nahrajte tabulku s nárokem, vyčerpanými nebo zbývajícími dny a případným převodem z minulého roku. Lidé se přiřadí ke stávajícím zaměstnancům podle e-mailu, jinak podle jména. V náhledu uvidíte, co se změní; nic se nezapíše, dokud nepotvrdíte. Převod z loňska se uloží jako zbytek loňského nároku, takže pro něj platí pravidla propadnutí z Nastavení. Pokud už jste v Dodiu zadali nějaké absence, nechte zapnuté „Odečíst absence, které už jsou v Dodiu“, aby se dny nepočítaly dvakrát.",
+    a: "V Nastavení firmy → Lidé klikněte na „Import z mzdového systému“ a přepněte na záložku „Zůstatky dovolené“. Nahrajte tabulku s nárokem, vyčerpanými nebo zbývajícími dny a případným převodem z minulého roku. Lidé se přiřadí ke stávajícím zaměstnancům podle e-mailu, jinak podle jména. V náhledu uvidíte, co se změní; nic se nezapíše, dokud nepotvrdíte. Převod z loňska se uloží jako zbytek loňského nároku, takže pro něj platí pravidla propadnutí z Nastavení. Pokud už jste v Dodiu zadali nějaké absence, nechte zapnuté „Odečíst absence, které už jsou v Dodiu“, aby se dny nepočítaly dvakrát.",
     roles: ["admin"],
   },
   {
     q: "Můžu si Dodio vyzkoušet na ukázkových datech?",
     section: "Nastavení firmy (admin)",
-    a: "Ano. V Nastavení firmy → Uživatelé klikněte na „Přidat ukázková data“. Vzniknou tři fiktivní oddělení, 14 fiktivních lidí a jejich absence (dovolená, home office, lékař, nemoc, čekající žádosti i kapacitní kolize), takže si prohlédnete kalendář, Analytiku i schvalování. Ukázkoví lidé se nemohou přihlásit, nedostávají e-maily a nepočítají se do limitu tarifu. Až si aplikaci prohlédnete, klikněte na „Odstranit ukázková data“ a zmizí i se svými absencemi.",
+    a: "Ano. V Nastavení firmy → Lidé klikněte na „Přidat ukázková data“. Vzniknou tři fiktivní oddělení, 14 fiktivních lidí a jejich absence (dovolená, home office, lékař, nemoc, čekající žádosti i kapacitní kolize), takže si prohlédnete kalendář, Analytiku i schvalování. Ukázkoví lidé se nemohou přihlásit, nedostávají e-maily a nepočítají se do limitu tarifu. Až si aplikaci prohlédnete, klikněte na „Odstranit ukázková data“ a zmizí i se svými absencemi.",
     roles: ["admin"],
   },
   {
@@ -425,25 +429,25 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Kde změním heslo a zapnu dvoufázové ověření?",
     section: "Účet",
-    a: "Klikněte dole v menu na své jméno (Můj účet). Najdete tam změnu hesla, dvoufázové ověření, vypnutí e-mailových upozornění a odhlášení ze všech zařízení. Dvoufázové ověření zapnete naskenováním QR kódu v aplikaci pro ověřovací kódy (Google Authenticator, Microsoft Authenticator, 1Password) a opsáním šestimístného kódu; při dalších přihlášeních pak kód zadáte navíc. Admin může v Nastavení firmy → Kalendář a provoz vyžadovat dvoufázové ověření pro admina, HR a účetní. Ztratili jste telefon? Požádejte admina, ať vám ověření vypne, nebo se odhlaste ze všech zařízení a obnovte heslo.",
+    a: "Klikněte dole v menu na své jméno (Můj účet). Najdete tam změnu hesla, dvoufázové ověření, vypnutí e-mailových upozornění a odhlášení ze všech zařízení. Dvoufázové ověření zapnete naskenováním QR kódu v aplikaci pro ověřovací kódy (Google Authenticator, Microsoft Authenticator, 1Password) a opsáním šestimístného kódu; při dalších přihlášeních pak kód zadáte navíc. Admin může v Nastavení firmy → Bezpečnost a soukromí vyžadovat dvoufázové ověření pro admina, HR a účetní. Ztratili jste telefon? Požádejte admina, ať vám ověření vypne, nebo se odhlaste ze všech zařízení a obnovte heslo.",
     roles: ["employee", "manager", "admin"],
   },
   {
     q: "Proč je některá funkce zamčená (zámek v menu)?",
     section: "Nastavení firmy (admin)",
-    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, Historie změn a nárok podle odpracovaných let jsou od tarifu Team a eskalace schvalování se zástupy od tarifu Pro. Smart HR je v tarifu Pro v ceně, jinak se dá přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): po jeho naplnění nejde přidat, pozvat ani znovu aktivovat další člověk. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Fakturace & tarify.",
+    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, Historie změn a nárok podle odpracovaných let jsou od tarifu Team a eskalace schvalování se zástupy od tarifu Pro. Smart HR je v tarifu Pro v ceně, jinak se dá přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): po jeho naplnění nejde přidat, pozvat ani znovu aktivovat další člověk. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Tarif a fakturace.",
     roles: ["admin"],
   },
   {
     q: "Co se stane, když v průběhu roku změním tarif?",
     section: "Nastavení firmy (admin)",
-    a: "Přechod na VYŠŠÍ tarif platí hned po zaplacení: nevyužitá část už zaplaceného tarifu se započítá jako kredit (poměrně podle dnů) a doplatíte jen rozdíl; datum obnovy se nemění. V Nastavení firmy → Fakturace & tarify uvidíte orientační doplatek a tlačítko „Požádat o přechod“. Přechod na NIŽŠÍ tarif platí až po skončení zaplaceného období, peníze se nevrací. Naplánujete ho tlačítkem „Naplánovat přechod“, do dne účinnosti ho můžete zrušit a tři dny předem vám pošleme e-mail. Po přechodu se zamknou funkce, které nižší tarif nemá (data zůstanou), a když je ve firmě víc aktivních uživatelů, než nižší tarif dovoluje, nepůjde přidat další, dokud počet nesnížíte. Platnost tarifu vidíte u „Váš tarif“ („platí do …“).",
+    a: "Přechod na VYŠŠÍ tarif platí hned po zaplacení: nevyužitá část už zaplaceného tarifu se započítá jako kredit (poměrně podle dnů) a doplatíte jen rozdíl; datum obnovy se nemění. V Nastavení firmy → Tarif a fakturace uvidíte orientační doplatek a tlačítko „Požádat o přechod“. Přechod na NIŽŠÍ tarif platí až po skončení zaplaceného období, peníze se nevrací. Naplánujete ho tlačítkem „Naplánovat přechod“, do dne účinnosti ho můžete zrušit a tři dny předem vám pošleme e-mail. Po přechodu se zamknou funkce, které nižší tarif nemá (data zůstanou), a když je ve firmě víc aktivních uživatelů, než nižší tarif dovoluje, nepůjde přidat další, dokud počet nesnížíte. Platnost tarifu vidíte u „Váš tarif“ („platí do …“).",
     roles: ["admin"],
   },
   {
     q: "Jak hromadně importuji zaměstnance?",
     section: "Nastavení firmy (admin)",
-    a: "V Nastavení firmy → Uživatelé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",
+    a: "V Nastavení firmy → Lidé klikněte na „Import z mzdového systému“ a nahrajte export seznamu zaměstnanců (Excel .xlsx/.xls nebo CSV). Sloupce jako Příjmení, Jméno, Středisko, Datum nástupu, E-mail nebo Zbývající dovolená se rozpoznají samy, ostatní namapujete ručně. Poradíme si i s titulem před jménem, s pořadím „Příjmení Jméno“, s češtinou ve Windows-1250 a s lidmi, kterým už pracovní poměr skončil. Když export neobsahuje e-maily, doplníte je v náhledu ručně nebo je navrhneme podle jména a domény firmy. Nic se nezapíše, dokud import nepotvrdíte; zaměstnanci pak dostanou pozvánku vázanou na svůj e-mail a data (oddělení, nadřízený, datum nástupu, zůstatek dovolené) se jim doplní po první registraci.",
     roles: ["admin"],
   },
   {
@@ -455,14 +459,14 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Jak nastavím roli HR nebo Účetní?",
-    a: "V Nastavení firmy → Uživatelé u člověka klikněte na Upravit a vyberte „Doplňková role“. HR spravuje lidi (oddělení, nadřízený, datum nástupu, nároky, pozvánky), aktivuje a deaktivuje uživatele, zadá absenci za kohokoli ve firmě (i v „Můj tým“, který HR vidí za celou firmu), vidí všechny absence včetně nemoci, Analytiku, Exporty a Historii změn — role HR je zdarma na jakémkoli tarifu. Účetní jen čte absence a nároky pro mzdy (Exporty, Analytika), od tarifu Starter v ceně. Ani jedna role nespravuje firmu, fakturaci ani role (zaměstnanec/manažer/admin) a neschvaluje žádosti.",
+    a: "V Nastavení firmy → Lidé u člověka klikněte na Upravit a vyberte „Doplňková role“. HR spravuje lidi (oddělení, nadřízený, datum nástupu, nároky, pozvánky), aktivuje a deaktivuje uživatele, zadá absenci za kohokoli ve firmě (i v „Můj tým“, který HR vidí za celou firmu), vidí všechny absence včetně nemoci, Analytiku, Exporty a Historii změn — role HR je zdarma na jakémkoli tarifu. Účetní jen čte absence a nároky pro mzdy (Exporty, Analytika), od tarifu Starter v ceně. Ani jedna role nespravuje firmu, fakturaci ani role (zaměstnanec/manažer/admin) a neschvaluje žádosti.",
     section: "Nastavení firmy (admin)",
     roles: ["admin"],
   },
   {
     q: "Jak odebrat člověka, který odešel z firmy?",
     section: "Nastavení firmy (admin)",
-    a: "Deaktivujte ho v Nastavení firmy → Uživatelé. Ztratí přístup a zmizí z kalendáře, ale jeho historie zůstane. Trvale smazat jde jen deaktivovaného uživatele.",
+    a: "Deaktivujte ho v Nastavení firmy → Lidé. Ztratí přístup a zmizí z kalendáře, ale jeho historie zůstane. Trvale smazat jde jen deaktivovaného uživatele.",
     roles: ["admin"],
   },
   {
@@ -492,7 +496,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Co je celozávodní dovolená?",
     section: "Nastavení firmy (admin)",
-    a: "Admin ji nastaví v Nastavení firmy → Kalendář a provoz — jednotná absence, která se rovnou přiřadí celé firmě nebo vybraným oddělením (např. vánoční odstávka).",
+    a: "Admin ji nastaví v Nastavení firmy → Pracovní kalendář — jednotná absence, která se rovnou přiřadí celé firmě nebo vybraným oddělením (např. vánoční odstávka).",
     roles: ["admin"],
   },
   {
@@ -504,18 +508,18 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Kde nastavím firemní logo a fakturační údaje?",
     section: "Nastavení firmy (admin)",
-    a: "Logo a název v Nastavení firmy → Profil firmy, fakturační údaje a způsob platby v Fakturace & tarify. Údaje o firmě lze načíst z ARES podle IČO.",
+    a: "Logo a název v Nastavení firmy → Firma, fakturační údaje a způsob platby v Tarif a fakturace. Údaje o firmě lze načíst z ARES podle IČO.",
     roles: ["admin"],
   },
   {
     q: "Jak změním tarif?",
     section: "Nastavení firmy (admin)",
-    a: "V Nastavení firmy → Fakturace & tarify vidíte aktuální tarif, počet uživatelů a srovnání tarifů. Tlačítko „Zvolit tarif“ vás pošle e-mailem na obchod. Při překročení limitu uživatelů vás systém upozorní.",
+    a: "V Nastavení firmy → Tarif a fakturace vidíte aktuální tarif, počet uživatelů a srovnání tarifů. Tlačítko „Zvolit tarif“ vás pošle e-mailem na obchod. Při překročení limitu uživatelů vás systém upozorní.",
     roles: ["admin"],
   },
   {
     q: "Kde zjistím, kolik uživatelů máme oproti tarifu?",
-    a: "V Nastavení firmy → Fakturace & tarify: aktuální tarif, počet uživatelů a limit. Při překročení limitu vás aplikace upozorní a doporučí vyšší tarif.",
+    a: "V Nastavení firmy → Tarif a fakturace: aktuální tarif, počet uživatelů a limit. Při překročení limitu vás aplikace upozorní a doporučí vyšší tarif.",
     section: "Nastavení firmy (admin)",
     roles: ["admin"],
   },
@@ -577,7 +581,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Při přihlášení se píše, že můj účet čeká na schválení.",
-    a: "Zaregistrovali jste se přes registrační odkaz firmy a nové lidi musí schválit admin. Až vás schválí, přihlaste se. Můžete ho požádat, ať to udělá v Nastavení firmy → Uživatelé.",
+    a: "Zaregistrovali jste se přes registrační odkaz firmy a nové lidi musí schválit admin. Až vás schválí, přihlaste se. Můžete ho požádat, ať to udělá v Nastavení firmy → Lidé.",
     section: "Účet",
   },
   {

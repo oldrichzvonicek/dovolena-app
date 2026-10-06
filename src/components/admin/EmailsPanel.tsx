@@ -9,7 +9,6 @@ import { EMAIL_CATEGORIES, EmailCategoryKey, EmailStatus, PLANNED_TEMPLATES, STA
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingLines } from "@/components/ui/skeleton";
 import { showToast } from "@/lib/toast";
 import { cn, errorMessage } from "@/lib/utils";
@@ -31,26 +30,14 @@ const when = (iso: string) => {
   return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
-/** Správa e-mailů (admin a HR): co Dodio posílá a komu + přepínače kategorií; přehled odeslaných e-mailů má jen admin. */
-export function EmailsPanel() {
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === "admin";
-  return (
-    <Tabs defaultValue="overview">
-      <TabsList className="mb-6">
-        <TabsTrigger value="overview">Které e-maily se posílají</TabsTrigger>
-        {isAdmin && <TabsTrigger value="log">Odeslané e-maily</TabsTrigger>}
-      </TabsList>
-      <TabsContent value="overview">
-        <Overview />
-      </TabsContent>
-      {isAdmin && (
-        <TabsContent value="log">
-          <SentLog />
-        </TabsContent>
-      )}
-    </Tabs>
-  );
+/** Komunikace → Notifikace (admin a HR): co Dodio posílá a komu + přepínače kategorií. */
+export function NotificationsPanel() {
+  return <Overview />;
+}
+
+/** Záznamy → Doručení e-mailů (jen admin — gating řeší allowedSettingsSections). */
+export function EmailLogPanel() {
+  return <SentLog />;
 }
 
 function Overview() {

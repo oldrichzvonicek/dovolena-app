@@ -8,7 +8,7 @@ import type { FeatureKey } from "@/lib/plans";
 import { FEATURE_LABELS } from "@/lib/plans";
 import { unlockHint } from "@/components/shared/FeatureGate";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Landmark, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock } from "lucide-react";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Landmark, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock, Wallet, CalendarOff, ShieldCheck, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -38,29 +38,47 @@ const adminNav = [
 ];
 
 // Nastavení firmy — sekce přímo v hlavním menu (stránka /admin/settings?sekce=…).
+// Dřív "Kalendář a provoz" samo o sobě bylo 6 záložek na jedné stránce — rozdělené podle toho, na co se admin
+// ptá (kdo tu je a kdo koho schvaluje / na co mají lidé nárok / kdo co vidí / kolik platíme / co se stalo),
+// ne podle toho, jak nastavení vzniklo v kódu. Viz UX audit Nastavení firmy.
 const settingsGroups = [
   {
-    title: "Lidé & Organizace",
+    title: "Organizace",
     items: [
-      { key: "profile", label: "Profil firmy", icon: Landmark },
-      { key: "users", label: "Uživatelé", icon: Users2 },
-      { key: "departments", label: "Oddělení", icon: Building2 },
+      { key: "profile", label: "Firma", icon: Landmark },
+      { key: "users", label: "Lidé", icon: Users2 },
+      { key: "departments", label: "Oddělení a schvalování", icon: Building2 },
     ],
   },
   {
-    title: "Pravidla & Absence",
+    title: "Absence",
     items: [
       { key: "leave-types", label: "Typy absencí", icon: Tags },
-      { key: "general", label: "Kalendář a provoz", icon: SlidersHorizontal },
+      { key: "naroky", label: "Nároky a zůstatky", icon: Wallet },
+      { key: "pravidla", label: "Pravidla žádostí", icon: CalendarOff },
+      { key: "kalendar", label: "Pracovní kalendář", icon: SlidersHorizontal },
     ],
   },
   {
-    title: "Správa účtu",
+    title: "Komunikace",
     items: [
-      { key: "billing", label: "Fakturace & tarify", icon: CreditCard },
+      { key: "emails", label: "Notifikace", icon: Mail },
       { key: "integrations", label: "Integrace", icon: Plug, feature: "chat_integrations" as FeatureKey },
-      { key: "emails", label: "E-maily", icon: Mail },
+    ],
+  },
+  {
+    title: "Bezpečnost a soukromí",
+    items: [{ key: "bezpecnost", label: "Bezpečnost a soukromí", icon: ShieldCheck }],
+  },
+  {
+    title: "Předplatné",
+    items: [{ key: "billing", label: "Tarif a fakturace", icon: CreditCard }],
+  },
+  {
+    title: "Záznamy",
+    items: [
       { key: "audit", label: "Historie změn", icon: History, feature: "audit_log" as FeatureKey },
+      { key: "zaznamy-emaily", label: "Doručení e-mailů", icon: Inbox },
     ],
   },
 ];
@@ -298,23 +316,34 @@ export function Sidebar() {
             </button>
             )}
             {canSeeSettings(profile) && (settingsOpen || settingsSection !== null) && (
-              <div id="sidebar-settings" className="ml-[22px] mt-0.5 space-y-0.5 border-l-2 border-line pl-2">
-                {settingsGroups
-                  .flatMap((g) => g.items)
-                  .filter((i) => allowedSettingsSections(profile).includes(i.key))
-                  .map((i) => (
-                    <NavLink
-                      key={i.key}
-                      href={`/admin/settings?sekce=${i.key}`}
-                      label={i.label}
-                      icon={i.icon}
-                      indent
-                      active={settingsSection === i.key}
-                      tourId={i.key === "users" ? "nav-admin-settings" : undefined}
-                      locked={isLocked((i as { feature?: FeatureKey }).feature)}
-                      feature={(i as { feature?: FeatureKey }).feature}
-                    />
-                  ))}
+              <div id="sidebar-settings" className="ml-[22px] mt-0.5 space-y-2 border-l-2 border-line pl-2">
+                {settingsGroups.map((g) => {
+                  const items = g.items.filter((i) => allowedSettingsSections(profile).includes(i.key));
+                  if (items.length === 0) return null;
+                  // HR má jen pár položek napříč skupinami — nadpisy skupin by byly skoro samé jednořádkové
+                  // skupiny, víc šumu než pomoci. Admin vidí plnou strukturu.
+                  const showGroupTitle = isAdmin;
+                  return (
+                    <div key={g.title}>
+                      {showGroupTitle && <div className="px-3 pb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted/70">{g.title}</div>}
+                      <div className="space-y-0.5">
+                        {items.map((i) => (
+                          <NavLink
+                            key={i.key}
+                            href={`/admin/settings?sekce=${i.key}`}
+                            label={i.label}
+                            icon={i.icon}
+                            indent
+                            active={settingsSection === i.key}
+                            tourId={i.key === "users" ? "nav-admin-settings" : undefined}
+                            locked={isLocked((i as { feature?: FeatureKey }).feature)}
+                            feature={(i as { feature?: FeatureKey }).feature}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
