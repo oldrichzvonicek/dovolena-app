@@ -64,8 +64,8 @@ export default function RequestsPage() {
   const [yearFilter, setYearFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
-  // Výchozí je přehledná tabulka; karty zůstávají jako druhý pohled.
-  const [view, setView] = useState<"cards" | "table">("table");
+  // Na úzké obrazovce defaultně karty — tabulka tam jde jen do strany scrollovat a sloupec Akce není vidět.
+  const [view, setView] = useState<"cards" | "table">(() => (typeof window !== "undefined" && window.innerWidth < 640 ? "cards" : "table"));
   // Na desktopu se vejde víc řádků; na telefonu zůstává kratší stránka.
   const [pageSize, setPageSize] = useState(() => (typeof window !== "undefined" && window.innerWidth < 768 ? 10 : 20));
   const [coverNames, setCoverNames] = useState<Record<string, string>>({});

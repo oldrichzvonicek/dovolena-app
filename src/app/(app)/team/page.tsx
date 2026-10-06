@@ -441,7 +441,9 @@ export default function TeamPage() {
                               onChange={(v) => handleManagerChange(e.id, v)}
                             />
                           </td>
-                          <td className="px-3 py-2" data-label="Zástup">
+                          {/* Zástup je na mobilu skrytý (dřív z 5 řádků na kartu dělal 1 navíc) — jde upravit přes
+                              Upravit, méně časté než oddělení/nadřízený/zůstatek, co se vejdou do první obrazovky. */}
+                          <td className="!hidden px-3 py-2 md:!table-cell" data-label="Zástup">
                             <EditableCell
                               row={e}
                               field="substitute"
