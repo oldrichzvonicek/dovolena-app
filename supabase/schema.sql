@@ -969,6 +969,11 @@ create table if not exists company_invites (
 -- Datum nástupu z importu (mzdový systém) — při převzetí pozvánky se uloží do profile_hr.
 alter table company_invites add column if not exists hire_date date;
 
+-- Doplňková role (HR / účetní): dřív šla nastavit jen dodatečně, úpravou už přijatého profilu (viz
+-- "Doplňkovou roli může nastavit jen admin" níž) — účetní/HR tak vždycky musel projít pozvánkou jako
+-- obyčejný zaměstnanec. Teď jde nastavit rovnou při pozvání.
+alter table company_invites add column if not exists staff_role text check (staff_role in ('hr', 'accountant'));
+
 alter table company_invites enable row level security;
 
 drop policy if exists "admins manage invites" on company_invites;
@@ -1017,11 +1022,11 @@ begin
     where u.email = inv.manager_invite_email and p.company_id = inv.company_id;
   end if;
 
-  insert into profiles (id, company_id, department_id, manager_id, name, role, avatar_initials, email)
+  insert into profiles (id, company_id, department_id, manager_id, name, role, avatar_initials, email, staff_role)
   values (
     auth.uid(), inv.company_id, inv.department_id, resolved_manager_id, inv.name, inv.role,
     upper(left(split_part(inv.name, ' ', 1), 1) || left(split_part(inv.name, ' ', 2), 1)),
-    caller_email
+    caller_email, inv.staff_role
   );
 
   if inv.hire_date is not null then
@@ -1889,7 +1894,8 @@ create trigger leave_requests_queue_integrations
 -- succeeding, then the invites insert failing, over repeated retries).
 -- `rows` is a jsonb array of objects: email, name, department_name,
 -- manager_id, manager_invite_email, vacation_total, vacation_opening_used,
--- sick_total, sick_opening_used, role (optional, defaults to 'employee').
+-- sick_total, sick_opening_used, role (optional, defaults to 'employee'),
+-- staff_role (optional, 'hr' or 'accountant' — admin only, see below).
 -- ---------------------------------------------------------------------------
 create or replace function import_employees(target_company_id uuid, rows jsonb)
 returns int
@@ -1901,6 +1907,7 @@ declare
   dept_id uuid;
   dept_name text;
   n int := 0;
+  wanted_staff_role text;
 begin
   if current_company_id() is distinct from target_company_id
      or (current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr') then
@@ -1926,9 +1933,24 @@ begin
       end if;
     end if;
 
+    -- Doplňková role (HR / účetní): stejné omezení jako při úpravě už přijatého profilu — smí ji
+    -- nastavit jen admin, a jen pokud to dovoluje tarif firmy.
+    wanted_staff_role := nullif(r->>'staff_role', '');
+    if wanted_staff_role is not null then
+      if current_user_role() is distinct from 'admin' then
+        raise exception 'Doplňkovou roli (HR / účetní) může nastavit jen admin.';
+      end if;
+      if wanted_staff_role = 'hr' and not coalesce(company_has_feature('hr_insights'), false) then
+        raise exception 'Role HR je součástí doplňku HR Insights (v tarifu Pro v ceně).';
+      end if;
+      if wanted_staff_role = 'accountant' and not coalesce(company_has_feature('accountant'), false) then
+        raise exception 'Role Účetní je od tarifu Starter v ceně, u Free jde o doplněk.';
+      end if;
+    end if;
+
     insert into company_invites (
       company_id, email, name, department_id, manager_id, manager_invite_email,
-      vacation_total, vacation_opening_used, sick_total, sick_opening_used, role, hire_date
+      vacation_total, vacation_opening_used, sick_total, sick_opening_used, role, hire_date, staff_role
     ) values (
       target_company_id,
       lower(trim(r->>'email')),
@@ -1942,7 +1964,8 @@ begin
       coalesce((r->>'sick_opening_used')::numeric, 0),
       -- HR smí zvát jen zaměstnance; role manažer / admin přiděluje jen admin.
       case when current_user_role() = 'admin' then coalesce(nullif(r->>'role', '')::user_role, 'employee') else 'employee'::user_role end,
-      nullif(r->>'hire_date', '')::date
+      nullif(r->>'hire_date', '')::date,
+      wanted_staff_role
     )
     on conflict (company_id, email) do update set
       name = excluded.name,
@@ -1954,7 +1977,8 @@ begin
       sick_total = excluded.sick_total,
       sick_opening_used = excluded.sick_opening_used,
       role = excluded.role,
-      hire_date = excluded.hire_date;
+      hire_date = excluded.hire_date,
+      staff_role = excluded.staff_role;
 
     n := n + 1;
   end loop;

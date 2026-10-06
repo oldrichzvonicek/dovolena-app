@@ -488,13 +488,14 @@ export interface CompanyInviteRow {
   vacation_opening_used: number;
   sick_total: number;
   sick_opening_used: number;
+  staff_role: "hr" | "accountant" | null;
 }
 
 export async function fetchCompanyInvites(companyId: string): Promise<CompanyInviteRow[]> {
   const { data, error } = await supabase
     .from("company_invites")
     .select(
-      "id, email, name, role, department_id, manager_id, manager_invite_email, vacation_total, vacation_opening_used, sick_total, sick_opening_used"
+      "id, email, name, role, department_id, manager_id, manager_invite_email, vacation_total, vacation_opening_used, sick_total, sick_opening_used, staff_role"
     )
     .eq("company_id", companyId)
     .order("name", { ascending: true });
@@ -513,6 +514,8 @@ export interface NewInvitePayload {
   sick_total: number;
   sick_opening_used: number;
   role?: Role;
+  /** Doplňková role (HR / účetní) — smí nastavit jen admin, viz import_employees v schema.sql. */
+  staff_role?: "hr" | "accountant" | null;
   /** Datum nástupu (yyyy-mm-dd) z importu; uloží se do profilu po převzetí pozvánky. */
   hire_date?: string | null;
 }

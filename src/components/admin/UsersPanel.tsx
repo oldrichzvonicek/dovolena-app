@@ -595,9 +595,12 @@ export function UsersPanel() {
                     <td className="px-3 py-3 text-muted">{r.email ?? "—"}</td>
                     <td className="px-3 py-3 text-muted" data-label="Role">
                       {roleLabel[r.role]}
-                      {r.status === "active" && r.employee.staff_role && (
-                        <span className="ml-1.5 rounded-sm bg-violet-light px-1.5 py-0.5 text-[11px] font-medium text-violet-dark">{r.employee.staff_role === "hr" ? "HR" : "Účetní"}</span>
-                      )}
+                      {(() => {
+                        const staffRole = r.status === "active" ? r.employee.staff_role : r.invite.staff_role;
+                        return (
+                          staffRole && <span className="ml-1.5 rounded-sm bg-violet-light px-1.5 py-0.5 text-[11px] font-medium text-violet-dark">{staffRole === "hr" ? "HR" : "Účetní"}</span>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-3 text-muted" data-label="Oddělení">{dept?.name ?? "—"}</td>
                     <td className="px-3 py-3" data-label="Schvaluje">

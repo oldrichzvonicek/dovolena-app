@@ -13,6 +13,8 @@ import { errorMessage } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 
 const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin" };
+type StaffRole = "none" | "hr" | "accountant";
+const staffRoleLabel: Record<StaffRole, string> = { none: "Žádná", hr: "HR", accountant: "Účetní" };
 
 /** Targeted invite for one specific email — role/department/manager set up front, unlike
  * the generic company-wide link, which anyone who gets forwarded it can use to join. */
@@ -41,6 +43,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<Role>("employee");
+  const [staffRole, setStaffRole] = useState<StaffRole>("none");
   const [departmentId, setDepartmentId] = useState<string>("none");
   const [managerId, setManagerId] = useState<string>("none");
   const [submitting, setSubmitting] = useState(false);
@@ -62,6 +65,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
     setEmail("");
     setName("");
     setRole("employee");
+    setStaffRole("none");
     setDepartmentId("none");
     setManagerId("none");
     setError(null);
@@ -90,6 +94,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
           sick_total: defaultSick,
           sick_opening_used: 0,
           role,
+          staff_role: staffRole === "none" ? null : staffRole,
         }))
       );
       const res = await fetch("/api/invite/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails }) })
@@ -189,6 +194,25 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
               </Select>
             </div>
           </div>
+
+          {profile?.role === "admin" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Doplňková role (volitelné)</label>
+              <Select value={staffRole} onValueChange={(v) => setStaffRole(v as StaffRole)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(staffRoleLabel) as StaffRole[]).map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {staffRoleLabel[r]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted">Pro externího účetního nebo HR, co ve firmě nemá klasickou roli — vedle role (zaměstnanec/manažer/admin), ne místo ní.</p>
+            </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Nadřízený (volitelné)</label>
