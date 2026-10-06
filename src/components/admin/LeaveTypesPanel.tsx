@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronUp, GripVertical, Lock, Plus, Settings2, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, GripVertical, Lock, Plus, Settings2, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchLeaveTypes } from "@/lib/data";
 import { createLeaveType, deleteLeaveType, setLeaveTypeOrder, updateLeaveType } from "@/lib/admin-data";
@@ -77,6 +77,14 @@ export function LeaveTypesPanel() {
   const [overId, setOverId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const save = useSaveStatus();
+  // Textová pole (Kód pro mzdy, Schválit automaticky do) se ukládají až při odchodu z pole, ne za psaní jako
+  // přepínače — bez vlastní zpětné vazby hned u pole nebylo poznat, jestli se to uložilo, nebo jen tak vypadá
+  // (SaveStatusBar je v rohu obrazovky, daleko od rozbaleného řádku). Krátký check přímo u popisku pole.
+  const [savedField, setSavedField] = useState<string | null>(null);
+  function flashSaved(key: string) {
+    setSavedField(key);
+    setTimeout(() => setSavedField((cur) => (cur === key ? null : cur)), 2000);
+  }
 
   const [newLabel, setNewLabel] = useState("");
   const [newColor, setNewColor] = useState<LeaveColor | null>(null); // null = automaticky první nepoužitá
@@ -158,7 +166,9 @@ export function LeaveTypesPanel() {
   if (loading) return <LoadingCard rows={8} />;
 
   const inactiveTypes = types.filter((t) => !t.active);
-  const visibleTypes = showInactive ? types : types.filter((t) => t.active);
+  // Neaktivní typy mají v uloženém pořadí svou původní pozici (klidně uprostřed aktivních) — po rozkliknutí
+  // "Neaktivní typy absencí" by se jinak zamíchaly mezi aktivní, místo aby se přidaly na konec seznamu.
+  const visibleTypes = showInactive ? [...types.filter((t) => t.active), ...inactiveTypes] : types.filter((t) => t.active);
 
   const usedColors = new Set(types.map((t) => t.color));
   const availableForNew = colors.filter((c) => !usedColors.has(c));
@@ -318,7 +328,10 @@ export function LeaveTypesPanel() {
                         <Switch checked={t.requires_approval} onCheckedChange={(v) => handleUpdate(t, { requires_approval: v })} />
                       </label>
                       <label className="flex items-center justify-between gap-2 text-sm">
-                        Schválit automaticky do (dnů)
+                        <span className="flex items-center gap-1.5">
+                          Schválit automaticky do (dnů)
+                          {savedField === `${t.id}:auto_approve_max_days` && <Check size={13} className="text-teal-dark" aria-label="Uloženo" />}
+                        </span>
                         <input
                           type="number"
                           min={0}
@@ -327,7 +340,10 @@ export function LeaveTypesPanel() {
                           aria-label="Automaticky schválit do počtu dnů"
                           defaultValue={t.auto_approve_max_days ?? ""}
                           disabled={!t.requires_approval}
-                          onBlur={(e) => handleUpdate(t, { auto_approve_max_days: e.target.value === "" ? null : Number(e.target.value) })}
+                          onBlur={(e) => {
+                            handleUpdate(t, { auto_approve_max_days: e.target.value === "" ? null : Number(e.target.value) });
+                            flashSaved(`${t.id}:auto_approve_max_days`);
+                          }}
                           className="w-20 rounded border border-line px-2 py-1 text-right text-sm disabled:opacity-50"
                         />
                       </label>
@@ -336,13 +352,19 @@ export function LeaveTypesPanel() {
                         <Switch checked={t.counts_as_present} onCheckedChange={(v) => handleUpdate(t, { counts_as_present: v })} />
                       </label>
                       <label className="flex items-center justify-between gap-2 text-sm" title="Kód nebo zkratka tohoto druhu nepřítomnosti ve vašem mzdovém systému. Uvádí se v mzdovém podkladu (Exporty).">
-                        Kód pro mzdy
+                        <span className="flex items-center gap-1.5">
+                          Kód pro mzdy
+                          {savedField === `${t.id}:payroll_code` && <Check size={13} className="text-teal-dark" aria-label="Uloženo" />}
+                        </span>
                         <input
                           maxLength={20}
                           placeholder="např. D"
                           aria-label="Kód pro mzdy"
                           defaultValue={t.payroll_code ?? ""}
-                          onBlur={(e) => handleUpdate(t, { payroll_code: e.target.value.trim() || null })}
+                          onBlur={(e) => {
+                            handleUpdate(t, { payroll_code: e.target.value.trim() || null });
+                            flashSaved(`${t.id}:payroll_code`);
+                          }}
                           className="w-24 rounded border border-line px-2 py-1 text-right text-sm"
                         />
                       </label>
