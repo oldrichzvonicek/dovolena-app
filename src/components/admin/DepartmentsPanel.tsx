@@ -194,6 +194,7 @@ export function DepartmentsPanel() {
       <div className="mt-4 divide-y divide-line">
         {departments.map((d) => {
           const head = employees.find((e) => e.id === d.head_profile_id);
+          const deputy = employees.find((e) => e.id === d.deputy_head_profile_id);
           const count = memberCount(d.id);
           return (
             <div key={d.id} className="group flex items-center gap-3 py-3">
@@ -210,7 +211,16 @@ export function DepartmentsPanel() {
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-muted">{head ? `Vedoucí: ${head.name}` : "Bez vedoucího"}</div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                  {head ? (
+                    <span className="text-muted">Vedoucí: {head.name}</span>
+                  ) : (
+                    <span className="flex items-center gap-1 font-medium text-warning-dark">
+                      <AlertTriangle size={11} /> Bez vedoucího — schvaluje admin
+                    </span>
+                  )}
+                  <span className="text-muted">{deputy ? `Zástupce: ${deputy.name}` : "Bez zástupce"}</span>
+                </div>
               </div>
               <button
                 onClick={() => setEditing(d)}

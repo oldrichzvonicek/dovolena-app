@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useFeatures } from "@/lib/use-features";
-import { Link2, Pencil, Search, Trash2, Upload, UserCheck, UserX, Users, X } from "lucide-react";
+import { AlertTriangle, Link2, Pencil, Search, Trash2, Upload, UserCheck, UserX, Users, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { InviteBox } from "@/components/shared/InviteBox";
 import { InviteUserModal } from "@/components/admin/InviteUserModal";
@@ -560,6 +560,7 @@ export function UsersPanel() {
                 <th className="px-3 py-3 font-medium">E-mail</th>
                 <th className="px-3 py-3 font-medium">Role</th>
                 <th className="px-3 py-3 font-medium">Oddělení</th>
+                <th className="px-3 py-3 font-medium">Schvaluje</th>
                 <th className="px-3 py-3 font-medium">Stav</th>
                 <th className="w-10 px-3 py-3" />
               </tr>
@@ -588,6 +589,24 @@ export function UsersPanel() {
                       )}
                     </td>
                     <td className="px-3 py-3 text-muted" data-label="Oddělení">{dept?.name ?? "—"}</td>
+                    <td className="px-3 py-3" data-label="Schvaluje">
+                      {r.status === "active" && r.employee.active !== false && r.employee.role !== "admin" ? (
+                        (() => {
+                          const mgr = r.employee.manager_id ? employees.find((e) => e.id === r.employee.manager_id) : null;
+                          const headId = dept?.head_profile_id;
+                          const head = !mgr && headId ? employees.find((e) => e.id === headId) : null;
+                          if (mgr) return <span className="text-muted">{mgr.name}</span>;
+                          if (head) return <span className="text-muted">{head.name} (vedoucí)</span>;
+                          return (
+                            <span className="flex items-center gap-1 text-xs font-medium text-warning-dark" title="Nemá nadřízeného ani vedoucího oddělení — žádosti řeší admin.">
+                              <AlertTriangle size={11} /> Admin (záložní)
+                            </span>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-3">
                       {r.status === "active" && r.employee.join_pending && r.employee.active === false ? (
                         <span className="inline-flex items-center gap-1.5 rounded-sm bg-warning-light px-2 py-0.5 text-xs font-medium text-warning-dark">
