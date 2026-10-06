@@ -60,28 +60,35 @@ function SolutionsDropdown() {
         <ChevronIcon className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-1/2 top-full z-10 mt-3 w-[440px] -translate-x-1/2 rounded-dodio-lg border border-dodio-border bg-white p-6 shadow-[0_24px_48px_-20px_rgba(44,44,42,0.30)]">
-          <div className="grid grid-cols-2 gap-6">
-            {SOLUTIONS_MENU.columns.map((col) => (
-              <div key={col.heading} className="flex flex-col gap-2.5">
-                <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
-                  {col.heading}
+        // pt-3 (not mt-3) keeps this wrapper's hoverable box touching the
+        // button with no gap — a margin-based gap would be dead space
+        // outside both the button and the panel, so moving the mouse
+        // straight down from the button into the panel would cross it and
+        // fire mouseleave before the pointer ever reaches the links.
+        <div className="absolute left-1/2 top-full z-10 w-[440px] -translate-x-1/2 pt-3">
+          <div className="rounded-dodio-lg border border-dodio-border bg-white p-6 shadow-[0_24px_48px_-20px_rgba(44,44,42,0.30)]">
+            <div className="grid grid-cols-2 gap-6">
+              {SOLUTIONS_MENU.columns.map((col) => (
+                <div key={col.heading} className="flex flex-col gap-2.5">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-dodio-ink-muted">
+                    {col.heading}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {col.links.map((link) => (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        data-link-location="nav-menu"
+                        className="text-[15px] font-medium text-dodio-ink no-underline hover:text-dodio-teal-dark"
+                        onClick={() => setOpen(false)}
+                      >
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                  {col.links.map((link) => (
-                    <a
-                      key={link.href}
-                      href={link.href}
-                      data-link-location="nav-menu"
-                      className="text-[15px] font-medium text-dodio-ink no-underline hover:text-dodio-teal-dark"
-                      onClick={() => setOpen(false)}
-                    >
-                      {link.label}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
