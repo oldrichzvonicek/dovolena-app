@@ -1090,11 +1090,11 @@ create table if not exists notifications (
   created_at timestamptz not null default now()
 );
 
--- 'vacation_reminder' (Smart HR bulk reminder) and 'help_question'
--- (Nápověda v2 "Napsat na HR/Podporu") added on top of the original three.
+-- 'vacation_reminder' (Smart HR bulk reminder), 'help_question' (Nápověda v2 "Napsat na HR/Podporu") and
+-- 'carryover_expiring' (api/cron/daily, 30 a 7 dní před propadnutím převedené dovolené) added on top of the original three.
 alter table notifications drop constraint if exists notifications_type_check;
 alter table notifications add constraint notifications_type_check
-  check (type in ('request_created', 'request_approved', 'request_rejected', 'vacation_reminder', 'help_question', 'cancellation_requested', 'cancellation_resolved', 'join_pending'));
+  check (type in ('request_created', 'request_approved', 'request_rejected', 'vacation_reminder', 'carryover_expiring', 'help_question', 'cancellation_requested', 'cancellation_resolved', 'join_pending'));
 
 create index if not exists notifications_profile_id_created_at_idx on notifications (profile_id, created_at desc);
 
@@ -1516,6 +1516,7 @@ as $$
     when 'request_rejected' then 'requester_decisions'
     when 'cancellation_resolved' then 'requester_decisions'
     when 'vacation_reminder' then 'reminders'
+    when 'carryover_expiring' then 'reminders'
     when 'help_question' then 'help_questions'
     when 'join_pending' then 'join_pending'
     else null

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { czForm, czPeople, czRequests, weeklyDigestIntro } from "./czech";
+import { carryoverExpiryWarning, czDays, czForm, czPeople, czRequests, weeklyDigestIntro } from "./czech";
 
 describe("czForm", () => {
   it("1 → jednotné, 2–4 → množné, jinak 2. pád množného", () => {
@@ -17,6 +17,22 @@ describe("czPeople a czRequests", () => {
     expect(czRequests(1)).toBe("1 žádost");
     expect(czRequests(2)).toBe("2 žádosti");
     expect(czRequests(5)).toBe("5 žádostí");
+  });
+});
+
+describe("czDays", () => {
+  it("skloňuje podle počtu", () => {
+    expect(czDays(1)).toBe("1 den");
+    expect(czDays(3)).toBe("3 dny");
+    expect(czDays(5)).toBe("5 dní");
+  });
+});
+
+describe("carryoverExpiryWarning", () => {
+  it("sloveso se shoduje s počtem dní", () => {
+    expect(carryoverExpiryWarning(1, "31. 3. 2027")).toBe("Z loňska vám ještě zbývá 1 den dovolené a 31. 3. 2027 propadne. Naplánujte si je radši teď, ať o ně nepřijdete.");
+    expect(carryoverExpiryWarning(3, "31. 3. 2027")).toBe("Z loňska vám ještě zbývá 3 dny dovolené a 31. 3. 2027 propadnou. Naplánujte si je radši teď, ať o ně nepřijdete.");
+    expect(carryoverExpiryWarning(5, "31. 3. 2027")).toBe("Z loňska vám ještě zbývá 5 dní dovolené a 31. 3. 2027 propadne. Naplánujte si je radši teď, ať o ně nepřijdete.");
   });
 });
 

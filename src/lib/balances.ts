@@ -18,14 +18,14 @@ export interface Balance {
 /** "Zbývá" nezahrnuje soukromé návrhy (b.planned) — dokud je nikdo nepodá a neschválí, dny ještě nejsou pryč. */
 export const remainingOf = (b: Balance) => b.total - b.used - b.upcoming;
 
-interface EntRow {
+export interface EntRow {
   profile_id: string;
   year: number;
   total_days: number;
   opening_used_days: number;
   leave_type: { counts_against: string } | null;
 }
-interface ReqRow {
+export interface ReqRow {
   id: string;
   profile_id: string;
   start_date: string;
@@ -37,6 +37,14 @@ interface ReqRow {
 }
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + Number(x), 0);
+
+/** "MM-DD" → den po tomto datu v aktuálním roce, jako "YYYY-MM-DD" (přetéká korektně i přes konec roku). */
+export function dayAfterExpiry(mmdd: string): string {
+  const [mm, dd] = mmdd.split("-").map(Number);
+  const d = new Date(Date.UTC(new Date().getFullYear(), mm - 1, dd));
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 /**
  * Balance for ONE calendar year. Only the working days that fall inside that year count against it: an

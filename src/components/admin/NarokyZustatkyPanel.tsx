@@ -13,7 +13,7 @@ import { SectionHeader } from "@/components/admin/section-header";
 import { DraftSaveBar } from "@/components/shared/DraftSaveBar";
 import { LoadingCard } from "@/components/ui/skeleton";
 import { fetchCompanyEmployees } from "@/lib/admin-data";
-import { loadBalances } from "@/lib/balances";
+import { dayAfterExpiry, loadBalances } from "@/lib/balances";
 import { formatNumber } from "@/lib/utils";
 import { dayWord } from "@/lib/working-days";
 
@@ -65,14 +65,6 @@ function MonthDayPicker({ value, onChange }: { value: string | null; onChange: (
 
 /** Životní cyklus dovolené: nárok → úprava během roku → čerpání → konec roku. Vše na jednom místě — dřív bylo
  *  rozdělené mezi Typy absencí (výchozí nároky) a Kalendář a provoz (převod, mínus). */
-/** "MM-DD" → den po tomto datu v aktuálním roce, jako "YYYY-MM-DD" (přetéká korektně i přes konec roku). */
-function dayAfterExpiry(mmdd: string): string {
-  const [mm, dd] = mmdd.split("-").map(Number);
-  const d = new Date(Date.UTC(new Date().getFullYear(), mm - 1, dd));
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
 interface CarryPreview {
   carryoverDays: number;
   carryoverPeople: number;

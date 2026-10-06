@@ -16,6 +16,18 @@ export const czPeople = (n: number) => `${n} ${czForm(n, "člověk", "lidé", "l
 /** „1 žádost“, „2 žádosti“, „5 žádostí“. */
 export const czRequests = (n: number) => `${n} ${czForm(n, "žádost", "žádosti", "žádostí")}`;
 
+/** „1 den“, „3 dny“, „5 dní“. */
+export const czDays = (n: number) => `${n} ${czForm(n, "den", "dny", "dní")}`;
+
+/**
+ * Věta k blížícímu se propadnutí převedené dovolené. Používá ji skutečný e-mail/notifikace (api/cron/daily)
+ * i ukázka v Nastavení → E-maily (email-templates.ts), aby se texty nerozešly.
+ */
+export function carryoverExpiryWarning(days: number, datum: string): string {
+  const verb = czForm(days, "propadne", "propadnou", "propadne");
+  return `Z loňska vám ještě zbývá ${czDays(days)} dovolené a ${datum} ${verb}. Naplánujte si je radši teď, ať o ně nepřijdete.`;
+}
+
 /**
  * Úvodní věta týdenního přehledu pro manažery. Používá ji skutečný e-mail (api/cron/daily) i ukázka v Nastavení →
  * E-maily (email-templates.ts), aby se texty nerozešly. Čekající žádosti se zmiňují jen, když někdo chybí a nějaké čekají.

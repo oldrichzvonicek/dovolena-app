@@ -4,7 +4,7 @@
 // `live: false` = připraveno k zapojení (fakturace, trial se NEpoužívá — tarif Free je trvale zdarma).
 // Zdravotní údaje se do e-mailů nikdy nepíšou; u soukromých absencí (nemoc) se typ uvádí jen schvalovateli.
 
-import { weeklyDigestIntro } from "@/lib/czech";
+import { carryoverExpiryWarning, weeklyDigestIntro } from "@/lib/czech";
 
 export type Vars = Record<string, string>;
 
@@ -164,12 +164,12 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     key: "carryover_expiring",
     name: "Blíží se propadnutí převedené dovolené",
-    when: "30 a 7 dní před datem propadnutí převedené dovolené (nastavení: Kalendář a provoz).",
+    when: "30 a 7 dní před datem propadnutí převedené dovolené (nastavení: Nároky a zůstatky). Posílá se jen, pokud by člověku doopravdy nějaké dny propadly.",
     to: "Zaměstnanec s nevyčerpanou převedenou dovolenou",
-    live: false,
-    vars: ["jmeno", "dny", "datum"],
+    live: true,
+    vars: ["dny", "datum"],
     subject: (v) => `Převedená dovolená propadne ${v.datum}`,
-    paragraphs: (v) => [hello(v), `z loňska vám ještě zbývá ${v.dny} dní dovolené a ${v.datum} propadnou.`, "Naplánujte si je radši teď, ať o ně nepřijdete."],
+    paragraphs: (v) => [carryoverExpiryWarning(Number(v.dny), v.datum)],
     cta: { label: "Naplánovat dovolenou", path: "/calendar" },
     optOut: true,
   },

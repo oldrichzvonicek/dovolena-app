@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, MessageCircleQuestion, PalmtreeIcon, Rocket, Undo2, X } from "lucide-react";
+import { Bell, CalendarClock, Check, MessageCircleQuestion, PalmtreeIcon, Rocket, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   NotificationRow,
@@ -20,6 +20,7 @@ const typeMeta: Record<NotificationType, { icon: typeof Bell; className: string;
   request_approved: { icon: Check, className: "bg-teal-light text-teal-dark", href: "/requests" },
   request_rejected: { icon: X, className: "bg-danger-light text-danger", href: "/requests" },
   vacation_reminder: { icon: PalmtreeIcon, className: "bg-teal-light text-teal-dark", href: "/dashboard" },
+  carryover_expiring: { icon: CalendarClock, className: "bg-warning-light text-warning-dark", href: "/calendar" },
   cancellation_requested: { icon: Undo2, className: "bg-warning-light text-warning-dark", href: "/approvals" },
   cancellation_resolved: { icon: Undo2, className: "bg-teal-light text-teal-dark", href: "/requests" },
   help_question: { icon: MessageCircleQuestion, className: "bg-violet-light text-violet-dark", href: "/help" },
