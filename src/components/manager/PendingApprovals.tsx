@@ -418,8 +418,9 @@ export function PendingApprovals() {
               {hasWarning(r) && (
                 <div className="mt-2.5 flex flex-wrap gap-2 sm:pl-[3.25rem]">
                   {capacityWarnings[r.id] && (
-                    <span className={cn(pill, "bg-danger-light text-danger-dark")}>
-                      <AlertTriangle size={13} /> Vysoké riziko: výpadek {capacityWarnings[r.id].percent} % oddělení ({capacityWarnings[r.id].count} z {capacityWarnings[r.id].size})
+                    <span className={cn(pill, "bg-danger-light text-danger-dark")} title="Počet zahrnuje i samotného žadatele, ne jen kolegy, co už mají schváleno.">
+                      <AlertTriangle size={13} /> Vysoké riziko: výpadek {capacityWarnings[r.id].percent} % oddělení ({capacityWarnings[r.id].count} z {capacityWarnings[r.id].size}
+                      {capacityWarnings[r.id].count === 1 ? ", jen žadatel" : ""})
                     </span>
                   )}
                   {conflicts[r.id] && (

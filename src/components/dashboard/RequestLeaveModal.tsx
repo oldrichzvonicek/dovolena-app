@@ -347,14 +347,18 @@ export function RequestLeaveModal({
       ].filter((r) => reducesPresence(r.leave_type?.key) && reducesPresence(selectedType?.key));
       const teamMateIds = new Set(team.colleagues.map((c) => c.id));
       const teamOverlap = rows.filter((r) => teamMateIds.has(r.profile_id));
+      // Jeden kolega může mít víc překrývajících se schválených absencí najednou (např. Home Office jeden den
+      // a Lékař jiný den ve stejném rozmezí) — bez deduplikace se tak jeho jméno objevilo v seznamu i "kolik
+      // lidí bude chybět" víckrát za sebe sama.
+      const uniqueOverlapIds = new Set(teamOverlap.map((r) => r.profile_id));
       // Vždy nastavit (i na 0) — stejně jako na nástěnce ("v týmu bude chybět 0 z 8"), ať je rovnou vidět,
       // že se to spočítalo a nikdo nechybí, místo aby indikátor jen tiše zmizel.
       setConflict({
         // Only team members, matching teamCount/teamSize below — showing
         // company-wide names here (unrelated headcount) is what produced
         // nonsense like "8 z 6 members" before.
-        names: teamOverlap.map((r) => r.profile?.name).filter((n): n is string => !!n),
-        teamCount: teamOverlap.length,
+        names: Array.from(new Set(teamOverlap.map((r) => r.profile?.name).filter((n): n is string => !!n))),
+        teamCount: uniqueOverlapIds.size,
         teamSize: team.size,
       });
     });
