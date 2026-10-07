@@ -11,6 +11,7 @@ import { fetchDepartments, fetchLeaveTypes } from "@/lib/data";
 import { cn, formatNumber } from "@/lib/utils";
 import { safeCell } from "@/lib/csv";
 import { autoFitSheet } from "@/lib/xlsx-utils";
+import { toCsv } from "@/lib/payroll";
 import { DEFAULT_WORK_DAYS, daysWithin, dayWord } from "@/lib/working-days";
 import { DbDepartment } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
@@ -128,6 +129,21 @@ export function ExportsPanel() {
 
   function handleExport() {
     const headers = ["Jméno", "Oddělení", ...typeCols.map((t) => t.label), "Celkem"];
+    // CSV jde přes toCsv (středník, desetinná čárka, BOM) — stejná konvence jako Detail pro mzdy. SheetJS
+    // by do "csv" bookType napsalo čárku jako oddělovač i jako desetinnou tečku "6.5", což se v českém
+    // Excelu rozjede (čárka je tam desetinná). XLSX/ODS numerické buňky tenhle problém nemají, tam zůstává
+    // nativní zápis beze změny.
+    if (format === "csv") {
+      const table = filteredRows.map((r) => [r.name, r.departmentName, ...typeCols.map((t) => formatNumber(r.byType[t.key] ?? 0)), formatNumber(r.total)]);
+      const blob = new Blob([toCsv(headers, table)], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `podklady-${month}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
     const table = filteredRows.map((r) => [safeCell(r.name), safeCell(r.departmentName), ...typeCols.map((t) => r.byType[t.key] ?? 0), r.total]);
     const sheet = autoFitSheet(XLSX.utils.aoa_to_sheet([headers, ...table]), headers, table);
     const book = XLSX.utils.book_new();

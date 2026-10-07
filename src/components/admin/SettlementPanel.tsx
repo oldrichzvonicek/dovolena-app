@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { AdminEmployeeRow, fetchCompanyEmployees } from "@/lib/admin-data";
 import { loadBalances } from "@/lib/balances";
-import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS, dayWord } from "@/lib/working-days";
 import { Settlement, settleVacation } from "@/lib/settlement";
 import { splitName, toCsv } from "@/lib/payroll";
 import { autoFitSheet } from "@/lib/xlsx-utils";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { InfoTip } from "@/components/ui/info-tip";
 import { LoadingLines } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { isAccountant, isHr } from "@/lib/access";
 
 interface Line {
   employee: AdminEmployeeRow;
@@ -153,7 +154,11 @@ export function SettlementPanel() {
         </h2>
         <div className="mt-2 flex items-start gap-1.5 rounded border border-warning/40 bg-warning-light p-3 text-xs text-warning-dark">
           <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-          <span>Výpočet je orientační podklad pro mzdovou účetní. Pravidla krácení a zaokrouhlení si nechte potvrdit u své účetní nebo personalistky — jsou pro vaši firmu závazná ona, ne tabulka.</span>
+          <span>
+            {isAccountant(profile) || isHr(profile)
+              ? "Výpočet je jen orientační podklad — pravidla krácení a zaokrouhlení si prosím ověřte podle interních mzdových předpisů firmy, pro ni jsou závazná ona, ne tahle tabulka."
+              : "Výpočet je orientační podklad pro mzdovou účetní. Pravidla krácení a zaokrouhlení si nechte potvrdit u své účetní nebo personalistky — jsou pro vaši firmu závazná ona, ne tabulka."}
+          </span>
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="primary" onClick={() => download("csv")} disabled={!lines || lines.length === 0}>
@@ -207,10 +212,18 @@ export function SettlementPanel() {
                     <td className={cn("px-3 py-3 font-medium tabular-nums", l.s.balance < 0 ? "text-danger" : "text-teal-dark")}>
                       {l.s.balance > 0 ? "+" : ""}
                       {num(l.s.balance)}
-                      <span className="block text-[11px] font-normal text-muted">{l.s.balance < 0 ? "přečerpáno" : l.s.balance > 0 ? "nevyčerpáno" : "vyrovnáno"}</span>
+                      <span className="block text-[11px] font-normal text-muted" title={l.s.balance < 0 ? "Přečerpané dny se sráží ze mzdy při vyrovnání." : undefined}>
+                        {l.s.balance < 0 ? "přečerpáno — srážka ze mzdy" : l.s.balance > 0 ? "nevyčerpáno" : "vyrovnáno"}
+                      </span>
                     </td>
                     <td className="px-3 py-3 text-xs tabular-nums">
-                      {l.s.plannedAfter > 0 ? <span className="text-warning-dark">{num(l.s.plannedAfter)} dní naplánováno</span> : "—"}
+                      {l.s.plannedAfter > 0 ? (
+                        <span className="flex items-center gap-1 rounded-sm bg-danger-light px-1.5 py-0.5 font-medium text-danger-dark" title="Tyto dny jsou naplánované až po datu odchodu — zkontrolujte, jestli nemají být zrušené.">
+                          <AlertTriangle size={12} className="shrink-0" /> {num(l.s.plannedAfter)} {dayWord(l.s.plannedAfter)} po odchodu
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}
