@@ -14,7 +14,7 @@ import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { useOnDataChanged } from "@/lib/events";
 import { fetchDecisionScope } from "@/lib/approval-scope";
-import { allowedSettingsSections, canSeeInsights, canSeeReports, canSeeSettings, isHr } from "@/lib/access";
+import { allowedSettingsSections, canSeeAnalytics, canSeeInsights, canSeeReports, canSeeSettings, isHr } from "@/lib/access";
 import { AppLockup } from "@/components/shared/AppLockup";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -295,7 +295,10 @@ export function Sidebar() {
               {isAdmin ? "Administrace" : profile.staff_role === "hr" ? "HR" : "Mzdy"}
             </div>
             <div className="space-y-1">
-              {adminNav.filter((item) => item.href !== "/admin/insights" || canSeeInsights(profile)).map((item) => (
+              {adminNav
+                .filter((item) => item.href !== "/admin/insights" || canSeeInsights(profile))
+                .filter((item) => item.href !== "/admin/overview" || canSeeAnalytics(profile))
+                .map((item) => (
                 <NavLink key={item.href} {...item} active={pathname === item.href} locked={isLocked((item as { feature?: FeatureKey }).feature)} />
               ))}
               {/* HR vidí Zaměstnance i mimo sekci Manažer (nemá Ke schválení, tam se neschvaluje) — smí za celou firmu, viz fetchDecisionScope. */}

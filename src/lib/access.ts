@@ -9,21 +9,22 @@ type Who = Pick<DbProfile, "role" | "staff_role"> | null | undefined;
  *  - HR:         Analytika, Exporty, Nastavení → Lidé (invite, departments/manager/hire date/entitlements,
  *                aktivace/deaktivace), E-maily (jen přehled pro HR a připomínky), Historie změn, Můj tým
  *                (za celou firmu) a zadání absence za kohokoli — ale ne Ke schválení (neschvaluje žádosti)
- *  - accountant: Analytika and Exporty, read only
+ *  - accountant: jen Mzdy a Exporty (read only) — žádná Analytika ani přehled kolegů na nástěnce
  *  - manager:    Analytika, ale jen za svá oddělení (bez Exportů)
  */
 export const isAdminRole = (p: Who) => p?.role === "admin";
 export const isHr = (p: Who) => p?.staff_role === "hr";
 export const isAccountant = (p: Who) => p?.staff_role === "accountant";
 
-/** Analytika + Exporty. */
+/** Exporty (mzdové podklady, uzávěrka, vyrovnání). */
 export const canSeeReports = (p: Who) => isAdminRole(p) || !!p?.staff_role;
 
 /** Smart HR (přehledy pro vedení lidí): admin a HR. Manažer a účetní ho nevidí. */
 export const canSeeInsights = (p: Who) => isAdminRole(p) || isHr(p);
 
-/** Analytika: admin, HR a účetní za celou firmu, manažer jen za svá oddělení (výběr dat řeší OverviewPanel). */
-export const canSeeAnalytics = (p: Who) => canSeeReports(p) || p?.role === "manager";
+/** Analytika: admin, HR za celou firmu, manažer jen za svá oddělení (výběr dat řeší OverviewPanel). Účetní ne —
+ *  ta má vidět jen Mzdy a Exporty, ne přehledy a "kdo dnes chybí" o kolezích. */
+export const canSeeAnalytics = (p: Who) => isAdminRole(p) || isHr(p) || p?.role === "manager";
 
 /** Settings sections the person may open (keys match the `?sekce=` values). */
 export function allowedSettingsSections(p: Who): string[] {
