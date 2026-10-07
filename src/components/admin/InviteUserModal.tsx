@@ -13,8 +13,12 @@ import { errorMessage } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 
 const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin" };
-type StaffRole = "none" | "hr" | "accountant";
-const staffRoleLabel: Record<StaffRole, string> = { none: "Žádná", hr: "HR", accountant: "Účetní" };
+// Jedna volba místo dvou samostatných selectů (Role + Doplňková role) — "je to účetní, ale taky zaměstnanec"
+// působilo jako dvě si odporující odpovědi na stejnou otázku. HR/Účetní tu reálně skoro vždy znamená "běžný
+// zaměstnanec s navíc touhle schopností", takže se to tak rovnou nastaví; vzácnou kombinaci (např. manažer,
+// co je zároveň HR) jde po přijetí pozvánky doladit v Upravit (EditEmployeeModal).
+type RoleChoice = Role | "hr" | "accountant";
+const roleChoiceLabel: Record<RoleChoice, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin", hr: "HR", accountant: "Účetní" };
 
 /** Targeted invite for one specific email — role/department/manager set up front, unlike
  * the generic company-wide link, which anyone who gets forwarded it can use to join. */
@@ -42,8 +46,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<Role>("employee");
-  const [staffRole, setStaffRole] = useState<StaffRole>("none");
+  const [roleChoice, setRoleChoice] = useState<RoleChoice>("employee");
   const [departmentId, setDepartmentId] = useState<string>("none");
   const [managerId, setManagerId] = useState<string>("none");
   const [submitting, setSubmitting] = useState(false);
@@ -64,8 +67,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   function reset() {
     setEmail("");
     setName("");
-    setRole("employee");
-    setStaffRole("none");
+    setRoleChoice("employee");
     setDepartmentId("none");
     setManagerId("none");
     setError(null);
@@ -74,6 +76,8 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   const emails = Array.from(new Set(email.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
   const invalid = emails.filter((e) => !EMAIL_RE.test(e));
   const canSubmit = emails.length > 0 && invalid.length === 0;
+  const role: Role = roleChoice === "hr" || roleChoice === "accountant" ? "employee" : roleChoice;
+  const staffRole: "hr" | "accountant" | null = roleChoice === "hr" || roleChoice === "accountant" ? roleChoice : null;
 
   async function handleSubmit() {
     if (!profile || !canSubmit) return;
@@ -94,7 +98,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
           sick_total: defaultSick,
           sick_opening_used: 0,
           role,
-          staff_role: staffRole === "none" ? null : staffRole,
+          staff_role: staffRole,
         }))
       );
       const res = await fetch("/api/invite/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails }) })
@@ -164,18 +168,27 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Role</label>
-              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+              <Select value={roleChoice} onValueChange={(v) => setRoleChoice(v as RoleChoice)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(roleLabel) as Role[]).map((r) => (
                     <SelectItem key={r} value={r}>
-                      {roleLabel[r]}
+                      {roleChoiceLabel[r]}
                     </SelectItem>
                   ))}
+                  {profile?.role === "admin" && (
+                    <>
+                      <SelectItem value="hr">{roleChoiceLabel.hr}</SelectItem>
+                      <SelectItem value="accountant">{roleChoiceLabel.accountant}</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              {(roleChoice === "hr" || roleChoice === "accountant") && (
+                <p className="mt-1 text-xs text-muted">Pro externího účetního nebo HR, co ve firmě nemá klasickou roli (vzácnější kombinaci, třeba manažera, co je zároveň HR, jde doladit po přijetí pozvánky v Upravit).</p>
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
@@ -194,25 +207,6 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
               </Select>
             </div>
           </div>
-
-          {profile?.role === "admin" && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Doplňková role (volitelné)</label>
-              <Select value={staffRole} onValueChange={(v) => setStaffRole(v as StaffRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(staffRoleLabel) as StaffRole[]).map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {staffRoleLabel[r]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="mt-1 text-xs text-muted">Pro externího účetního nebo HR, co ve firmě nemá klasickou roli — vedle role (zaměstnanec/manažer/admin), ne místo ní.</p>
-            </div>
-          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Nadřízený (volitelné)</label>
