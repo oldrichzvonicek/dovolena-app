@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Check, Copy, UserPlus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,8 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useJoinLink } from "@/lib/use-join-link";
 import { showToast } from "@/lib/toast";
+import { useFeatures } from "@/lib/use-features";
+import { createClient } from "@/lib/supabase/client";
 
 export function InviteBox() {
   const { profile } = useAuth();
@@ -79,14 +82,32 @@ export function InviteColleagueButton() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { url, info, loading: linkLoading } = useJoinLink(open && !!profile);
+  const features = useFeatures();
+  const [activeCount, setActiveCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (open && profile) fetchDepartments(profile.company_id).then(setDepartments);
   }, [open, profile]);
 
+  // Stejná kontrola limitu tarifu jako v Nastavení firmy → Lidé — tahle pozvánka (ze stránky Zaměstnanci) ji
+  // dřív neměla vůbec, takže admin nedostal žádné varování, i když byl nad limitem (server pozvánku stejně
+  // odmítne, ale bez varování předem to působí jako chyba aplikace).
+  useEffect(() => {
+    if (!open || !profile) return;
+    createClient()
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", profile.company_id)
+      .eq("active", true)
+      .eq("join_pending", false)
+      .eq("is_demo", false)
+      .then(({ count }) => setActiveCount(count ?? null));
+  }, [open, profile]);
+
   if (!profile) return null;
   const link = url ?? (linkLoading ? "Načítám…" : "Odkaz je vypnutý");
   const isAdmin = profile.role === "admin";
+  const atLimit = !features.loading && features.plan.employeeLimit !== null && activeCount !== null && activeCount >= features.plan.employeeLimit;
 
   async function copyInvite() {
     if (!url) return;
@@ -160,6 +181,15 @@ export function InviteColleagueButton() {
         </Button>
       </DialogTrigger>
       <DialogContent title="Pozvat kolegu do týmu">
+        {atLimit && (
+          <div role="status" className="mb-3 rounded border border-warning/40 bg-warning-light px-3 py-2 text-xs text-warning-dark">
+            <strong>
+              Tarif {features.plan.name} umožňuje nejvýše {features.plan.employeeLimit} uživatelů, ve firmě jich je {activeCount}.
+            </strong>{" "}
+            Nového člověka už nepůjde přidat.{" "}
+            {isAdmin ? <Link href="/admin/settings?sekce=billing" className="font-medium underline underline-offset-2">Přejít na vyšší tarif</Link> : "Požádejte správce firmy o vyšší tarif."}
+          </div>
+        )}
         <SegmentedControl
           className="mb-3"
           ariaLabel="Způsob pozvání"
@@ -221,10 +251,10 @@ export function InviteColleagueButton() {
             </div>
             {error && <p className="text-sm text-danger-dark">{error}</p>}
             <div className="flex flex-wrap justify-end gap-2">
-              <Button variant="secondary" onClick={() => createInvite("copy")} disabled={busy || !email.trim() || !name.trim()}>
+              <Button variant="secondary" onClick={() => createInvite("copy")} disabled={busy || atLimit || !email.trim() || !name.trim()}>
                 <Copy size={15} /> Vytvořit a kopírovat odkaz
               </Button>
-              <Button onClick={() => createInvite("send")} disabled={busy || !email.trim() || !name.trim()}>
+              <Button onClick={() => createInvite("send")} disabled={busy || atLimit || !email.trim() || !name.trim()}>
                 {busy ? "Vytvářím…" : "Odeslat pozvánku e-mailem"}
               </Button>
             </div>
