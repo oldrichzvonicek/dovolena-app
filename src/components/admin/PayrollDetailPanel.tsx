@@ -26,6 +26,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { InfoTip } from "@/components/ui/info-tip";
 import { LoadingLines } from "@/components/ui/skeleton";
 import { cn, errorMessage } from "@/lib/utils";
+import { czForm } from "@/lib/czech";
 
 const czDate = (iso: string) => `${+iso.slice(8, 10)}. ${+iso.slice(5, 7)}. ${iso.slice(0, 4)}`;
 const monthEndOf = (month: string) => new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10);
@@ -299,7 +300,8 @@ export function PayrollDetailPanel() {
         </div>
         {!closure && incomplete && (
           <p id="closure-blocked" className="mt-2 text-xs text-warning-dark">
-            Uzávěrku nejde spustit, dokud nejsou vyplněné kódy pro mzdy a osobní čísla ({missingCode.length + missingNumber.length} chybějících údajů). Kliknutím uvidíte přehled.
+            Uzávěrku nejde spustit, dokud nejsou vyplněné kódy pro mzdy a osobní čísla ({missingCode.length + missingNumber.length}{" "}
+            {czForm(missingCode.length + missingNumber.length, "chybějící údaj", "chybějící údaje", "chybějících údajů")}). Kliknutím uvidíte přehled.
           </p>
         )}
         {message && <p className={cn("mt-3 text-sm", message.ok ? "text-teal-dark" : "text-danger")}>{message.text}</p>}
