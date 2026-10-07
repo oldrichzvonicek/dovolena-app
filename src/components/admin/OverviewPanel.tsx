@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Lock,
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { LeaveBadge } from "@/components/ui/badge";
-import { DEFAULT_WORK_DAYS, countWorkingDays, dayWord, daysWithin, formatRange } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS, countWorkingDays, dayWord, formatRange, mergeDateRangesKeepingDays } from "@/lib/working-days";
 import { cn, formatNumber } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DbDepartment } from "@/lib/supabase/types";
@@ -202,13 +202,47 @@ export function OverviewPanel() {
           : pendingRes.count;
       const { data: comp } = await supabase.from("companies").select("work_days").eq("id", profile.company_id).single();
       const workDays = (comp?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
-      const monthRows = ((monthRequests as unknown as MonthReq[]) ?? [])
-        .filter((r) => inDept(r.profile?.department_id))
-        .map((r) => ({ ...r, working_days: daysWithin(r, monthStart, monthEnd, workDays) }));
+      // Dva schválené záznamy téhož typu se mohou u jednoho člověka překrývat (např. Home Office zadaný
+      // dvakrát na stejné dny) — rozsahy dat za člověka a typ se sloučí, než se dny sečtou, ať se souběh
+      // nepočítá dvakrát (viz i loadHomeOfficeYear v balances.ts, stejný princip).
+      const rawMonthRows = ((monthRequests as unknown as MonthReq[]) ?? []).filter((r) => inDept(r.profile?.department_id));
+      const clipAndCount = (start: string, end: string) => {
+        if (end < monthStart || start > monthEnd) return 0;
+        const s = start > monthStart ? start : monthStart;
+        const e = end < monthEnd ? end : monthEnd;
+        return countWorkingDays(s, e, workDays);
+      };
+      const byPersonType = new Map<string, MonthReq[]>();
+      for (const r of rawMonthRows) {
+        if (!r.profile || !r.leave_type) continue;
+        const key = `${r.profile.id}|${r.leave_type.key}`;
+        (byPersonType.get(key) ?? byPersonType.set(key, []).get(key)!).push(r);
+      }
+      const monthRows: MonthReq[] = [];
+      for (const group of byPersonType.values()) {
+        // Clip each request to the month first (and keep its own working_days when it didn't need
+        // clipping, so a half-day stays 0.5 instead of being rounded up by a blind recount), then merge
+        // — a group that still overlaps after clipping (e.g. Home Office booked twice) falls back to
+        // clipAndCount for the merged span.
+        const clipped = group.map((r) => {
+          const fullyWithin = r.start_date >= monthStart && r.end_date <= monthEnd;
+          return {
+            ...r,
+            start_date: r.start_date > monthStart ? r.start_date : monthStart,
+            end_date: r.end_date < monthEnd ? r.end_date : monthEnd,
+            working_days: fullyWithin ? Number(r.working_days) : clipAndCount(r.start_date, r.end_date),
+          };
+        });
+        for (const m of mergeDateRangesKeepingDays(clipped, clipAndCount)) {
+          monthRows.push({ ...group[0], start_date: m.start_date, end_date: m.end_date, working_days: m.working_days });
+        }
+      }
 
+      // "Podle typu" a "podle oddělení" musí ukazovat totéž — obojí jen skutečnou absenci (ne Home Office a
+      // podobné typy, kde člověk pracuje), jinak si čísla na první pohled odporují (viz monthDays níž).
       const byTypeMap = new Map<string, { label: string; color: LeaveColor; count: number; days: number }>();
       for (const r of monthRows) {
-        if (!r.leave_type) continue;
+        if (!r.leave_type || !reducesPresence(r.leave_type.key)) continue;
         const cur = byTypeMap.get(r.leave_type.label) ?? { label: r.leave_type.label, color: r.leave_type.color, count: 0, days: 0 };
         cur.count += 1;
         cur.days += Number(r.working_days);
@@ -484,7 +518,7 @@ export function OverviewPanel() {
             </Select>
             {section === "retro" && (<>
             <Button variant="secondary" size="sm" onClick={exportCsv} disabled={!canExport} title={canExport ? undefined : "Export do CSV je od tarifu Starter"}>
-              <Download size={13} /> Excel (CSV)
+              <Download size={13} /> CSV
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setPreviewOpen(true)} disabled={loading}>
               <Printer size={13} /> PDF (tisk)

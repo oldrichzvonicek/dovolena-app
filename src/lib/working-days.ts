@@ -1,4 +1,5 @@
 import { addDays, isWeekend, isSameDay, parseISO, format } from "date-fns";
+import { formatNumber } from "@/lib/utils";
 
 /**
  * Czech state holidays. Fixed-date holidays only (the Czech calendar has no
@@ -98,6 +99,52 @@ interface SpanLike {
  * its stored number (that covers half days and hours); one that crosses the boundary is re-counted for the
  * overlapping part, so a 28. 9. – 5. 10. absence is split between September and October.
  */
+/**
+ * Merges overlapping or touching [start_date, end_date] ranges (ISO, inclusive) into the minimal
+ * non-overlapping set, so a person with two approved requests that happen to overlap (e.g. Home Office
+ * booked twice for the same week) isn't counted twice when summing days across their requests.
+ */
+export function mergeDateRanges<T extends { start_date: string; end_date: string }>(ranges: T[]): { start_date: string; end_date: string }[] {
+  if (ranges.length === 0) return [];
+  const sorted = [...ranges].sort((a, b) => a.start_date.localeCompare(b.start_date));
+  const merged: { start_date: string; end_date: string }[] = [{ start_date: sorted[0].start_date, end_date: sorted[0].end_date }];
+  for (const r of sorted.slice(1)) {
+    const last = merged[merged.length - 1];
+    if (r.start_date <= last.end_date) {
+      if (r.end_date > last.end_date) last.end_date = r.end_date;
+    } else {
+      merged.push({ start_date: r.start_date, end_date: r.end_date });
+    }
+  }
+  return merged;
+}
+
+/**
+ * Same merge as mergeDateRanges, but keeps each result's day count accurate: a range that didn't actually
+ * overlap with anything else keeps its own stored working_days (so a lone half-day request stays 0.5 instead
+ * of being rounded up to a whole day by a blind recount), and only a range that really absorbed 2+ overlapping
+ * requests falls back to `recompute` for the merged span (overlap of partial days can't be reconstructed exactly).
+ */
+export function mergeDateRangesKeepingDays<T extends { start_date: string; end_date: string; working_days: number }>(
+  ranges: T[],
+  recompute: (start: string, end: string) => number
+): { start_date: string; end_date: string; working_days: number }[] {
+  if (ranges.length === 0) return [];
+  const sorted = [...ranges].sort((a, b) => a.start_date.localeCompare(b.start_date));
+  const groups: T[][] = [[sorted[0]]];
+  for (const r of sorted.slice(1)) {
+    const last = groups[groups.length - 1];
+    const lastEnd = last.reduce((m, x) => (x.end_date > m ? x.end_date : m), last[0].end_date);
+    if (r.start_date <= lastEnd) last.push(r);
+    else groups.push([r]);
+  }
+  return groups.map((g) => {
+    const start_date = g.reduce((m, x) => (x.start_date < m ? x.start_date : m), g[0].start_date);
+    const end_date = g.reduce((m, x) => (x.end_date > m ? x.end_date : m), g[0].end_date);
+    return { start_date, end_date, working_days: g.length === 1 ? Number(g[0].working_days) : recompute(start_date, end_date) };
+  });
+}
+
 export function daysWithin(r: SpanLike, from: string, to: string, workDays: number[] = DEFAULT_WORK_DAYS): number {
   if (r.end_date < from || r.start_date > to) return 0;
   if (r.start_date >= from && r.end_date <= to) return Number(r.working_days);
@@ -123,7 +170,7 @@ export function dayWord(n: number): "den" | "dne" | "dny" | "dní" {
 export function workingDaysPhrase(n: number): string {
   const word = dayWord(n);
   const adjective = word === "dne" ? "pracovního" : word === "dní" ? "pracovních" : "pracovní";
-  return `${n} ${adjective} ${word}`;
+  return `${formatNumber(n)} ${adjective} ${word}`;
 }
 
 export function formatRange(startISO: string, endISO: string): string {

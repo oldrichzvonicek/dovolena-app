@@ -207,6 +207,13 @@ export async function createDemoData(admin: SupabaseClient, companyId: string, t
       if (i % 5 === 2) add({ person: i, type: sick, start: addDays(today, -Math.floor(rand() * 50) - 5), len: 1 + Math.floor(rand() * 3) });
     });
 
+    // Pár dní z listopadu/prosince loňska, ať 12měsíční trend ve Smart HR nezačíná uměle nulou — jinak
+    // (viz monthlyTrend v lib/insights.ts) vychází poslední dva měsíce v grafu vždy na 0 %, protože výš
+    // žádná absence do minulého kalendářního roku nesahá.
+    for (let i = 0; i < 4; i++) {
+      add({ person: i, type: vacation, start: addDays(`${year - 1}-11-10`, Math.floor(rand() * 45)), len: 2 + Math.floor(rand() * 3) });
+    }
+
     const rows = reqs.map((r) => ({
       profile_id: ids[r.person],
       leave_type_id: r.type,

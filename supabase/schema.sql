@@ -544,6 +544,11 @@ alter table profile_hr add column if not exists personal_number text;
 --   accountant — mzdová účetní: jen čte absence a nároky celé firmy pro mzdy (Exporty, Analytika). Nic nemění.
 alter table profiles add column if not exists staff_role text check (staff_role in ('hr', 'accountant'));
 
+-- Externí HR/účetní (dodavatel, ne zaměstnanec firmy): nemá oddělení ani nadřízeného a sám nečerpá dovolenou
+-- v téhle firmě — RLS proto takovému profilu nedovolí založit si (ani dostat založenou) leave_requests, viz
+-- policy "create own leave_requests" a "managers create leave_requests for team" níž. Nastavuje jen admin.
+alter table profiles add column if not exists is_external boolean not null default false;
+
 -- Nové registrace z odkazu čekají na schválení adminem (viz company_join / join_company_by_code).
 alter table profiles add column if not exists join_pending boolean not null default false;
 
@@ -872,9 +877,11 @@ create policy "select leave_requests in company" on leave_requests
     )
   );
 
+-- Externí HR/účetní (is_external) nečerpá dovolenou v téhle firmě — nejde o jejího zaměstnance, jen o dodavatele
+-- s přístupem ke čtení dat pro mzdy, viz is_external na profiles.
 drop policy if exists "create own leave_requests" on leave_requests;
 create policy "create own leave_requests" on leave_requests
-  for insert with check (profile_id = auth.uid());
+  for insert with check (profile_id = auth.uid() and not coalesce((select is_external from profiles where id = auth.uid()), false));
 
 -- A manager/admin booking leave on someone's behalf (e.g. a phoned-in sick
 -- day) — always for someone in their own company, not necessarily a direct
@@ -969,6 +976,14 @@ create table if not exists company_invites (
 -- Datum nástupu z importu (mzdový systém) — při převzetí pozvánky se uloží do profile_hr.
 alter table company_invites add column if not exists hire_date date;
 
+-- Doplňková role (HR / účetní): dřív šla nastavit jen dodatečně, úpravou už přijatého profilu (viz
+-- "Doplňkovou roli může nastavit jen admin" níž) — účetní/HR tak vždycky musel projít pozvánkou jako
+-- obyčejný zaměstnanec. Teď jde nastavit rovnou při pozvání.
+alter table company_invites add column if not exists staff_role text check (staff_role in ('hr', 'accountant'));
+
+-- Externí HR/účetní — viz is_external na profiles níž.
+alter table company_invites add column if not exists is_external boolean not null default false;
+
 alter table company_invites enable row level security;
 
 drop policy if exists "admins manage invites" on company_invites;
@@ -1017,11 +1032,11 @@ begin
     where u.email = inv.manager_invite_email and p.company_id = inv.company_id;
   end if;
 
-  insert into profiles (id, company_id, department_id, manager_id, name, role, avatar_initials, email)
+  insert into profiles (id, company_id, department_id, manager_id, name, role, avatar_initials, email, staff_role, is_external)
   values (
     auth.uid(), inv.company_id, inv.department_id, resolved_manager_id, inv.name, inv.role,
     upper(left(split_part(inv.name, ' ', 1), 1) || left(split_part(inv.name, ' ', 2), 1)),
-    caller_email
+    caller_email, inv.staff_role, inv.is_external
   );
 
   if inv.hire_date is not null then
@@ -1090,11 +1105,11 @@ create table if not exists notifications (
   created_at timestamptz not null default now()
 );
 
--- 'vacation_reminder' (Smart HR bulk reminder) and 'help_question'
--- (Nápověda v2 "Napsat na HR/Podporu") added on top of the original three.
+-- 'vacation_reminder' (Smart HR bulk reminder), 'help_question' (Nápověda v2 "Napsat na HR/Podporu") and
+-- 'carryover_expiring' (api/cron/daily, 30 a 7 dní před propadnutím převedené dovolené) added on top of the original three.
 alter table notifications drop constraint if exists notifications_type_check;
 alter table notifications add constraint notifications_type_check
-  check (type in ('request_created', 'request_approved', 'request_rejected', 'vacation_reminder', 'help_question', 'cancellation_requested', 'cancellation_resolved', 'join_pending'));
+  check (type in ('request_created', 'request_approved', 'request_rejected', 'vacation_reminder', 'carryover_expiring', 'help_question', 'cancellation_requested', 'cancellation_resolved', 'join_pending'));
 
 create index if not exists notifications_profile_id_created_at_idx on notifications (profile_id, created_at desc);
 
@@ -1454,12 +1469,20 @@ begin
     raise exception 'Uveďte důvod zamítnutí.';
   end if;
 
+  -- Je nad tím člověkem vůbec někdo, kdo by mohl rozhodnout? Ne "existuje nějaký manažer/admin kdekoli ve
+  -- firmě" (to by zablokovalo i admina bez oddělení, i když na jeho žádost nikdo jiný stejně nedosáhne — viz
+  -- fetchDecisionScope v approval-scope.ts), ale konkrétně jeho nadřízený nebo vedoucí/zástupce jeho oddělení.
   if old.status = 'pending' and new.status in ('approved', 'rejected')
      and auth.uid() is not null and new.profile_id = auth.uid()
      and exists (
-       select 1 from profiles p
-       where p.company_id = (select company_id from profiles where id = auth.uid())
-         and p.role in ('manager', 'admin') and p.id <> auth.uid()
+       select 1 from profiles me
+       left join departments d on d.id = me.department_id
+       where me.id = auth.uid()
+         and (
+           me.manager_id is not null
+           or (d.head_profile_id is not null and d.head_profile_id <> me.id)
+           or (d.deputy_head_profile_id is not null and d.deputy_head_profile_id <> me.id)
+         )
      ) then
     raise exception 'Vlastní žádost nemůžete rozhodnout — požádejte jiného manažera nebo admina.';
   end if;
@@ -1516,6 +1539,7 @@ as $$
     when 'request_rejected' then 'requester_decisions'
     when 'cancellation_resolved' then 'requester_decisions'
     when 'vacation_reminder' then 'reminders'
+    when 'carryover_expiring' then 'reminders'
     when 'help_question' then 'help_questions'
     when 'join_pending' then 'join_pending'
     else null
@@ -1880,7 +1904,8 @@ create trigger leave_requests_queue_integrations
 -- succeeding, then the invites insert failing, over repeated retries).
 -- `rows` is a jsonb array of objects: email, name, department_name,
 -- manager_id, manager_invite_email, vacation_total, vacation_opening_used,
--- sick_total, sick_opening_used, role (optional, defaults to 'employee').
+-- sick_total, sick_opening_used, role (optional, defaults to 'employee'),
+-- staff_role (optional, 'hr' or 'accountant' — admin only, see below).
 -- ---------------------------------------------------------------------------
 create or replace function import_employees(target_company_id uuid, rows jsonb)
 returns int
@@ -1892,6 +1917,8 @@ declare
   dept_id uuid;
   dept_name text;
   n int := 0;
+  wanted_staff_role text;
+  wanted_external boolean;
 begin
   if current_company_id() is distinct from target_company_id
      or (current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr') then
@@ -1917,23 +1944,47 @@ begin
       end if;
     end if;
 
+    -- Doplňková role (HR / účetní): stejné omezení jako při úpravě už přijatého profilu — smí ji
+    -- nastavit jen admin, a jen pokud to dovoluje tarif firmy.
+    wanted_staff_role := nullif(r->>'staff_role', '');
+    if wanted_staff_role is not null then
+      if current_user_role() is distinct from 'admin' then
+        raise exception 'Doplňkovou roli (HR / účetní) může nastavit jen admin.';
+      end if;
+      if wanted_staff_role = 'hr' and not coalesce(company_has_feature('hr_insights'), false) then
+        raise exception 'Role HR je součástí doplňku HR Insights (v tarifu Pro v ceně).';
+      end if;
+      if wanted_staff_role = 'accountant' and not coalesce(company_has_feature('accountant'), false) then
+        raise exception 'Role Účetní je od tarifu Starter v ceně, u Free jde o doplněk.';
+      end if;
+    end if;
+
+    -- Externí HR/účetní nemá oddělení ani nadřízeného (dodavatel, ne zaměstnanec firmy) — platí jen spolu s
+    -- doplňkovou rolí, jinak se ignoruje. Pole se tu rovnou vynulují, i kdyby je klient přesto poslal.
+    wanted_external := wanted_staff_role is not null and coalesce((r->>'is_external')::boolean, false);
+    if wanted_external then
+      dept_id := null;
+    end if;
+
     insert into company_invites (
       company_id, email, name, department_id, manager_id, manager_invite_email,
-      vacation_total, vacation_opening_used, sick_total, sick_opening_used, role, hire_date
+      vacation_total, vacation_opening_used, sick_total, sick_opening_used, role, hire_date, staff_role, is_external
     ) values (
       target_company_id,
       lower(trim(r->>'email')),
       r->>'name',
       dept_id,
-      nullif(r->>'manager_id', '')::uuid,
-      nullif(r->>'manager_invite_email', ''),
+      case when wanted_external then null else nullif(r->>'manager_id', '')::uuid end,
+      case when wanted_external then null else nullif(r->>'manager_invite_email', '') end,
       coalesce((r->>'vacation_total')::numeric, 0),
       coalesce((r->>'vacation_opening_used')::numeric, 0),
       coalesce((r->>'sick_total')::numeric, 0),
       coalesce((r->>'sick_opening_used')::numeric, 0),
       -- HR smí zvát jen zaměstnance; role manažer / admin přiděluje jen admin.
       case when current_user_role() = 'admin' then coalesce(nullif(r->>'role', '')::user_role, 'employee') else 'employee'::user_role end,
-      nullif(r->>'hire_date', '')::date
+      nullif(r->>'hire_date', '')::date,
+      wanted_staff_role,
+      wanted_external
     )
     on conflict (company_id, email) do update set
       name = excluded.name,
@@ -1945,7 +1996,9 @@ begin
       sick_total = excluded.sick_total,
       sick_opening_used = excluded.sick_opening_used,
       role = excluded.role,
-      hire_date = excluded.hire_date;
+      hire_date = excluded.hire_date,
+      staff_role = excluded.staff_role,
+      is_external = excluded.is_external;
 
     n := n + 1;
   end loop;
@@ -2124,7 +2177,10 @@ begin
 end;
 $$;
 
-create or replace function reopen_payroll_month(p_month date)
+-- Znovu otevřít uzavřenou uzávěrku je silný zásah (mzdy už se mohly zpracovat) — klient (PayrollDetailPanel)
+-- proto vynucuje důvod přes dialog, a ten se tu zapíše do audit_log (Historie změn), ať je dohledatelný.
+drop function if exists reopen_payroll_month(date);
+create or replace function reopen_payroll_month(p_month date, p_reason text default '')
 returns void
 language plpgsql
 security definer
@@ -2137,6 +2193,8 @@ begin
     raise exception 'Měsíc smí znovu otevřít admin, HR nebo účetní.';
   end if;
   delete from payroll_closures where company_id = cid and month = date_trunc('month', p_month)::date;
+  insert into audit_log (company_id, actor_id, action, details)
+  values (cid, auth.uid(), 'payroll.reopened', jsonb_build_object('month', date_trunc('month', p_month)::date, 'reason', nullif(trim(p_reason), '')));
 end;
 $$;
 
@@ -2607,6 +2665,32 @@ create trigger default_hide_sick_type
   before insert on leave_types
   for each row execute function default_hide_sick_type();
 
+-- "Lékař" a "Nemoc" jsou stejně citlivé zdravotní typy jako Sick Day (counts_against = 'sick'), ale seed je zakládal
+-- s counts_against = 'none', takže je výše uvedený backfill (where counts_against = 'sick') nezahrnul a kolegům se
+-- ukazoval konkrétní typ místo "Nepřítomen". Redefinice seedu (pro nově zakládané firmy) + backfill (pro firmy, co
+-- tyto typy mají už založené se starým výchozím nastavením a admin ho sám nezměnil).
+create or replace function seed_default_leave_types(target_company_id uuid)
+returns void
+language sql
+as $$
+  insert into leave_types (company_id, key, label, color, counts_against, active, hide_from_colleagues) values
+    (target_company_id, 'dovolena', 'Dovolená', 'teal', 'vacation', true, false),
+    (target_company_id, 'sick', 'Sick Day', 'wine', 'sick', true, true),
+    (target_company_id, 'home_office', 'Home Office', 'sky', 'none', true, false),
+    (target_company_id, 'lekar', 'Lékař', 'violet', 'none', true, true),
+    (target_company_id, 'nahradni_volno', 'Náhradní volno', 'rust', 'none', true, false),
+    (target_company_id, 'osetrovacka', 'Ošetřování člena rodiny', 'plum', 'none', false, false),
+    (target_company_id, 'materska', 'Mateřská dovolená', 'forest', 'none', false, false),
+    (target_company_id, 'nemoc', 'Nemoc', 'sage', 'none', false, true),
+    (target_company_id, 'sluzebni_cesta', 'Služební cesta', 'slate', 'none', false, false)
+  on conflict (company_id, key) do nothing;
+
+  update leave_types set counts_as_present = true
+   where company_id = target_company_id and key in ('home_office', 'sluzebni_cesta') and counts_as_present = false;
+$$;
+
+update leave_types set hide_from_colleagues = true where key in ('lekar', 'nemoc') and hide_from_colleagues = false;
+
 -- Je "approver" nadřízeným (manager_id), vedoucím / zástupcem oddělení nebo stálým zástupcem některého z nich?
 create or replace function superior_check(approver uuid, target uuid)
 returns boolean
@@ -2926,7 +3010,7 @@ create policy "managers approve leave_requests" on leave_requests
 drop policy if exists "managers create leave_requests for team" on leave_requests;
 create policy "managers create leave_requests for team" on leave_requests
   for insert with check (
-    exists (select 1 from profiles p where p.id = leave_requests.profile_id and p.company_id = current_company_id())
+    exists (select 1 from profiles p where p.id = leave_requests.profile_id and p.company_id = current_company_id() and not p.is_external)
     and (
       current_user_role() = 'admin'
       or (current_user_role() = 'manager' and is_superior_of(leave_requests.profile_id))

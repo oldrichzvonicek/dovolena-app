@@ -281,7 +281,7 @@ export function PlanCard({ planKey, billing, onChanged }: { planKey: string | nu
                 Tarif {blockedPlan.name} je určen pro nejvýše <strong>{blockedPlan.employeeLimit}</strong> aktivních uživatelů. Ve firmě jich máte <strong>{employees}</strong>, takže je nejdřív potřeba jejich počet snížit o <strong>{employees !== null && blockedPlan.employeeLimit !== null ? employees - blockedPlan.employeeLimit : "?"}</strong>.
               </p>
               <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted">
-                <li>V Nastavení firmy → Uživatelé deaktivujte lidi, kteří ve firmě už nepracují.</li>
+                <li>V Nastavení firmy → Lidé deaktivujte lidi, kteří ve firmě už nepracují.</li>
                 <li>Vraťte se sem a zvolte tarif znovu.</li>
               </ol>
               <Link href="/admin/settings?sekce=users" className="mt-4 inline-block rounded bg-teal px-4 py-2 text-sm font-medium text-white hover:bg-teal-dark" onClick={() => setBlockedPlan(null)}>

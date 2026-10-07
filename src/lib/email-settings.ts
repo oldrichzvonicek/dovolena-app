@@ -49,9 +49,9 @@ export const EMAIL_CATEGORIES: EmailCategory[] = [
   {
     key: "reminders",
     label: "Připomínky dovolené",
-    description: "Připomínky zaměstnancům: nevyčerpaná dovolená a nabídka naplánovat si delší volno.",
+    description: "Připomínky zaměstnancům: nevyčerpaná dovolená, blížící se propadnutí převedené dovolené a nabídka naplánovat si delší volno.",
     hrCanChange: true,
-    templates: ["vacation_reminder", "wellbeing_reminder"],
+    templates: ["vacation_reminder", "carryover_expiring", "wellbeing_reminder"],
   },
   {
     key: "help_questions",

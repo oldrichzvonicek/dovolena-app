@@ -176,7 +176,7 @@ export function InviteColleagueButton() {
             <p className="text-sm text-muted">
               Pošlete tento odkaz novému zaměstnanci — po registraci se přiřadí k vaší firmě jako zaměstnanec{info?.require_approval ? " (nejdřív ho ale musí schválit admin)" : ""}. Roli a oddělení pak nastavíte v Můj tým.
             </p>
-            {info && !info.enabled && <p className="mt-2 text-sm text-warning-dark">Registrační odkaz je vypnutý. Admin ho zapne v Nastavení firmy → Uživatelé.</p>}
+            {info && !info.enabled && <p className="mt-2 text-sm text-warning-dark">Registrační odkaz je vypnutý. Admin ho zapne v Nastavení firmy → Lidé.</p>}
             <div className="mt-3 flex items-center gap-2">
               <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} aria-label="Pozvánkový odkaz" className="w-full rounded border border-line bg-paper px-3 py-2 text-sm text-muted" />
               <button onClick={copyInvite} disabled={!url} className="flex shrink-0 items-center gap-1.5 rounded border border-line px-3 py-2 text-sm hover:bg-paper disabled:opacity-50">

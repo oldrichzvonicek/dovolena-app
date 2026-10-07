@@ -38,7 +38,7 @@ export async function copyJoinLink(): Promise<{ ok: true } | { ok: false; reason
   try {
     const info = await fetchJoinLink();
     if (!info) return { ok: false, reason: "Registrační odkaz není k dispozici." };
-    if (!info.enabled) return { ok: false, reason: "Registrační odkaz je vypnutý. Admin ho zapne v Nastavení firmy → Uživatelé." };
+    if (!info.enabled) return { ok: false, reason: "Registrační odkaz je vypnutý. Admin ho zapne v Nastavení firmy → Lidé." };
     await navigator.clipboard.writeText(joinUrl(info.join_code));
     return { ok: true };
   } catch {

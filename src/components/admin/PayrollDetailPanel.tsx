@@ -26,6 +26,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { InfoTip } from "@/components/ui/info-tip";
 import { LoadingLines } from "@/components/ui/skeleton";
 import { cn, errorMessage } from "@/lib/utils";
+import { czForm } from "@/lib/czech";
 
 const czDate = (iso: string) => `${+iso.slice(8, 10)}. ${+iso.slice(5, 7)}. ${iso.slice(0, 4)}`;
 const monthEndOf = (month: string) => new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10);
@@ -52,6 +53,10 @@ export function PayrollDetailPanel() {
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [pamicaMsg, setPamicaMsg] = useState<string | null>(null);
+  // Znovu otevřít uzavřenou mzdovou uzávěrku je silný zásah (mzdy už se mohly zpracovat) — chce to důvod, ne
+  // jen jedno kliknutí, a ten důvod se uloží do Historie změn (viz reopen_payroll_month v schema.sql).
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
 
   useEffect(() => {
     if (!profile) return;
@@ -107,9 +112,12 @@ export function PayrollDetailPanel() {
   const visibleRows = q ? rows.filter((r) => `${r.firstName} ${r.lastName}`.toLocaleLowerCase("cs").includes(q) || r.typeLabel.toLocaleLowerCase("cs").includes(q)) : rows;
   const missingCode = Array.from(new Set(rows.filter((r) => !r.code).map((r) => r.typeLabel)));
   const missingNumber = Array.from(new Set(rows.filter((r) => !r.personalNumber).map((r) => `${r.firstName} ${r.lastName}`.trim())));
+  // Jméno chybí nebo v něm zůstal e-mail / alias (nedokončená registrace, viz claim_invite) — "Jan+test" nebo
+  // "jan@firma.cz" v podkladu pro mzdy by prošlo bez povšimnutí, kdyby se to jen tiše zobrazilo jako jméno.
+  const missingName = Array.from(new Set(rows.filter((r) => /[@+]/.test(r.firstName) || /[@+]/.test(r.lastName)).map((r) => `${r.firstName} ${r.lastName}`.trim())));
   const monthEnded = monthEndOf(month) < now;
-  // Uzávěrku nejde spustit s neúplnými údaji pro mzdový systém (chybějící kódy nebo osobní čísla).
-  const incomplete = rows.length > 0 && (missingCode.length > 0 || missingNumber.length > 0);
+  // Uzávěrku nejde spustit s neúplnými údaji pro mzdový systém (chybějící kódy, osobní čísla nebo jména).
+  const incomplete = rows.length > 0 && (missingCode.length > 0 || missingNumber.length > 0 || missingName.length > 0);
 
   function csvText() {
     return toCsv(DETAIL_HEADERS, detailToTable(rows));
@@ -169,11 +177,13 @@ export function PayrollDetailPanel() {
     setPamicaMsg(notes.length > 0 ? `XML staženo (${notes.join("; ")}).` : "XML staženo.");
   }
 
-  async function toggleClosure() {
+  async function toggleClosure(reason?: string) {
     setBusy(true);
     setMessage(null);
     try {
-      const { error } = await createClient().rpc(closure ? "reopen_payroll_month" : "close_payroll_month", { p_month: `${month}-01` });
+      const { error } = closure
+        ? await createClient().rpc("reopen_payroll_month", { p_month: `${month}-01`, p_reason: reason ?? "" })
+        : await createClient().rpc("close_payroll_month", { p_month: `${month}-01` });
       if (error) throw error;
       setMessage({ ok: true, text: closure ? "Měsíc je znovu otevřený." : "Měsíc je uzavřený. Schválené absence, které ho zasahují, už nejdou přidat, změnit ani smazat." });
       setTick((t) => t + 1);
@@ -235,7 +245,7 @@ export function PayrollDetailPanel() {
           Zahrnout i Home Office a další typy, kdy člověk pracuje
         </label>
 
-        {(missingCode.length > 0 || missingNumber.length > 0) && (
+        {(missingCode.length > 0 || missingNumber.length > 0 || missingName.length > 0) && (
           <div className="mt-3 space-y-2 rounded border border-warning/40 bg-warning-light p-3 text-xs text-warning-dark">
             <div className="flex flex-wrap gap-2">
               {missingCode.length > 0 && (
@@ -246,6 +256,11 @@ export function PayrollDetailPanel() {
               {missingNumber.length > 0 && (
                 <Link href="/admin/settings?sekce=users" className="rounded border border-warning/60 bg-white px-3 py-1.5 text-xs font-medium text-warning-dark hover:bg-warning/10">
                   Doplnit osobní čísla ({missingNumber.length})
+                </Link>
+              )}
+              {missingName.length > 0 && (
+                <Link href="/admin/settings?sekce=users" className="rounded border border-warning/60 bg-white px-3 py-1.5 text-xs font-medium text-warning-dark hover:bg-warning/10">
+                  Opravit jména ({missingName.length})
                 </Link>
               )}
             </div>
@@ -265,6 +280,12 @@ export function PayrollDetailPanel() {
               <p className="flex items-start gap-1.5">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
                 <span>Bez osobního čísla: {missingNumber.slice(0, 6).join(", ")}{missingNumber.length > 6 ? ` a dalších ${missingNumber.length - 6}` : ""}. Osobní číslo doplní HR u zaměstnance.</span>
+              </p>
+            )}
+            {missingName.length > 0 && (
+              <p className="flex items-start gap-1.5">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                <span>Neúplné nebo nesprávné jméno (vypadá jako e-mail/alias, ne jméno): {missingName.slice(0, 6).join(", ")}{missingName.length > 6 ? ` a dalších ${missingName.length - 6}` : ""}. Jméno opraví HR nebo admin u zaměstnance.</span>
               </p>
             )}
           </div>
@@ -288,7 +309,7 @@ export function PayrollDetailPanel() {
           </div>
           <Button
             variant={closure || incomplete ? "secondary" : "primary"}
-            onClick={() => (!closure && incomplete ? setBlockedOpen(true) : toggleClosure())}
+            onClick={() => (!closure && incomplete ? setBlockedOpen(true) : closure ? setReopenOpen(true) : toggleClosure())}
             disabled={busy || loading || (!closure && !monthEnded)}
             className={cn(!closure && incomplete && "border-warning/60 text-warning-dark")}
             aria-describedby={!closure && incomplete ? "closure-blocked" : undefined}
@@ -299,11 +320,56 @@ export function PayrollDetailPanel() {
         </div>
         {!closure && incomplete && (
           <p id="closure-blocked" className="mt-2 text-xs text-warning-dark">
-            Uzávěrku nejde spustit, dokud nejsou vyplněné kódy pro mzdy a osobní čísla ({missingCode.length + missingNumber.length} chybějících údajů). Kliknutím uvidíte přehled.
+            Uzávěrku nejde spustit, dokud nejsou vyplněné kódy pro mzdy, osobní čísla a jména ({missingCode.length + missingNumber.length + missingName.length}{" "}
+            {czForm(missingCode.length + missingNumber.length + missingName.length, "chybějící údaj", "chybějící údaje", "chybějících údajů")}). Kliknutím uvidíte přehled.
           </p>
         )}
         {message && <p className={cn("mt-3 text-sm", message.ok ? "text-teal-dark" : "text-danger")}>{message.text}</p>}
       </div>
+
+      <Dialog
+        open={reopenOpen}
+        onOpenChange={(o) => {
+          setReopenOpen(o);
+          if (!o) setReopenReason("");
+        }}
+      >
+        <DialogContent title="Znovu otevřít uzavřený měsíc">
+          <div className="space-y-3">
+            <p className="text-sm text-muted">
+              Mzdy za tento měsíc už mohly být zpracované — znovu otevřením půjde absence za {month} opět přidávat, měnit i mazat. Uveďte prosím důvod, uloží se do Historie změn.
+            </p>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium" htmlFor="reopen-reason">
+                Důvod
+              </label>
+              <textarea
+                id="reopen-reason"
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                rows={3}
+                placeholder="Např. dodatečně nahlášená nemoc za minulý měsíc"
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setReopenOpen(false)}>
+                Zrušit
+              </Button>
+              <Button
+                variant="danger"
+                disabled={!reopenReason.trim() || busy}
+                onClick={async () => {
+                  await toggleClosure(reopenReason.trim());
+                  setReopenOpen(false);
+                }}
+              >
+                {busy ? "Otevírám…" : "Znovu otevřít"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={blockedOpen} onOpenChange={setBlockedOpen}>
         <DialogContent title="Uzávěrku nejde spustit">
@@ -326,6 +392,18 @@ export function PayrollDetailPanel() {
               </p>
               <Link href="/admin/settings?sekce=users" className="mt-2 inline-block rounded bg-teal px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-dark">
                 Doplnit osobní čísla
+              </Link>
+            </div>
+          )}
+          {missingName.length > 0 && (
+            <div className="mt-4">
+              <div className="text-sm font-medium">Neúplné nebo nesprávné jméno ({missingName.length})</div>
+              <p className="mt-1 text-sm text-muted">
+                {missingName.slice(0, 12).join(", ")}
+                {missingName.length > 12 ? ` a dalších ${missingName.length - 12}` : ""}
+              </p>
+              <Link href="/admin/settings?sekce=users" className="mt-2 inline-block rounded bg-teal px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-dark">
+                Opravit jména
               </Link>
             </div>
           )}

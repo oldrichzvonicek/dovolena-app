@@ -167,8 +167,8 @@ function Names({ ids, nameOf, limit = 6, onSelect }: { ids: string[]; nameOf: (i
         </span>
       ))}
       {list.length > limit && (
-        <button type="button" onClick={() => setAll(!all)} className="ml-1.5 text-teal-dark underline underline-offset-2">
-          {all ? "méně" : `a dalších ${list.length - limit}`}
+        <button type="button" onClick={() => setAll(!all)} className="text-teal-dark underline underline-offset-2">
+          {all ? " méně" : ` a dalších ${list.length - limit}`}
         </button>
       )}
     </p>
@@ -284,9 +284,9 @@ export function ExtraCards({ extra, group, onSelectPerson }: { extra: ExtraInsig
           <Empty text="Zatím nejsou data." />
         ) : (
           <>
-            <Row left={`Celá firma: medián ${r.lead.overall.medianDays} dní předem`} right={`${r.lead.overall.shortPct} % do 3 dnů`} tone={r.lead.overall.shortPct >= 30 ? "warning" : undefined} />
+            <Row left={`Celá firma: medián ${r.lead.overall.medianDays} ${dayWordCs(r.lead.overall.medianDays)} předem`} right={`${r.lead.overall.shortPct} % do 3 dnů`} tone={r.lead.overall.shortPct >= 30 ? "warning" : undefined} />
             {r.lead.rows.slice(0, 6).map((d) => (
-              <Row key={d.dept} left={`${d.dept}: medián ${d.medianDays} dní`} right={`${d.shortPct} % do 3 dnů`} tone={d.shortPct >= 40 ? "warning" : undefined} />
+              <Row key={d.dept} left={`${d.dept}: medián ${d.medianDays} ${dayWordCs(d.medianDays)}`} right={`${d.shortPct} % do 3 dnů`} tone={d.shortPct >= 40 ? "warning" : undefined} />
             ))}
           </>
         )}
@@ -338,14 +338,17 @@ export function ExtraCards({ extra, group, onSelectPerson }: { extra: ExtraInsig
       )}
 
       {show("sick") && r.sick && (
-        <Card icon={<Stethoscope size={17} className="text-teal-dark" />} title="Krátké nemoci (souhrnně)" hint="Jen souhrn za celou firmu, bez jmen a bez rozpadu na oddělení. Krátká nemoc = do 2 pracovních dnů; ukazuje, ve který den v týdnu začíná.">
+        // Žádné zvýrazněné "X % začíná v pondělí/pátek" tady — jako jediné číslo bez srovnání s náhodou (2 dny
+        // z 5 = 40 % čistě náhodou) spíš naznačuje podezření ze zneužívání, než aby něco řeklo, a je matoucí,
+        // když vyjde NIŽŠÍ než náhodný základ. Rozložení v týdnu zůstává v neutrálním grafu níž; nápadná
+        // odchylka (viz notableInsights) se ukáže jen tehdy, když je statisticky skutečně nápadná.
+        <Card icon={<Stethoscope size={17} className="text-teal-dark" />} title="Krátké nemoci (souhrnně)" hint="Jen souhrn za celou firmu, bez jmen a bez rozpadu na oddělení. Krátká nemoc = do 2 pracovních dnů; rozložení podle dne v týdnu, kdy začíná.">
           {r.sick.shortEpisodes === 0 ? (
             <Empty text="Za poslední rok žádné krátké nemoci." />
           ) : (
             <>
               <Bars items={r.sick.shortByStartWeekday.map((w) => ({ label: WEEKDAY[w.weekday], value: w.count }))} axisUnit="počet krátkých nemocí podle dne začátku" />
-              <Row left={`Krátké nemoci (z ${r.sick.episodes} všech)`} right={`${r.sick.shortEpisodes}`} />
-              <Row left="Začínají v pondělí nebo v pátek" right={`${r.sick.mondayFridayPct} %`} tone={r.sick.shortEpisodes >= 8 && r.sick.mondayFridayPct >= 60 ? "warning" : undefined} />
+              <Row left="Krátkých nemocí celkem" right={`${r.sick.shortEpisodes} z ${r.sick.episodes}`} />
             </>
           )}
         </Card>

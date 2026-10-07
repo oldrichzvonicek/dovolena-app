@@ -148,6 +148,21 @@ export function OnboardingChecklist() {
     };
   }, [profile, tick]);
 
+  // Jednou hotovo, přestane karta zabírat místo na nástěnce sama — admin ji pak znovu otevře přes zvoneček
+  // (viz NotificationBell), kdyby ji chtěl zpátky. Nemění živě "hidden" v téhle session (aby neschovala kartu
+  // hned pod rukama po posledním kroku) — jen si to zapamatuje pro příští návštěvu.
+  useEffect(() => {
+    if (!profile || !steps) return;
+    const required = steps.filter((s) => !s.optional);
+    if (required.length > 0 && required.every((s) => s.done)) {
+      try {
+        localStorage.setItem(hiddenKey(profile.company_id), "1");
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [profile, steps]);
+
   if (!profile || profile.role !== "admin" || !steps || hidden) return null;
 
   const required = steps.filter((s) => !s.optional);

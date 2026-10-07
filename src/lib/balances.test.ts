@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeBalance, remainingOf } from "./balances";
+import { computeBalance, dayAfterExpiry, remainingOf } from "./balances";
 
 const vac = { counts_against: "vacation" };
 const ent = (year: number, total: number, opening = 0) => ({ profile_id: "p", year, total_days: total, opening_used_days: opening, leave_type: vac });
@@ -45,11 +45,24 @@ describe("computeBalance", () => {
     expect(b.total).toBe(5);
   });
 
-  it("counts a draft plan as upcoming, never as used, even for a past date", () => {
+  it("counts a draft plan as planned, never as used or upcoming, even for a past date", () => {
     const draftPast = { ...req("2026-01-02", "2026-01-03", 2), isDraft: true };
     const draftFuture = { ...req("2026-12-01", "2026-12-02", 2), isDraft: true };
     const b = computeBalance("vacation", [ent(2026, 20)], [draftPast, draftFuture], 2026, "2026-09-25", noCarry);
     expect(b.used).toBe(0);
-    expect(b.upcoming).toBe(4);
+    expect(b.upcoming).toBe(0);
+    expect(b.planned).toBe(4);
+  });
+});
+
+describe("dayAfterExpiry", () => {
+  it("returns the day after MM-DD in the current year", () => {
+    const year = new Date().getFullYear();
+    expect(dayAfterExpiry("03-31")).toBe(`${year}-04-01`);
+  });
+
+  it("rolls over into the next year", () => {
+    const year = new Date().getFullYear();
+    expect(dayAfterExpiry("12-31")).toBe(`${year + 1}-01-01`);
   });
 });

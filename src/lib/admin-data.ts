@@ -182,6 +182,8 @@ export interface AdminEmployeeRow {
   /** Osobní číslo z mzdového systému. */
   personal_number?: string | null;
   staff_role?: "hr" | "accountant" | null;
+  /** Externí HR/účetní (dodavatel, ne zaměstnanec firmy) — bez oddělení, nadřízeného a nároku na dovolenou. */
+  is_external?: boolean;
   join_pending?: boolean;
   /** Ukázkový účet (nepočítá se do limitu tarifu). */
   is_demo?: boolean;
@@ -190,7 +192,7 @@ export interface AdminEmployeeRow {
 export async function fetchCompanyEmployees(companyId: string): Promise<AdminEmployeeRow[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name, email, role, department_id, manager_id, substitute_id, avatar_initials, active, staff_role, join_pending, is_demo")
+    .select("id, name, email, role, department_id, manager_id, substitute_id, avatar_initials, active, staff_role, is_external, join_pending, is_demo")
     .eq("company_id", companyId)
     .order("name", { ascending: true });
   if (error) throw error;
@@ -214,6 +216,13 @@ export async function approveJoiner(id: string) {
 
 export async function updateEmployeeStaffRole(id: string, staffRole: "hr" | "accountant" | null) {
   const { error } = await supabase.from("profiles").update({ staff_role: staffRole }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Externí HR/účetní (dodavatel, ne zaměstnanec firmy) — nemá oddělení ani nadřízeného a nesmí si (ani mu) založit
+ *  dovolenou v téhle firmě (vynuceno i v RLS). Nastavuje jen admin. */
+export async function updateEmployeeExternal(id: string, isExternal: boolean) {
+  const { error } = await supabase.from("profiles").update({ is_external: isExternal, ...(isExternal ? { department_id: null, manager_id: null } : {}) }).eq("id", id);
   if (error) throw error;
 }
 
@@ -488,13 +497,15 @@ export interface CompanyInviteRow {
   vacation_opening_used: number;
   sick_total: number;
   sick_opening_used: number;
+  staff_role: "hr" | "accountant" | null;
+  is_external: boolean;
 }
 
 export async function fetchCompanyInvites(companyId: string): Promise<CompanyInviteRow[]> {
   const { data, error } = await supabase
     .from("company_invites")
     .select(
-      "id, email, name, role, department_id, manager_id, manager_invite_email, vacation_total, vacation_opening_used, sick_total, sick_opening_used"
+      "id, email, name, role, department_id, manager_id, manager_invite_email, vacation_total, vacation_opening_used, sick_total, sick_opening_used, staff_role, is_external"
     )
     .eq("company_id", companyId)
     .order("name", { ascending: true });
@@ -513,6 +524,10 @@ export interface NewInvitePayload {
   sick_total: number;
   sick_opening_used: number;
   role?: Role;
+  /** Doplňková role (HR / účetní) — smí nastavit jen admin, viz import_employees v schema.sql. */
+  staff_role?: "hr" | "accountant" | null;
+  /** Externí HR/účetní (dodavatel) — bez oddělení/nadřízeného, platí jen spolu se staff_role. */
+  is_external?: boolean;
   /** Datum nástupu (yyyy-mm-dd) z importu; uloží se do profilu po převzetí pozvánky. */
   hire_date?: string | null;
 }

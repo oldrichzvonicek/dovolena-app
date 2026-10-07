@@ -65,8 +65,30 @@ export function PendingApprovals() {
   const [myDepts, setMyDepts] = useState<Set<string>>(new Set());
   const isMyTeam = (p: { manager_id: string | null; department_id: string | null }) =>
     p.manager_id === profile?.id || (!!p.department_id && myDepts.has(p.department_id));
+  // Jen pro prázdný stav (fronta je prázdná) — ať tam není jen věta, ale i kontext z poslední doby.
+  const [recentDecided, setRecentDecided] = useState<{ id: string; name: string; status: "approved" | "rejected"; label: string; termin: string }[] | null>(null);
 
   useOnDataChanged(() => load());
+
+  useEffect(() => {
+    if (!profile || loading || pending.length > 0 || recentDecided !== null) return;
+    (async () => {
+      const supabase = createClient();
+      const scope = await fetchDecisionScope(profile);
+      const { data } = await supabase
+        .from("leave_requests")
+        .select("id, start_date, end_date, status, leave_type:leave_types(label), profile:profiles!leave_requests_profile_id_fkey(id, name, manager_id, department_id)")
+        .in("status", ["approved", "rejected"])
+        .order("updated_at", { ascending: false })
+        .limit(25);
+      type Decided = { id: string; start_date: string; end_date: string; status: "approved" | "rejected"; leave_type: { label: string } | null; profile: { id: string; name: string; manager_id: string | null; department_id: string | null } | null };
+      const rows = ((data as unknown as Decided[]) ?? [])
+        .filter((r) => r.profile && scope.canDecide(r.profile) && r.profile.id !== profile.id)
+        .slice(0, 5)
+        .map((r) => ({ id: r.id, name: r.profile!.name, status: r.status, label: r.leave_type?.label ?? "Absence", termin: formatRange(r.start_date, r.end_date) }));
+      setRecentDecided(rows);
+    })();
+  }, [profile, loading, pending.length, recentDecided]);
 
   async function load() {
     if (!profile) return;
@@ -276,7 +298,26 @@ export function PendingApprovals() {
   }
 
   if (pending.length === 0) {
-    return <div className="card p-8 text-center text-sm text-muted">Žádné žádosti nečekají na schválení. 🎉</div>;
+    return (
+      <div className="card p-8 text-sm text-muted">
+        <p className="text-center">Žádné žádosti nečekají na schválení.</p>
+        {recentDecided && recentDecided.length > 0 && (
+          <div className="mt-6 border-t border-line pt-4">
+            <p className="mb-1.5 text-xs font-medium text-ink">Naposledy rozhodnuté</p>
+            <ul className="space-y-1">
+              {recentDecided.map((r) => (
+                <li key={r.id} className="flex items-center gap-1.5 text-xs">
+                  {r.status === "approved" ? <Check size={13} className="shrink-0 text-teal-dark" /> : <X size={13} className="shrink-0 text-danger" />}
+                  <span className="min-w-0 truncate">
+                    {r.name} — {r.label}, {r.termin}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
   }
 
   const pill = "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium";

@@ -5,14 +5,16 @@ import Link from "next/link";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useFeatures } from "@/lib/use-features";
 import type { FeatureKey } from "@/lib/plans";
+import { FEATURE_LABELS } from "@/lib/plans";
+import { unlockHint } from "@/components/shared/FeatureGate";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Landmark, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock } from "lucide-react";
+import { LayoutDashboard, CalendarDays, ClipboardList, Clock, Users, BarChart3, Sparkles, Download, Settings, HelpCircle, LogOut, X, ChevronDown, Users2, Building2, Landmark, Tags, SlidersHorizontal, CreditCard, History, Plug, Mail, Lock, Wallet, CalendarOff, ShieldCheck, Inbox, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { useOnDataChanged } from "@/lib/events";
 import { fetchDecisionScope } from "@/lib/approval-scope";
-import { allowedSettingsSections, canSeeInsights, canSeeReports, canSeeSettings, isHr } from "@/lib/access";
+import { allowedSettingsSections, canSeeAnalytics, canSeeInsights, canSeeReports, canSeeSettings, isHr } from "@/lib/access";
 import { AppLockup } from "@/components/shared/AppLockup";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -36,32 +38,99 @@ const adminNav = [
 ];
 
 // Nastavení firmy — sekce přímo v hlavním menu (stránka /admin/settings?sekce=…).
+// Dřív "Kalendář a provoz" samo o sobě bylo 6 záložek na jedné stránce — rozdělené podle toho, na co se admin
+// ptá (kdo tu je a kdo koho schvaluje / na co mají lidé nárok / kdo co vidí / kolik platíme / co se stalo),
+// ne podle toho, jak nastavení vzniklo v kódu. Viz UX audit Nastavení firmy.
 const settingsGroups = [
   {
-    title: "Lidé & Organizace",
+    title: "Organizace",
     items: [
-      { key: "profile", label: "Profil firmy", icon: Landmark },
-      { key: "users", label: "Uživatelé", icon: Users2 },
-      { key: "departments", label: "Oddělení", icon: Building2 },
+      { key: "profile", label: "Firma", icon: Landmark },
+      { key: "users", label: "Lidé", icon: Users2 },
+      { key: "departments", label: "Oddělení a schvalování", icon: Building2 },
     ],
   },
   {
-    title: "Pravidla & Absence",
+    title: "Absence",
     items: [
       { key: "leave-types", label: "Typy absencí", icon: Tags },
-      { key: "general", label: "Kalendář a provoz", icon: SlidersHorizontal },
+      { key: "naroky", label: "Nároky a zůstatky", icon: Wallet },
+      { key: "pravidla", label: "Pravidla žádostí", icon: CalendarOff },
+      { key: "kalendar", label: "Pracovní kalendář", icon: SlidersHorizontal },
     ],
   },
   {
-    title: "Správa účtu",
+    title: "Komunikace",
     items: [
-      { key: "billing", label: "Fakturace & tarify", icon: CreditCard },
+      { key: "emails", label: "Notifikace", icon: Mail },
       { key: "integrations", label: "Integrace", icon: Plug, feature: "chat_integrations" as FeatureKey },
-      { key: "emails", label: "E-maily", icon: Mail },
+    ],
+  },
+  {
+    title: "Bezpečnost a soukromí",
+    items: [{ key: "bezpecnost", label: "Bezpečnost a soukromí", icon: ShieldCheck }],
+  },
+  {
+    title: "Předplatné",
+    items: [{ key: "billing", label: "Tarif a fakturace", icon: CreditCard }],
+  },
+  {
+    title: "Záznamy",
+    items: [
       { key: "audit", label: "Historie změn", icon: History, feature: "audit_log" as FeatureKey },
+      { key: "zaznamy-emaily", label: "Doručení e-mailů", icon: Inbox },
     ],
   },
 ];
+
+/** Zamčená položka menu: klik místo navigace na prázdnou zamčenou stránku otevře rovnou vysvětlení + odkaz na tarify. */
+function LockedNavPopover({ label, feature }: { label: string; feature?: FeatureKey }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded py-2 pl-3 pr-3 text-sm text-ink transition-colors hover:bg-paper"
+      >
+        <span className="flex items-center gap-2.5">
+          <Lock size={14} strokeWidth={2} className="text-muted" />
+          {label}
+        </span>
+      </button>
+      {open && feature && (
+        <div role="dialog" className="absolute left-0 top-full z-30 mt-1 w-64 rounded-lg border border-line bg-white p-3 text-left shadow-[0_8px_30px_rgba(22,35,59,0.16)]">
+          <div className="text-sm font-medium">{FEATURE_LABELS[feature]}</div>
+          <p className="mt-1 text-xs text-muted">{unlockHint(feature)}</p>
+          <Link
+            href="/admin/settings?sekce=billing"
+            onClick={() => setOpen(false)}
+            className="mt-2 inline-block text-xs font-medium text-teal-dark underline underline-offset-2"
+          >
+            Zobrazit tarify a doplňky
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function NavLink({
   href,
@@ -72,6 +141,7 @@ function NavLink({
   tourId,
   indent,
   locked,
+  feature,
   trailing,
 }: {
   href: string;
@@ -81,11 +151,13 @@ function NavLink({
   active: boolean;
   tourId?: string;
   indent?: boolean;
-  /** Funkce není v tarifu — položka zůstane, ale ukáže zámek a stránka vysvětlí, co odemkne. */
+  /** Funkce není v tarifu — místo odkazu na prázdnou zamčenou stránku rovnou vysvětlí, co odemkne (viz LockedNavPopover). */
   locked?: boolean;
+  feature?: FeatureKey;
   /** Doplněk na konci řádku (např. odznáček klávesové zkratky). */
   trailing?: React.ReactNode;
 }) {
+  if (locked) return <LockedNavPopover label={label} feature={feature} />;
   return (
     <Link
       href={href}
@@ -100,7 +172,6 @@ function NavLink({
         <Icon size={17} strokeWidth={2} />
         {label}
       </span>
-      {locked && <Lock size={12} className="text-muted" aria-label="Není v tarifu" />}
       {trailing}
       {!!badge && (
         <span className="rounded-full bg-warning px-1.5 py-0.5 text-[11px] font-semibold text-white leading-none">
@@ -224,7 +295,10 @@ export function Sidebar() {
               {isAdmin ? "Administrace" : profile.staff_role === "hr" ? "HR" : "Mzdy"}
             </div>
             <div className="space-y-1">
-              {adminNav.filter((item) => item.href !== "/admin/insights" || canSeeInsights(profile)).map((item) => (
+              {adminNav
+                .filter((item) => item.href !== "/admin/insights" || canSeeInsights(profile))
+                .filter((item) => item.href !== "/admin/overview" || canSeeAnalytics(profile))
+                .map((item) => (
                 <NavLink key={item.href} {...item} active={pathname === item.href} locked={isLocked((item as { feature?: FeatureKey }).feature)} />
               ))}
               {/* HR vidí Zaměstnance i mimo sekci Manažer (nemá Ke schválení, tam se neschvaluje) — smí za celou firmu, viz fetchDecisionScope. */}
@@ -245,22 +319,39 @@ export function Sidebar() {
             </button>
             )}
             {canSeeSettings(profile) && (settingsOpen || settingsSection !== null) && (
-              <div id="sidebar-settings" className="ml-[22px] mt-0.5 space-y-0.5 border-l-2 border-line pl-2">
-                {settingsGroups
-                  .flatMap((g) => g.items)
-                  .filter((i) => allowedSettingsSections(profile).includes(i.key))
-                  .map((i) => (
-                    <NavLink
-                      key={i.key}
-                      href={`/admin/settings?sekce=${i.key}`}
-                      label={i.label}
-                      icon={i.icon}
-                      indent
-                      active={settingsSection === i.key}
-                      tourId={i.key === "users" ? "nav-admin-settings" : undefined}
-                      locked={isLocked((i as { feature?: FeatureKey }).feature)}
-                    />
-                  ))}
+              <div id="sidebar-settings" className="ml-[22px] mt-0.5 space-y-2 border-l-2 border-line pl-2">
+                {isAdmin && (
+                  <div className="space-y-0.5">
+                    <NavLink href="/admin/settings?sekce=prehled" label="Přehled" icon={ListChecks} indent active={settingsSection === "prehled"} />
+                  </div>
+                )}
+                {settingsGroups.map((g) => {
+                  const items = g.items.filter((i) => allowedSettingsSections(profile).includes(i.key));
+                  if (items.length === 0) return null;
+                  // HR má jen pár položek napříč skupinami — nadpisy skupin by byly skoro samé jednořádkové
+                  // skupiny, víc šumu než pomoci. Admin vidí plnou strukturu.
+                  const showGroupTitle = isAdmin;
+                  return (
+                    <div key={g.title}>
+                      {showGroupTitle && <div className="px-3 pb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted/70">{g.title}</div>}
+                      <div className="space-y-0.5">
+                        {items.map((i) => (
+                          <NavLink
+                            key={i.key}
+                            href={`/admin/settings?sekce=${i.key}`}
+                            label={i.label}
+                            icon={i.icon}
+                            indent
+                            active={settingsSection === i.key}
+                            tourId={i.key === "users" ? "nav-admin-settings" : undefined}
+                            locked={isLocked((i as { feature?: FeatureKey }).feature)}
+                            feature={(i as { feature?: FeatureKey }).feature}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { DbProfile } from "@/lib/supabase/types";
 import { createLeaveRequest } from "@/lib/data";
-import { hasOtherApprover } from "@/lib/approval-checks";
+import { hasApproverAbove } from "@/lib/approval-checks";
 import { flushIntegrations } from "@/lib/integrations-client";
 
 /**
@@ -56,12 +56,12 @@ export async function deleteLeavePlan(id: string) {
 
 /**
  * "Podat žádost" u návrhu: založí skutečnou žádost (stejná logika automatického schválení jako v
- * RequestLeaveModal — jediný schvalovatel firmy nebo typ bez nutnosti schválení / pod limitem se schválí
- * rovnou) a návrh smaže. Dvěma kroky, ne přepnutím stavu návrhu — leave_requests má vlastní INSERT trigger
- * (upozornění schvalovateli); díky novému řádku ho spustí přesně tak, jako by šlo o čerstvě podanou žádost.
+ * RequestLeaveModal — admin bez nadřízeného/vedoucího oddělení nebo typ bez nutnosti schválení / pod limitem
+ * se schválí rovnou) a návrh smaže. Dvěma kroky, ne přepnutím stavu návrhu — leave_requests má vlastní INSERT
+ * trigger (upozornění schvalovateli); díky novému řádku ho spustí přesně tak, jako by šlo o čerstvě podanou žádost.
  */
 export async function submitLeavePlan(plan: LeavePlan, profile: DbProfile): Promise<"approved" | "pending"> {
-  const topApprover = profile.role === "admin" && !(await hasOtherApprover(profile.company_id, profile.id));
+  const topApprover = profile.role === "admin" && !(await hasApproverAbove(profile.id));
   const autoApproved =
     topApprover || plan.leave_type.requires_approval === false || (plan.leave_type.auto_approve_max_days != null && plan.working_days <= Number(plan.leave_type.auto_approve_max_days));
 

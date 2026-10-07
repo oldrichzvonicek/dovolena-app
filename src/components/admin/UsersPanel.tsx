@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useFeatures } from "@/lib/use-features";
-import { Link2, Pencil, Search, Trash2, Upload, UserCheck, UserX, Users, X } from "lucide-react";
+import { AlertTriangle, Link2, Pencil, Search, Trash2, Upload, UserCheck, UserX, Users, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { InviteBox } from "@/components/shared/InviteBox";
 import { InviteUserModal } from "@/components/admin/InviteUserModal";
@@ -36,8 +36,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { DbDepartment, DbLeaveType, Role } from "@/lib/supabase/types";
-import { errorMessage } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/skeleton";
+import { RowMenu } from "@/components/ui/row-menu";
 import { isHr } from "@/lib/access";
 
 const roleLabel: Record<Role, string> = {
@@ -79,6 +80,7 @@ export function UsersPanel() {
   const [bulkTarget, setBulkTarget] = useState("");
   const [bulkSick, setBulkSick] = useState("");
   const [onlyNoApprover, setOnlyNoApprover] = useState(false);
+  const [onlyNoPersonalNumber, setOnlyNoPersonalNumber] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [autoApplied, setAutoApplied] = useState(false);
   // Z karty "Začínáme": rovnou vyfiltruje a vybere lidi bez schvalovatele, ať je jasné, na koho kliknout a co dál.
@@ -149,6 +151,9 @@ export function UsersPanel() {
     return ids;
   }, [employees, departments]);
   const pendingJoiners = useMemo(() => employees.filter((e) => e.join_pending && e.active === false), [employees]);
+  // Osobní číslo se hodí do mzdových podkladů (Exporty) — ne každý ho ale má vyplněné; admin chce rychle najít,
+  // komu chybí, ne procházet celý seznam.
+  const noPersonalNumberIds = useMemo(() => new Set(employees.filter((e) => e.active !== false && !e.join_pending && !e.personal_number?.trim()).map((e) => e.id)), [employees]);
 
   useEffect(() => {
     if (!autoApprover || autoApplied || loading) return;
@@ -164,10 +169,11 @@ export function UsersPanel() {
       if (departmentFilter !== "all" && r.department_id !== departmentFilter) return false;
       if (roleFilter !== "all" && r.role !== roleFilter) return false;
       if (onlyNoApprover && !(r.status === "active" && noApproverIds.has(r.id))) return false;
+      if (onlyNoPersonalNumber && !(r.status === "active" && noPersonalNumberIds.has(r.id))) return false;
       if (q && !r.name.toLowerCase().includes(q) && !(r.email ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [rows, search, departmentFilter, roleFilter, onlyNoApprover, noApproverIds]);
+  }, [rows, search, departmentFilter, roleFilter, onlyNoApprover, noApproverIds, onlyNoPersonalNumber, noPersonalNumberIds]);
 
   const selectableIds = useMemo(() => filteredRows.filter((r) => r.status === "active" && r.employee.active !== false).map((r) => r.id), [filteredRows]);
 
@@ -446,7 +452,13 @@ export function UsersPanel() {
             ))}
           </SelectContent>
         </Select>
-        <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-muted">
+        {noPersonalNumberIds.size > 0 && (
+          <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-muted">
+            <input type="checkbox" checked={onlyNoPersonalNumber} onChange={(e) => setOnlyNoPersonalNumber(e.target.checked)} className="h-3.5 w-3.5" />
+            Bez osobního čísla ({noPersonalNumberIds.size})
+          </label>
+        )}
+        <label className={cn("flex cursor-pointer items-center gap-2 text-sm text-muted", noPersonalNumberIds.size === 0 && "ml-auto")}>
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="h-3.5 w-3.5" />
           Zobrazit deaktivované
         </label>
@@ -559,6 +571,7 @@ export function UsersPanel() {
                 <th className="px-3 py-3 font-medium">E-mail</th>
                 <th className="px-3 py-3 font-medium">Role</th>
                 <th className="px-3 py-3 font-medium">Oddělení</th>
+                <th className="px-3 py-3 font-medium">Schvaluje</th>
                 <th className="px-3 py-3 font-medium">Stav</th>
                 <th className="w-10 px-3 py-3" />
               </tr>
@@ -582,11 +595,32 @@ export function UsersPanel() {
                     <td className="px-3 py-3 text-muted">{r.email ?? "—"}</td>
                     <td className="px-3 py-3 text-muted" data-label="Role">
                       {roleLabel[r.role]}
-                      {r.status === "active" && r.employee.staff_role && (
-                        <span className="ml-1.5 rounded-sm bg-violet-light px-1.5 py-0.5 text-[11px] font-medium text-violet-dark">{r.employee.staff_role === "hr" ? "HR" : "Účetní"}</span>
-                      )}
+                      {(() => {
+                        const staffRole = r.status === "active" ? r.employee.staff_role : r.invite.staff_role;
+                        return (
+                          staffRole && <span className="ml-1.5 rounded-sm bg-violet-light px-1.5 py-0.5 text-[11px] font-medium text-violet-dark">{staffRole === "hr" ? "HR" : "Účetní"}</span>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-3 text-muted" data-label="Oddělení">{dept?.name ?? "—"}</td>
+                    <td className="px-3 py-3" data-label="Schvaluje">
+                      {r.status === "active" && r.employee.active !== false && r.employee.role !== "admin" ? (
+                        (() => {
+                          const mgr = r.employee.manager_id ? employees.find((e) => e.id === r.employee.manager_id) : null;
+                          const headId = dept?.head_profile_id;
+                          const head = !mgr && headId ? employees.find((e) => e.id === headId) : null;
+                          if (mgr) return <span className="text-muted">{mgr.name}</span>;
+                          if (head) return <span className="text-muted">{head.name} (vedoucí)</span>;
+                          return (
+                            <span className="flex items-center gap-1 text-xs font-medium text-warning-dark" title="Nemá nadřízeného ani vedoucího oddělení — žádosti řeší admin.">
+                              <AlertTriangle size={11} /> Admin (záložní)
+                            </span>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-3">
                       {r.status === "active" && r.employee.join_pending && r.employee.active === false ? (
                         <span className="inline-flex items-center gap-1.5 rounded-sm bg-warning-light px-2 py-0.5 text-xs font-medium text-warning-dark">
@@ -636,35 +670,20 @@ export function UsersPanel() {
                           >
                             <Pencil size={12} /> Upravit
                           </button>
-                          {canManagePeople && r.id !== profile?.id && r.employee.active !== false && (
-                            <button
-                              onClick={() => handleToggleActive(r, false)}
-                              disabled={deletingId === r.id}
-                              className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-warning/50 hover:bg-warning-light hover:text-warning-dark disabled:opacity-50"
-                            >
-                              <UserX size={12} /> Deaktivovat
-                            </button>
-                          )}
-                          {canManagePeople && r.id !== profile?.id && r.employee.active === false && (
-                            <button
-                              onClick={() => handleToggleActive(r, true)}
-                              disabled={deletingId === r.id}
-                              className="flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-muted hover:border-teal/40 hover:bg-teal-light hover:text-teal-dark disabled:opacity-50"
-                            >
-                              <UserCheck size={12} /> Aktivovat
-                            </button>
-                          )}
-                          {isAdmin && r.id !== profile?.id && r.employee.active === false && (
-                            <button
-                              onClick={() => handleDeleteEmployee(r)}
-                              disabled={deletingId === r.id}
-                              className="rounded border border-line p-1.5 text-muted hover:border-danger/40 hover:bg-danger-light hover:text-danger disabled:opacity-50"
-                              aria-label={`Trvale smazat ${r.name}`}
-                              title="Trvale smazat včetně historie"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
+                          <RowMenu
+                            label={`Další akce — ${r.name}`}
+                            items={[
+                              ...(canManagePeople && r.id !== profile?.id && r.employee.active !== false
+                                ? [{ label: "Deaktivovat", icon: <UserX size={14} />, onSelect: () => handleToggleActive(r, false), disabled: deletingId === r.id }]
+                                : []),
+                              ...(canManagePeople && r.id !== profile?.id && r.employee.active === false
+                                ? [{ label: "Aktivovat", icon: <UserCheck size={14} />, onSelect: () => handleToggleActive(r, true), disabled: deletingId === r.id }]
+                                : []),
+                              ...(isAdmin && r.id !== profile?.id && r.employee.active === false
+                                ? [{ label: "Trvale smazat", icon: <Trash2 size={14} />, onSelect: () => handleDeleteEmployee(r), disabled: deletingId === r.id, danger: true }]
+                                : []),
+                            ]}
+                          />
                         </div>
                       ) : (
                         <button

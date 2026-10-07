@@ -14,7 +14,7 @@ import { DbBlackoutPeriod, DbCompany, DbLeaveType, DbProfile } from "@/lib/supab
 import { createLeaveRequest, fetchMaskedAbsences, updateLeaveRequest } from "@/lib/data";
 import { fetchBlackoutPeriods, fetchCompany } from "@/lib/admin-data";
 import { cn, errorMessage, formatNumber } from "@/lib/utils";
-import { hasOtherApprover } from "@/lib/approval-checks";
+import { hasApproverAbove } from "@/lib/approval-checks";
 import { loadBalances, remainingOf } from "@/lib/balances";
 import { reducesPresence } from "@/lib/leave-kinds";
 
@@ -62,6 +62,8 @@ interface RequestLeaveModalProps {
   editingRequest?: EditingRequest;
   initialDates?: { start: string; end: string };
   prefill?: PrefillRequest;
+  /** Přebije výchozí nadpis dialogu — např. "Upravit a znovu odeslat ke schválení" pro úpravu schválené žádosti (ta vždy zakládá novou, viz PrefillRequest). */
+  heading?: string;
 }
 
 export function RequestLeaveModal({
@@ -72,6 +74,7 @@ export function RequestLeaveModal({
   editingRequest,
   initialDates,
   prefill,
+  heading,
 }: RequestLeaveModalProps) {
   const { profile } = useAuth();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -105,8 +108,15 @@ export function RequestLeaveModal({
 
   const selectedType = leaveTypes.find((t) => t.id === typeId);
   const privateType = !!selectedType && (selectedType.counts_against === "sick" || selectedType.hide_from_colleagues);
-  // Stejné pravidlo jako v databázi: dvě nepřítomnosti se nesmí krýt (výjimka: dva půldny, a práce jako Home Office).
-  const blockingOverlap = ownOverlap.filter((o) => !selectedType?.counts_as_present && !o.present && !(o.half_day && durationMode === "half"));
+  // Celodenní absence se nesmí krýt s ničím, včetně dne, kdy má člověk už schválenou práci z domu (nejde být
+  // zároveň na dovolené a pracovat). Půlden/hodiny s existující prací z domu kolidovat nemusí (dovolená
+  // dopoledne, home office odpoledne) — a dva půldny se smí sejít v jednom dni.
+  const blockingOverlap = ownOverlap.filter((o) => {
+    if (selectedType?.counts_as_present) return false;
+    if (o.half_day && durationMode === "half") return false;
+    if (o.present && durationMode !== "full") return false;
+    return true;
+  });
 
   useEffect(() => {
     if (!open || !profile) return;
@@ -224,7 +234,12 @@ export function RequestLeaveModal({
     const cat = type.counts_against;
     (async () => {
       const balances = await loadBalances(profile.company_id, { profileId: profile.id, excludeRequestId: isEditing ? editingRequest!.id : undefined });
-      setRemainingForType(remainingOf(balances.get(profile.id, cat)));
+      const bal = balances.get(profile.id, cat);
+      // Vlastní soukromé návrhy (leave_plans) se nepočítají do "zbývá" na nástěnce — dokud je nikdo nepodá,
+      // dny ještě nejsou pryč (viz remainingOf). Tady ale varujeme PŘED odesláním nové žádosti, takže je
+      // bezpečnější počítat i s tím, co si člověk sám už naplánoval, ať ho formulář nepustí do většího mínusu,
+      // než čeká.
+      setRemainingForType(remainingOf(bal) - bal.planned);
     })();
   }, [profile, open, typeId, leaveTypes, isEditing, editingRequest]);
 
@@ -264,8 +279,8 @@ export function RequestLeaveModal({
       const after = remainingForType - workingDays;
       if (after < 0 && (!company.allow_negative_balance || after < -company.max_negative_balance_days)) {
         return company.allow_negative_balance
-          ? `Tato žádost by srazila zůstatek na ${after} dní — maximální povolený mínus je ${company.max_negative_balance_days} dní.`
-          : `Na tuto absenci nemáte dostatečný zůstatek (zbývá ${remainingForType} dní).`;
+          ? `Tato žádost by srazila zůstatek na ${formatNumber(after)} dní — maximální povolený mínus je ${formatNumber(company.max_negative_balance_days)} dní.`
+          : `Na tuto absenci nemáte dostatečný zůstatek (zbývá ${formatNumber(remainingForType)} dní).`;
       }
     }
 
@@ -330,16 +345,10 @@ export function RequestLeaveModal({
         ...((data as unknown as { profile_id: string; leave_type: { key: string } | null; profile: { id: string; name: string } | null }[]) ?? []),
         ...hidden,
       ].filter((r) => reducesPresence(r.leave_type?.key) && reducesPresence(selectedType?.key));
-      if (rows.length === 0) {
-        setConflict(null);
-        return;
-      }
       const teamMateIds = new Set(team.colleagues.map((c) => c.id));
       const teamOverlap = rows.filter((r) => teamMateIds.has(r.profile_id));
-      if (teamOverlap.length === 0) {
-        setConflict(null);
-        return;
-      }
+      // Vždy nastavit (i na 0) — stejně jako na nástěnce ("v týmu bude chybět 0 z 8"), ať je rovnou vidět,
+      // že se to spočítalo a nikdo nechybí, místo aby indikátor jen tiše zmizel.
       setConflict({
         // Only team members, matching teamCount/teamSize below — showing
         // company-wide names here (unrelated headcount) is what produced
@@ -370,8 +379,9 @@ export function RequestLeaveModal({
         start_time: durationMode === "hours" ? hoursStart : null,
         end_time: durationMode === "hours" ? hoursEnd : null,
       };
-      // Admin, nad kterým nikdo není (jediný schvalovatel ve firmě), si žádost schvaluje automaticky; jinak by čekala sama na sebe.
-      const topApprover = !isEditing && profile.role === "admin" && !(await hasOtherApprover(profile.company_id, profile.id));
+      // Admin, nad kterým nikdo není (žádný nadřízený ani vedoucí/zástupce jeho oddělení), si žádost schvaluje
+      // automaticky; jinak by čekala věčně, protože nikdo nemá právo o ní rozhodnout (viz approval-checks.ts).
+      const topApprover = !isEditing && profile.role === "admin" && !(await hasApproverAbove(profile.id));
       const autoApproved =
         topApprover ||
         selectedType?.requires_approval === false ||
@@ -404,7 +414,7 @@ export function RequestLeaveModal({
 
   const dialog = (
     <DialogContent
-      title={isEditing ? "Upravit žádost o absenci" : "Nová žádost o absenci"}
+      title={heading ?? (isEditing ? "Upravit žádost o absenci" : "Nová žádost o absenci")}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setOpen(false)}>
@@ -446,7 +456,7 @@ export function RequestLeaveModal({
           </Select>
         </div>
 
-        {startDate === endDate && (selectedType?.allow_half_day !== false || selectedType?.allow_hours !== false) && (
+        {(selectedType?.allow_half_day !== false || selectedType?.allow_hours !== false) && (
           <div>
             <label className="mb-1.5 block text-sm font-medium">Délka trvání</label>
             <div className="flex gap-1 rounded border border-line p-1 text-sm">
@@ -459,7 +469,13 @@ export function RequestLeaveModal({
               {selectedType?.allow_half_day !== false && (
                 <button
                   onClick={() => setDurationMode("half")}
-                  className={`flex-1 rounded px-3 py-1.5 ${durationMode === "half" ? "bg-teal text-white" : "text-muted"}`}
+                  disabled={startDate !== endDate}
+                  title={startDate !== endDate ? "Jen pro jeden den — nejdřív zadejte stejné datum Od i Do." : undefined}
+                  className={cn(
+                    "flex-1 rounded px-3 py-1.5",
+                    durationMode === "half" ? "bg-teal text-white" : "text-muted",
+                    startDate !== endDate && "cursor-not-allowed opacity-40"
+                  )}
                 >
                   Půlden
                 </button>
@@ -467,13 +483,19 @@ export function RequestLeaveModal({
               {selectedType?.allow_hours !== false && (
                 <button
                   onClick={() => setDurationMode("hours")}
-                  className={`flex-1 rounded px-3 py-1.5 ${durationMode === "hours" ? "bg-teal text-white" : "text-muted"}`}
+                  disabled={startDate !== endDate}
+                  title={startDate !== endDate ? "Jen pro jeden den — nejdřív zadejte stejné datum Od i Do." : undefined}
+                  className={cn(
+                    "flex-1 rounded px-3 py-1.5",
+                    durationMode === "hours" ? "bg-teal text-white" : "text-muted",
+                    startDate !== endDate && "cursor-not-allowed opacity-40"
+                  )}
                 >
                   Hodiny
                 </button>
               )}
             </div>
-            {durationMode === "hours" && (
+            {durationMode === "hours" && startDate === endDate && (
               <div className="mt-2 space-y-1.5 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-muted">Od</span>
@@ -497,8 +519,8 @@ export function RequestLeaveModal({
                   {hoursValue <= 0
                     ? "Konec musí být později než začátek."
                     : hoursValue > dailyHours
-                      ? `${formatNumber(hoursValue)} h přesahuje standardní úvazek (${dailyHours} h/den) — zkontrolujte časy.`
-                      : `${formatNumber(hoursValue)} hodin (ze standardního úvazku ${dailyHours} h/den)`}
+                      ? `${formatNumber(hoursValue)} h přesahuje standardní úvazek (${formatNumber(dailyHours)} h/den) — zkontrolujte časy.`
+                      : `${formatNumber(hoursValue)} hodin (ze standardního úvazku ${formatNumber(dailyHours)} h/den)`}
                 </p>
               </div>
             )}
@@ -552,8 +574,15 @@ export function RequestLeaveModal({
         )}
 
         <div className="rounded bg-paper px-3 py-2 text-sm text-ink">
-          Celkem: <span className="font-medium">{workingDaysPhrase(workingDays)}</span>{" "}
-          <span className="text-muted">— víkendy a státní svátky odečteny automaticky</span>
+          Celkem: <span className="font-medium">{workingDaysPhrase(workingDays)}</span>
+          {remainingForType !== null && (
+            <>
+              {" "}
+              <span className="text-muted">
+                · Zbude vám {formatNumber(remainingForType - workingDays)} {dayWord(remainingForType - workingDays)}
+              </span>
+            </>
+          )}
         </div>
 
         {blockingOverlap.length > 0 && (
@@ -592,18 +621,22 @@ export function RequestLeaveModal({
                   <strong>{o.label}</strong> {formatRange(o.start_date, o.end_date)} ({o.status === "approved" ? "schváleno" : "čeká na schválení"})
                 </span>
               ))}
-              . Půldny se mohou sejít v jednom dni a práce z domu se s absencí nevylučuje.
+              . Půldny se mohou sejít v jednom dni a půlden nebo pár hodin absence nevylučuje práci z domu ve zbytku dne.
             </span>
           </div>
         )}
 
-        {conflict && conflict.teamCount > 0 && (
+        {conflict && conflict.teamSize > 0 && (
           // Kompaktní řádek, ne celý alert box — tohle je jen kontext k rozhodnutí, ne blokující chyba,
-          // a se dvěma dalšími boxy (kolize, blokovaný termín) už by upozornění bylo příliš mnoho.
-          <p className="flex items-center gap-1.5 text-xs text-warning-dark" title={`${conflict.names.slice(0, 3).join(", ")}${conflict.names.length > 3 ? " a další" : ""}`}>
-            <AlertTriangle size={13} className="shrink-0" />
-            Ve stejném termínu chybí {conflict.teamCount} z {conflict.teamSize} členů týmu: {conflict.names.slice(0, 3).join(", ")}
-            {conflict.names.length > 3 ? " a další" : ""}.
+          // a se dvěma dalšími boxy (kolize, blokovaný termín) už by upozornění bylo příliš mnoho. Zobrazuje
+          // se vždy (i na "chybí 0"), stejně jako na nástěnce — ať je vidět, že se to spočítalo.
+          <p
+            className={cn("flex items-center gap-1.5 text-xs", conflict.teamCount > 0 ? "text-warning-dark" : "text-muted")}
+            title={conflict.teamCount > 0 ? `${conflict.names.slice(0, 3).join(", ")}${conflict.names.length > 3 ? " a další" : ""}` : undefined}
+          >
+            {conflict.teamCount > 0 && <AlertTriangle size={13} className="shrink-0" />}
+            Ve stejném termínu bude chybět {conflict.teamCount} z {conflict.teamSize} členů týmu
+            {conflict.teamCount > 0 && <>: {conflict.names.slice(0, 3).join(", ")}{conflict.names.length > 3 ? " a další" : ""}</>}.
           </p>
         )}
 

@@ -8,11 +8,13 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   AdminEmployeeRow,
   EntitlementMap,
   previewProratedVacation,
   updateEmployeeDepartment,
+  updateEmployeeExternal,
   updateEmployeeHireDate,
   updateEmployeeHrData,
   updateEmployeeManager,
@@ -54,6 +56,7 @@ export function EditEmployeeModal({
   const [role, setRole] = useState<Role>(employee.role);
   const features = useFeatures();
   const [staffRole, setStaffRole] = useState<string>(employee.staff_role ?? "none");
+  const [isExternal, setIsExternal] = useState(employee.is_external ?? false);
   const [departmentId, setDepartmentId] = useState(employee.department_id ?? "none");
   const [managerId, setManagerId] = useState(employee.manager_id ?? "none");
   const [substituteId, setSubstituteId] = useState(employee.substitute_id ?? "none");
@@ -92,10 +95,11 @@ export function EditEmployeeModal({
       await Promise.all([
         role !== employee.role ? updateEmployeeRole(employee.id, role) : null,
         staffRole !== (employee.staff_role ?? "none") ? updateEmployeeStaffRole(employee.id, staffRole === "none" ? null : (staffRole as "hr" | "accountant")) : null,
-        departmentId !== (employee.department_id ?? "none")
+        isExternal !== (employee.is_external ?? false) ? updateEmployeeExternal(employee.id, isExternal) : null,
+        !isExternal && departmentId !== (employee.department_id ?? "none")
           ? updateEmployeeDepartment(employee.id, departmentId === "none" ? null : departmentId)
           : null,
-        managerId !== (employee.manager_id ?? "none") ? updateEmployeeManager(employee.id, managerId === "none" ? null : managerId) : null,
+        !isExternal && managerId !== (employee.manager_id ?? "none") ? updateEmployeeManager(employee.id, managerId === "none" ? null : managerId) : null,
         substituteId !== (employee.substitute_id ?? "none")
           ? updateEmployeeSubstitute(employee.id, substituteId === "none" ? null : substituteId)
           : null,
@@ -156,22 +160,27 @@ export function EditEmployeeModal({
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
-              <Select value={departmentId} onValueChange={setDepartmentId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Bez oddělení</SelectItem>
-                  {departments.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isExternal ? (
+                <p className="rounded border border-line bg-paper px-3 py-2 text-sm text-muted">Externí — bez oddělení.</p>
+              ) : (
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Bez oddělení</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
+          {!isExternal && (
           <div className="contents">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Nadřízený</label>
@@ -215,6 +224,7 @@ export function EditEmployeeModal({
               </Select>
             </div>
           </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Doplňková role</label>
@@ -262,6 +272,16 @@ export function EditEmployeeModal({
               </div>
             </details>
           </div>
+
+          {staffRole !== "none" && (
+            <label className="flex cursor-pointer items-center justify-between gap-2 rounded border border-line px-3 py-2 text-sm">
+              <span>
+                Externí
+                <span className="block text-xs font-normal text-muted">Dodavatel, ne zaměstnanec firmy — bez oddělení, nadřízeného a nároku na dovolenou v této firmě.</span>
+              </span>
+              <Switch checked={isExternal} onCheckedChange={setIsExternal} disabled={!isAdmin} />
+            </label>
+          )}
 
           <div>
             <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">

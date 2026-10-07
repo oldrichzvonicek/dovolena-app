@@ -21,12 +21,14 @@ interface Tip extends BridgeSuggestion {
 
 // Horizont je 365 dní dopředu, takže návrh může spadat i do příštího roku — bez roku v popisku pak den v týdnu
 // "nesedí" k datu, jak ho čtenář zná z letoška (např. "pon 27. 9." vypadalo jako letošní neděle 27. 9.).
+// Zkratka dne "EEEEEE" (Po, Út…), ne "EEE" (pon, úte…) — stejný formát jako jinde v appce (Týmový kalendář).
 const fmt = (iso: string) => {
   const d = parseISO(iso);
   const otherYear = d.getFullYear() !== new Date().getFullYear();
-  return format(d, otherYear ? "EEE d. M. yyyy" : "EEE d. M.", { locale: cs });
+  const s = format(d, otherYear ? "EEEEEE d. M. yyyy" : "EEEEEE d. M.", { locale: cs });
+  return s.charAt(0).toUpperCase() + s.slice(1);
 };
-const VISIBLE_DEFAULT = 5;
+const VISIBLE_DEFAULT = 3;
 
 /**
  * "Chytré návrhy dovolené": kdy stačí pár dní dovolené k souvislému volnu 4+ dní (svátky), s ohledem na vytížení
@@ -130,7 +132,19 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
   // se stránka nikdy nedostala do "hidden" stavu), poslední den návrhu, který už uplynul, se prostě
   // nezobrazí — bez toho hlásila appka termín, který už je pryč.
   const todayNow = format(new Date(), "yyyy-MM-dd");
-  const fresh = tips.filter((t) => t.take[t.take.length - 1] >= todayNow);
+  // Dva termíny kolem stejného svátku (den před / den po) se v seznamu nabídnou oba, ale ten druhý jen až
+  // za prvním výskytem každého svátku — jinak by jeden svátek zabral oba ze dvou/tří zobrazených míst.
+  const seenHolidays = new Set<string>();
+  const firstPerHoliday: Tip[] = [];
+  const repeats: Tip[] = [];
+  for (const t of tips.filter((t) => t.take[t.take.length - 1] >= todayNow)) {
+    if (t.holiday && seenHolidays.has(t.holiday)) repeats.push(t);
+    else {
+      if (t.holiday) seenHolidays.add(t.holiday);
+      firstPerHoliday.push(t);
+    }
+  }
+  const fresh = [...firstPerHoliday, ...repeats];
   const shown = fresh.slice(0, visible);
 
   return (
@@ -139,7 +153,12 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
         <CalendarHeart size={18} className="text-teal-dark" /> Chytré návrhy dovolené
       </div>
       <p className="mt-0.5 text-xs text-muted">
-        S málem dní dovolené si prodloužíte volno kolem svátků. Zbývá vám {remaining !== null ? `${formatNumber(remaining)} ${dayWord(remaining)}` : "—"}.
+        {/* "S málem dní..." předpokládá nedostatek — při 26 zbývajících dnech to působí divně. Pod 10 dní je
+            to naopak přesně ta situace, na kterou chytré návrhy cílí nejvíc, tam zůstává. */}
+        {remaining !== null && remaining < 10
+          ? "S málem dní dovolené si prodloužíte volno kolem svátků."
+          : "Pár dní dovolené kolem svátků vám protáhne volno nejvíc."}{" "}
+        Zbývá vám {remaining !== null ? `${formatNumber(remaining)} ${dayWord(remaining)}` : "—"}.
       </p>
       <ul className="mt-3 divide-y divide-line">
         {shown.map((t) => (
@@ -147,7 +166,9 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">
                 Vezměte si {t.take.length} {t.take.length === 1 ? "den" : "dny"} ({t.take.length === 1 ? fmt(t.take[0]) : `${fmt(t.take[0])} – ${fmt(t.take[t.take.length - 1])}`}) a budete mít{" "}
-                <span className="text-teal-dark">{t.offDays} dní volna v kuse</span>
+                <span className="text-teal-dark">
+                  {t.offDays} {dayWord(t.offDays)} volna v kuse
+                </span>
               </div>
               <div className="text-xs text-muted">
                 {fmt(t.offStart)} – {fmt(t.offEnd)}

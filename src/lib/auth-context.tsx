@@ -55,9 +55,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabase]
   );
 
+  // Asks Supabase for the CURRENT session instead of closing over the `session` state: a caller that just
+  // signed in (signInWithPassword/signUp) and immediately awaits refreshProfile() can easily run before this
+  // provider's own onAuthStateChange listener has committed the new session to state — with the state value,
+  // that stale closure silently sees session=null and skips loadProfile entirely, leaving the user stuck on
+  // "Připravuji účet…" even though the profile was just created server-side (only a manual page reload, which
+  // re-reads the session from scratch, would recover).
   const refreshProfile = useCallback(async () => {
-    if (session?.user.id) await loadProfile(session.user.id);
-  }, [session, loadProfile]);
+    const { data } = await supabase.auth.getSession();
+    if (data.session) setSession(data.session);
+    if (data.session?.user.id) await loadProfile(data.session.user.id);
+  }, [supabase, loadProfile]);
 
   useEffect(() => {
     // Ceník (tabulka plans) je veřejný a mění ho provozovatel; načte se dřív, než se cokoli vykreslí. Chyba = platí ceny ze souboru plans.ts.

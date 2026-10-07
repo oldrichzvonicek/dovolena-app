@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { addDays, format } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCron } from "@/lib/email";
+import { carryoverExpiryWarning, weeklyDigestIntro } from "@/lib/czech";
+import { computeBalance, dayAfterExpiry, type EntRow, type ReqRow } from "@/lib/balances";
 import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
 import { DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
 import { hasFeature } from "@/lib/plans";
@@ -14,7 +16,8 @@ const iso = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: "Europe/Pragu
 /**
  * Daily job: (1) escalates pending requests whose approver is away or that waited longer than
  * approval_reminder_hours to the department deputy (or company admins), (2) on Mondays queues a
- * weekly digest e-mail for managers/admins. Both only create rows — sending is done by /api/cron/process.
+ * weekly digest e-mail for managers/admins, (3) warns employees 30 and 7 days before their carried-over
+ * vacation is about to be forfeited. All only create rows — sending is done by /api/cron/process.
  */
 export async function GET(req: Request) {
   if (!isAuthorizedCron(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -24,8 +27,13 @@ export async function GET(req: Request) {
   const today = iso(now);
   let escalated = 0;
   let digests = 0;
+  let carryoverWarnings = 0;
 
-  const { data: companies } = await supabase.from("companies").select("id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, plan, addons, pending_plan, pending_plan_from, pending_plan_notified");
+  const { data: companies } = await supabase
+    .from("companies")
+    .select(
+      "id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, plan, addons, pending_plan, pending_plan_from, pending_plan_notified, max_carryover_days, carryover_expiry_md"
+    );
 
   // Naplánované změny tarifu: provést ty, kterým nastal den účinnosti (databázová funkce; chyba se ignoruje, dokud není nasazená).
   const applied = await supabase.rpc("apply_scheduled_plan_changes");
@@ -49,7 +57,7 @@ export async function GET(req: Request) {
 
   for (const company of companies ?? []) {
     const [{ data: profiles }, { data: depts }, { data: pending }, { data: away }] = await Promise.all([
-      supabase.from("profiles").select("id, name, email, role, staff_role, department_id, manager_id, email_notifications").eq("company_id", company.id).eq("active", true),
+      supabase.from("profiles").select("id, name, email, role, staff_role, department_id, manager_id, email_notifications, join_pending").eq("company_id", company.id).eq("active", true),
       supabase.from("departments").select("id, head_profile_id, deputy_head_profile_id").eq("company_id", company.id),
       supabase
         .from("leave_requests")
@@ -149,8 +157,22 @@ export async function GET(req: Request) {
         .gte("end_date", today);
       type W = { start_date: string; end_date: string; profile: { id: string; name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean } | null };
       const weekRows = ((week as unknown as W[]) ?? []).filter((w) => w.profile?.company_id === company.id);
-      const lines = weekRows.slice(0, 12).map((w) => `• ${w.profile!.name} — ${w.leave_type?.hide_from_colleagues ? "Nepřítomen" : w.leave_type?.label} (${formatRange(w.start_date, w.end_date)})`);
+      // Seskupené podle typu absence (Dovolená, Home Office, …), ať je hned vidět, čeho je nejvíc — ne jen
+      // chronologický výpis. Skupiny seřazené podle počtu lidí sestupně.
+      const byType = new Map<string, W[]>();
+      for (const w of weekRows) {
+        const label = w.leave_type?.hide_from_colleagues ? "Nepřítomen" : (w.leave_type?.label ?? "Absence");
+        (byType.get(label) ?? byType.set(label, []).get(label)!).push(w);
+      }
+      const whoText =
+        [...byType.entries()]
+          .sort((a, b) => b[1].length - a[1].length)
+          .map(([label, items]) => `${label}\n\n${items.slice(0, 12).map((w) => `• ${w.profile!.name} — ${formatRange(w.start_date, w.end_date)}`).join("\n")}`)
+          .join("\n\n") || "Tento týden nikdo nechybí.";
       const pendingCount = ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id).length;
+      // Skloňování (chybí 1 člověk / chybějí 3 lidé / chybí 5 lidí; čeká 1 žádost / čekají 2 žádosti) řeší sdílená funkce,
+      // kterou používá i ukázka v Nastavení → E-maily, aby se text e-mailu a jeho náhled nerozešly.
+      const introLine = weeklyDigestIntro(weekRows.length, pendingCount);
 
       // Firma může jednotlivé druhy e-mailů vypnout (Nastavení → E-maily); chybějící hodnota = zapnuto.
       const emailSettings = ((company as { email_settings?: Record<string, boolean> | null }).email_settings ?? {}) as Record<string, boolean>;
@@ -161,7 +183,7 @@ export async function GET(req: Request) {
           category: "weekly_digest",
           to_email: p.email!,
           subject: "Týdenní přehled absencí — Dodio",
-          body: `Dobré ráno ${p.name.split(" ")[0]},\n\ntady je váš týdenní přehled — čeká na vás ${pendingCount} žádostí, absencí tento týden: ${weekRows.length}.\n\n${lines.join("\n") || "Tento týden nikdo nechybí."}`,
+          body: `Dobré ráno ${p.name.split(" ")[0]},\n\n${introLine}\n\n${whoText}`,
         }));
       if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
 
@@ -220,7 +242,59 @@ export async function GET(req: Request) {
       await supabase.from("companies").update({ digest_last_sent: today }).eq("id", company.id);
       digests += rows.length;
     }
+
+    // 3) Carryover expiry warnings — 30 and 7 days before carryover_expiry_md. The exact-day match means this
+    // fires at most once per threshold per year, so no extra "already sent" bookkeeping is needed. Inserting
+    // into `notifications` gives the in-app bell for free and, via the queue_notification_email trigger
+    // (schema.sql), also queues the matching e-mail — respecting both the per-user and per-company opt-outs.
+    if (company.carryover_expiry_md) {
+      const expiryYear = now.getFullYear();
+      const expiryISO = `${expiryYear}-${company.carryover_expiry_md}`;
+      const daysUntil = Math.round((new Date(`${expiryISO}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86400000);
+      const employeeIds = people.filter((p) => !p.join_pending).map((p) => p.id);
+      if ((daysUntil === 30 || daysUntil === 7) && employeeIds.length > 0) {
+        const [{ data: ents }, { data: reqs }] = await Promise.all([
+          supabase
+            .from("leave_entitlements")
+            .select("profile_id, year, total_days, opening_used_days, leave_type:leave_types(counts_against)")
+            .in("profile_id", employeeIds)
+            .in("year", [expiryYear - 1, expiryYear]),
+          supabase
+            .from("leave_requests")
+            .select("id, profile_id, start_date, end_date, working_days, leave_type:leave_types(counts_against)")
+            .in("profile_id", employeeIds)
+            .eq("status", "approved")
+            .gte("start_date", `${expiryYear - 1}-01-01`),
+        ]);
+        const carry = { max: company.max_carryover_days, expiryMD: company.carryover_expiry_md };
+        const workDays = ((company as { work_days?: number[] }).work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
+        const afterExpiry = dayAfterExpiry(company.carryover_expiry_md);
+        const datum = format(new Date(`${expiryISO}T00:00:00Z`), "d. M. yyyy");
+        const entRows = (ents as unknown as EntRow[]) ?? [];
+        const reqRows = (reqs as unknown as ReqRow[]) ?? [];
+        const notifRows = [];
+        for (const id of employeeIds) {
+          const myEnts = entRows.filter((e) => e.profile_id === id);
+          const myReqs = reqRows.filter((r) => r.profile_id === id);
+          const before = computeBalance("vacation", myEnts, myReqs, expiryYear, today, carry, workDays);
+          const after = computeBalance("vacation", myEnts, myReqs, expiryYear, afterExpiry, carry, workDays);
+          const forfeited = Math.max(0, before.carryover - after.carryover);
+          if (forfeited > 0) {
+            notifRows.push({
+              profile_id: id,
+              type: "carryover_expiring",
+              title: `Převedená dovolená propadne ${datum}`,
+              body: carryoverExpiryWarning(forfeited, datum),
+            });
+          }
+        }
+        if (notifRows.length > 0) {
+          await supabase.from("notifications").insert(notifRows);
+          carryoverWarnings += notifRows.length;
+        }
+      }
+    }
   }
 
-  return NextResponse.json({ escalated, digestsQueued: digests, planChangesApplied: (applied.data as number | null) ?? 0 });
+  return NextResponse.json({ escalated, digestsQueued: digests, carryoverWarnings, planChangesApplied: (applied.data as number | null) ?? 0 });
 }

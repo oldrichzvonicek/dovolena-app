@@ -20,8 +20,10 @@ export function TeamCapacity() {
     const today = new Date().toLocaleDateString("sv-SE");
 
     (async () => {
+      // Admin a HR/účetní vidí vždy celou firmu (stejně jako zbytek nástěnky a Analytika) — jen běžný manažer/zaměstnanec
+      // bez téhle role vidí jen svoje oddělení, i když má department_id vyplněné (např. admin přiřazený k oddělení).
       let teamQuery = supabase.from("profiles").select("id", { count: "exact" }).eq("company_id", profile.company_id).eq("active", true);
-      if (profile.department_id) teamQuery = teamQuery.eq("department_id", profile.department_id);
+      if (profile.department_id && profile.role !== "admin" && !profile.staff_role) teamQuery = teamQuery.eq("department_id", profile.department_id);
       const { data: teamProfiles, count } = await teamQuery;
       const teamIds = new Set((teamProfiles ?? []).map((p) => p.id));
 

@@ -4,6 +4,8 @@
 // `live: false` = připraveno k zapojení (fakturace, trial se NEpoužívá — tarif Free je trvale zdarma).
 // Zdravotní údaje se do e-mailů nikdy nepíšou; u soukromých absencí (nemoc) se typ uvádí jen schvalovateli.
 
+import { carryoverExpiryWarning, weeklyDigestIntro } from "@/lib/czech";
+
 export type Vars = Record<string, string>;
 
 export interface EmailTemplate {
@@ -129,7 +131,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["jmeno", "cekajici", "pocet", "seznam"],
     subject: () => "Týdenní přehled absencí — Dodio",
-    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, `tady je váš týdenní přehled — čeká na vás ${v.cekajici} žádostí, absencí tento týden: ${v.pocet}.`, v.seznam],
+    // v.seznam je už rozdělený po typech absence (nadpis typu, prázdný řádek, odrážky) — rozdělíme ho zpátky
+    // na jednotlivé odstavce, ať se každá skupina vykreslí jako vlastní krátký seznam (viz api/cron/daily).
+    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, weeklyDigestIntro(Number(v.pocet), Number(v.cekajici)), ...v.seznam.split("\n\n")],
     cta: { label: "Otevřít kalendář", path: "/calendar" },
     optOut: true,
   },
@@ -160,12 +164,12 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     key: "carryover_expiring",
     name: "Blíží se propadnutí převedené dovolené",
-    when: "30 a 7 dní před datem propadnutí převedené dovolené (nastavení: Kalendář a provoz).",
+    when: "30 a 7 dní před datem propadnutí převedené dovolené (nastavení: Nároky a zůstatky). Posílá se jen, pokud by člověku doopravdy nějaké dny propadly.",
     to: "Zaměstnanec s nevyčerpanou převedenou dovolenou",
-    live: false,
-    vars: ["jmeno", "dny", "datum"],
+    live: true,
+    vars: ["dny", "datum"],
     subject: (v) => `Převedená dovolená propadne ${v.datum}`,
-    paragraphs: (v) => [hello(v), `z loňska vám ještě zbývá ${v.dny} dní dovolené a ${v.datum} propadnou.`, "Naplánujte si je radši teď, ať o ně nepřijdete."],
+    paragraphs: (v) => [carryoverExpiryWarning(Number(v.dny), v.datum)],
     cta: { label: "Naplánovat dovolenou", path: "/calendar" },
     optOut: true,
   },
@@ -419,7 +423,7 @@ export const TEMPLATE_SAMPLE: Vars = {
   vysledek: "schváleno",
   cekajici: "2",
   pocet: "5",
-  seznam: "• Petr Novák — Dovolená (12. 10. – 16. 10.)\n• Jana Malá — Sick Day (13. 10. 2026)\n• Karel Beneš — Home Office (14. 10. – 15. 10.)",
+  seznam: "Dovolená\n\n• Petr Novák — 12. 10. – 16. 10. 2026\n• Karel Beneš — 14. 10. – 15. 10. 2026\n\nSick Day\n\n• Jana Malá — 13. 10. 2026",
   firma: "NaturaMed s.r.o.",
   pozvatel: "Oldřich Zvoníček",
   odkaz: "https://app.dodio.cz/login",

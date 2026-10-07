@@ -44,7 +44,10 @@ export function CalendarFilter({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-[140px] flex-1 sm:flex-none">
+        {/* Oddělení + typ vedle sebe na mobilu (2 sloupce), na desktopu normální flex řada — ať filtry
+            nezaberou 3 celé řádky navrchu, než je vůbec vidět kalendář. */}
+        <div className="grid w-full grid-cols-2 gap-2 sm:contents">
+        <div className="min-w-0 sm:min-w-[140px] sm:flex-none">
         <Select value={department} onValueChange={onDepartmentChange}>
           <SelectTrigger className="w-full sm:w-48" aria-label="Filtr podle oddělení">
             <SelectValue />
@@ -60,7 +63,7 @@ export function CalendarFilter({
         </Select>
         </div>
 
-        <div className="min-w-[140px] flex-1 sm:flex-none">
+        <div className="min-w-0 sm:min-w-[140px] sm:flex-none">
         <Select value={leaveTypeFilter} onValueChange={onLeaveTypeFilterChange}>
           <SelectTrigger className="w-full sm:w-44" aria-label="Filtr podle typu absence">
             <SelectValue />
@@ -74,6 +77,7 @@ export function CalendarFilter({
             ))}
           </SelectContent>
         </Select>
+        </div>
         </div>
 
         <div className="relative w-full sm:w-auto">

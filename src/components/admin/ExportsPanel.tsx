@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { fetchDepartments } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { fetchDepartments, fetchLeaveTypes } from "@/lib/data";
+import { cn, formatNumber } from "@/lib/utils";
 import { safeCell } from "@/lib/csv";
 import { autoFitSheet } from "@/lib/xlsx-utils";
-import { DEFAULT_WORK_DAYS, daysWithin } from "@/lib/working-days";
+import { toCsv } from "@/lib/payroll";
+import { DEFAULT_WORK_DAYS, daysWithin, dayWord } from "@/lib/working-days";
 import { DbDepartment } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
 
@@ -21,29 +22,40 @@ const formats = [
   { key: "ods", label: "OpenDocument (ODS)", icon: FileType, bookType: "ods" as const },
 ] as const;
 
-type SortKey = "name" | "departmentName" | "vacationUsed" | "sickUsed" | "homeOffice";
+type SortKey = "name" | "departmentName" | "total";
+
+interface TypeCol {
+  key: string;
+  label: string;
+}
 
 interface Row {
   id: string;
   name: string;
   departmentId: string | null;
   departmentName: string;
-  vacationUsed: number;
-  sickUsed: number;
-  homeOffice: number;
+  byType: Record<string, number>;
+  total: number;
 }
 
 export function ExportsPanel() {
   const { profile } = useAuth();
-  const [month, setMonth] = useState(new Date().toLocaleDateString("sv-SE").slice(0, 7));
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1); // výchozí minulý měsíc — ten se u mezd zpracovává (stejně jako Detail pro mzdy)
+    return d.toLocaleDateString("sv-SE").slice(0, 7);
+  });
   const [format, setFormat] = useState<(typeof formats)[number]["key"]>("csv");
   const [department, setDepartment] = useState("all");
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
+  const [typeCols, setTypeCols] = useState<TypeCol[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [hideZero, setHideZero] = useState(true);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "name", dir: 1 });
+
+  const isCurrentMonth = month === new Date().toLocaleDateString("sv-SE").slice(0, 7);
 
   useEffect(() => {
     if (!profile) return;
@@ -52,35 +64,46 @@ export function ExportsPanel() {
     const monthEnd = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).toLocaleDateString("sv-SE");
 
     (async () => {
-      const [{ data: employees }, { data: requests }, deps, { data: comp }] = await Promise.all([
+      const [{ data: employees }, { data: requests }, deps, { data: comp }, leaveTypes] = await Promise.all([
         supabase.from("profiles").select("id, name, department_id, department:departments!profiles_department_id_fkey(name)").eq("company_id", profile.company_id),
         supabase
           .from("leave_requests")
-          .select("profile_id, start_date, end_date, working_days, leave_type:leave_types(key, counts_against)")
+          .select("profile_id, start_date, end_date, working_days, leave_type:leave_types(key, label, counts_as_present)")
           .eq("status", "approved")
           // Every absence that overlaps the month (not just those starting in it) — its days are split between months.
           .lte("start_date", monthEnd)
           .gte("end_date", monthStart),
         fetchDepartments(profile.company_id),
         supabase.from("companies").select("work_days").eq("id", profile.company_id).single(),
+        fetchLeaveTypes(profile.company_id),
       ]);
       const workDays = (comp?.work_days as number[] | undefined) ?? DEFAULT_WORK_DAYS;
       const within = (r: { start_date: string; end_date: string; working_days: number }) => daysWithin(r, monthStart, monthEnd, workDays);
 
       type Emp = { id: string; name: string; department_id: string | null; department: { name: string } | null };
-      type Req = { profile_id: string; start_date: string; end_date: string; working_days: number; leave_type: { key: string; counts_against: string } | null };
+      type Req = { profile_id: string; start_date: string; end_date: string; working_days: number; leave_type: { key: string; label: string; counts_as_present: boolean } | null };
 
-      const built = ((employees as unknown as Emp[]) ?? []).map((e) => {
-        const mine = ((requests as unknown as Req[]) ?? []).filter((r) => r.profile_id === e.id);
-        return {
-          id: e.id,
-          name: e.name,
-          departmentId: e.department_id,
-          departmentName: e.department?.name ?? "Bez oddělení",
-          vacationUsed: mine.filter((r) => r.leave_type?.counts_against === "vacation").reduce((s, r) => s + within(r), 0),
-          sickUsed: mine.filter((r) => r.leave_type?.counts_against === "sick").reduce((s, r) => s + within(r), 0),
-          homeOffice: mine.filter((r) => r.leave_type?.key === "home_office").reduce((s, r) => s + within(r), 0),
-        };
+      // Jen typy, kdy člověk fakticky nepracuje (stejné pravidlo jako Detail pro mzdy, viz payroll.ts) —
+      // Home Office a podobné "counts_as_present" typy do mzdového podkladu nepatří. Sloupce se berou z
+      // toho, co se v daném měsíci skutečně vyskytlo (ne ze všech typů, co firma kdy měla), ať tabulka
+      // není plná nul — dřív tu byly napevno jen tři sloupce (Dovolená/Sick Days/Home Office), takže
+      // "Lékař" nebo "Náhradní volno" v souhrnu úplně chyběly.
+      const relevant = ((requests as unknown as Req[]) ?? []).filter((r) => r.leave_type && !r.leave_type.counts_as_present);
+      const labelByKey = new Map<string, string>();
+      for (const t of leaveTypes) if (!t.counts_as_present) labelByKey.set(t.key, t.label);
+      for (const r of relevant) if (!labelByKey.has(r.leave_type!.key)) labelByKey.set(r.leave_type!.key, r.leave_type!.label);
+      const usedKeys = new Set(relevant.map((r) => r.leave_type!.key));
+      const orderedKeys = leaveTypes.filter((t) => usedKeys.has(t.key)).map((t) => t.key);
+      for (const k of usedKeys) if (!orderedKeys.includes(k)) orderedKeys.push(k); // pojistka: typ smazaný z leave_types, ale použitý v historii
+      setTypeCols(orderedKeys.map((key) => ({ key, label: labelByKey.get(key) ?? key })));
+
+      const built: Row[] = ((employees as unknown as Emp[]) ?? []).map((e) => {
+        const mine = relevant.filter((r) => r.profile_id === e.id);
+        const byType: Record<string, number> = {};
+        for (const k of orderedKeys) byType[k] = 0;
+        for (const r of mine) byType[r.leave_type!.key] = (byType[r.leave_type!.key] ?? 0) + within(r);
+        const total = Object.values(byType).reduce((s, n) => s + n, 0);
+        return { id: e.id, name: e.name, departmentId: e.department_id, departmentName: e.department?.name ?? "Bez oddělení", byType, total };
       });
       setRows(built);
       setDepartments(deps);
@@ -91,20 +114,37 @@ export function ExportsPanel() {
   const q = search.trim().toLocaleLowerCase("cs");
   const filteredRows = rows
     .filter((r) => department === "all" || r.departmentId === department)
-    .filter((r) => !hideZero || r.vacationUsed + r.sickUsed + r.homeOffice > 0)
+    .filter((r) => !hideZero || r.total > 0)
     .filter((r) => !q || r.name.toLocaleLowerCase("cs").includes(q) || r.departmentName.toLocaleLowerCase("cs").includes(q))
     .sort((a, b) => {
-      const va = a[sort.key];
-      const vb = b[sort.key];
+      const va = sort.key === "total" ? a.total : a[sort.key];
+      const vb = sort.key === "total" ? b.total : b[sort.key];
       const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "cs");
       return c * sort.dir || a.name.localeCompare(b.name, "cs");
     });
-  const zeroCount = rows.filter((r) => (department === "all" || r.departmentId === department) && r.vacationUsed + r.sickUsed + r.homeOffice === 0).length;
+  const zeroCount = rows.filter((r) => (department === "all" || r.departmentId === department) && r.total === 0).length;
+  // Kontrolní součet — účetní podle něj pozná, že export odpovídá kalendáři, bez skládání dvou exportů dohromady.
+  const grandTotal = filteredRows.reduce((s, r) => s + r.total, 0);
   const toggleSort = (key: SortKey) => setSort((cur) => (cur.key === key ? { key, dir: cur.dir === 1 ? -1 : 1 } : { key, dir: key === "name" || key === "departmentName" ? 1 : -1 }));
 
   function handleExport() {
-    const headers = ["Jméno", "Oddělení", "Vyčerpaná dovolená", "Sick Days", "Home Office"];
-    const table = filteredRows.map((r) => [safeCell(r.name), safeCell(r.departmentName), r.vacationUsed, r.sickUsed, r.homeOffice]);
+    const headers = ["Jméno", "Oddělení", ...typeCols.map((t) => t.label), "Celkem"];
+    // CSV jde přes toCsv (středník, desetinná čárka, BOM) — stejná konvence jako Detail pro mzdy. SheetJS
+    // by do "csv" bookType napsalo čárku jako oddělovač i jako desetinnou tečku "6.5", což se v českém
+    // Excelu rozjede (čárka je tam desetinná). XLSX/ODS numerické buňky tenhle problém nemají, tam zůstává
+    // nativní zápis beze změny.
+    if (format === "csv") {
+      const table = filteredRows.map((r) => [r.name, r.departmentName, ...typeCols.map((t) => formatNumber(r.byType[t.key] ?? 0)), formatNumber(r.total)]);
+      const blob = new Blob([toCsv(headers, table)], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `podklady-${month}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    const table = filteredRows.map((r) => [safeCell(r.name), safeCell(r.departmentName), ...typeCols.map((t) => r.byType[t.key] ?? 0), r.total]);
     const sheet = autoFitSheet(XLSX.utils.aoa_to_sheet([headers, ...table]), headers, table);
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet, "Podklady");
@@ -116,6 +156,7 @@ export function ExportsPanel() {
     <div className="space-y-6">
       <div className="card p-5">
         <h2 className="font-display text-h2">Generátor mzdových podkladů</h2>
+        {isCurrentMonth && <p className="mt-1 text-xs text-warning-dark">Vybraný měsíc ještě neskončil — podklad bude neúplný, dokud měsíc neuplyne.</p>}
         <div className="mt-4 flex flex-wrap items-end gap-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium">Měsíc a rok</label>
@@ -183,9 +224,16 @@ export function ExportsPanel() {
             </label>
           </div>
         </div>
-        {!loading && hideZero && zeroCount > 0 && <p className="border-b border-line bg-paper px-5 py-2 text-xs text-muted">Skryto {zeroCount} lidí bez absence v tomto měsíci. Stažený soubor obsahuje jen zobrazené řádky.</p>}
+        {!loading && (
+          <p className="border-b border-line bg-paper px-5 py-2 text-xs text-muted">
+            Celkem {formatNumber(grandTotal)} {dayWord(grandTotal)} absencí ve vybraných řádcích — mělo by sedět s kalendářem.
+            {hideZero && zeroCount > 0 && ` Skryto ${zeroCount} lidí bez absence v tomto měsíci.`} Stažený soubor obsahuje jen zobrazené řádky.
+          </p>
+        )}
         {loading ? (
           <div className="p-5"><LoadingLines rows={5} /></div>
+        ) : typeCols.length === 0 ? (
+          <p className="p-5 text-sm text-muted">Za tento měsíc nejsou žádné absence ovlivňující mzdu.</p>
         ) : (
           <table className="table-cards w-full text-sm">
             <thead>
@@ -194,9 +242,6 @@ export function ExportsPanel() {
                   [
                     ["name", "Jméno"],
                     ["departmentName", "Oddělení"],
-                    ["vacationUsed", "Vyčerpaná dovolená"],
-                    ["sickUsed", "Sick Days"],
-                    ["homeOffice", "Home Office"],
                   ] as [SortKey, string][]
                 ).map(([key, label]) => (
                   <th key={key} className="px-5 py-3 font-medium" aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
@@ -206,6 +251,15 @@ export function ExportsPanel() {
                     </button>
                   </th>
                 ))}
+                {typeCols.map((t) => (
+                  <th key={t.key} className="px-5 py-3 font-medium">{t.label}</th>
+                ))}
+                <th className="px-5 py-3 font-medium" aria-sort={sort.key === "total" ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+                  <button type="button" onClick={() => toggleSort("total")} className="flex items-center gap-1 uppercase tracking-wide hover:text-ink">
+                    Celkem
+                    {sort.key === "total" && (sort.dir === 1 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -213,9 +267,10 @@ export function ExportsPanel() {
                 <tr key={e.id} className="border-b border-line last:border-0">
                   <td className="cell-title px-5 py-3 font-medium">{e.name}</td>
                   <td className="px-5 py-3 text-muted" data-label="Oddělení">{e.departmentName}</td>
-                  <td className="px-5 py-3" data-label="Vyčerpaná dovolená">{e.vacationUsed}</td>
-                  <td className="px-5 py-3" data-label="Sick Days">{e.sickUsed}</td>
-                  <td className="px-5 py-3" data-label="Home Office">{e.homeOffice}</td>
+                  {typeCols.map((t) => (
+                    <td key={t.key} className="px-5 py-3" data-label={t.label}>{formatNumber(e.byType[t.key] ?? 0)}</td>
+                  ))}
+                  <td className="px-5 py-3 font-medium" data-label="Celkem">{formatNumber(e.total)}</td>
                 </tr>
               ))}
             </tbody>

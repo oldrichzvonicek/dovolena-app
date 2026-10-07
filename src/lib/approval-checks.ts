@@ -73,25 +73,31 @@ export async function computeApprovalWarnings(companyId: string, rows: ApprovalC
   return { remaining, capacity };
 }
 
-/** True when someone other than `selfId` can approve — self-approval is only allowed for the sole approver of a company. */
-export async function hasOtherApprover(companyId: string, selfId: string): Promise<boolean> {
-  const { count } = await createClient()
+/**
+ * True when someone is specifically positioned to decide this person's own requests: their manager, or
+ * another head/deputy of their own department. Having other managers/admins elsewhere in the company
+ * doesn't count — fetchDecisionScope wouldn't let them decide for this person anyway.
+ */
+export async function hasApproverAbove(selfId: string): Promise<boolean> {
+  const { data } = await createClient()
     .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", companyId)
-    .in("role", ["manager", "admin"])
-    .eq("active", true)
-    .neq("id", selfId);
-  return (count ?? 0) > 0;
+    .select("manager_id, department:departments!profiles_department_id_fkey(head_profile_id, deputy_head_profile_id)")
+    .eq("id", selfId)
+    .single();
+  if (!data) return false;
+  if (data.manager_id) return true;
+  const dept = data.department as unknown as { head_profile_id: string | null; deputy_head_profile_id: string | null } | null;
+  return (!!dept?.head_profile_id && dept.head_profile_id !== selfId) || (!!dept?.deputy_head_profile_id && dept.deputy_head_profile_id !== selfId);
 }
 
 /**
- * Vlastní žádost se nikdy nezobrazuje ve vlastní frontě ke schválení. Když nad adminem nikdo není (je jediným schvalovatelem
- * ve firmě), jeho žádosti se schvalují samy; tahle funkce dodělá případné starší čekající žádosti. Vrací true, když něco schválila.
+ * Vlastní žádost se nikdy nezobrazuje ve vlastní frontě ke schválení. Když nad adminem nikdo není (žádný
+ * nadřízený ani vedoucí/zástupce jeho oddělení), jeho žádosti se schvalují samy; tahle funkce dodělá případné
+ * starší čekající žádosti. Vrací true, když něco schválila.
  */
 export async function autoApproveOwnPending(profile: { id: string; company_id: string; role: string }): Promise<boolean> {
   if (profile.role !== "admin") return false;
-  if (await hasOtherApprover(profile.company_id, profile.id)) return false;
+  if (await hasApproverAbove(profile.id)) return false;
   const { data } = await createClient().from("leave_requests").select("id").eq("profile_id", profile.id).eq("status", "pending");
   for (const r of data ?? []) await approveLeaveRequest(r.id as string, profile.id);
   return (data ?? []).length > 0;

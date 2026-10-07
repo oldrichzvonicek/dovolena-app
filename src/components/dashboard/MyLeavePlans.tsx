@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CalendarPlus, Send, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { LeaveBadge } from "@/components/ui/badge";
 import { formatRange, dayWord } from "@/lib/working-days";
 import { formatNumber } from "@/lib/utils";
@@ -14,13 +15,18 @@ import { showToast } from "@/lib/toast";
 import { errorMessage } from "@/lib/utils";
 import { emitDataChanged } from "@/lib/events";
 
+interface PlanRow extends LeavePlan {
+  /** Má už tenhle termín reálnou (čekající/schválenou) žádost? Pak nemá smysl nabízet "Podat žádost" znovu. */
+  alreadyRequested: boolean;
+}
+
 /**
  * "Naplánovat rok dopředu" — soukromé návrhy (leave_plans), jen pro autora. Samostatná sekce, ne řádky v
  * tabulce žádostí: pojmově je to jiná věc (nezávazná poznámka vs. podaná žádost) a takhle to nejde splést.
  */
 export function MyLeavePlans() {
   const { profile } = useAuth();
-  const [plans, setPlans] = useState<LeavePlan[]>([]);
+  const [plans, setPlans] = useState<PlanRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -28,8 +34,18 @@ export function MyLeavePlans() {
 
   function load() {
     if (!profile) return;
-    fetchLeavePlans(profile.id)
-      .then(setPlans)
+    const today = new Date().toLocaleDateString("sv-SE");
+    Promise.all([
+      fetchLeavePlans(profile.id),
+      // Reálné žádosti za stejné dny — na ně se "Podat žádost" u návrhu nenabízí znovu (viz alreadyRequested).
+      createClient().from("leave_requests").select("start_date, end_date").eq("profile_id", profile.id).in("status", ["pending", "approved"]),
+    ])
+      .then(([allPlans, { data: reqs }]) => {
+        const existing = (reqs as { start_date: string; end_date: string }[] | null) ?? [];
+        // Termín, který už je pryč, nejde podat — tiše se přestane nabízet (nemaže se, kdyby šlo o chybu v datu).
+        const fresh = allPlans.filter((p) => p.end_date >= today);
+        setPlans(fresh.map((p) => ({ ...p, alreadyRequested: existing.some((r) => r.start_date <= p.end_date && r.end_date >= p.start_date) })));
+      })
       .finally(() => setLoading(false));
   }
 
@@ -96,13 +112,19 @@ export function MyLeavePlans() {
               </span>
               {p.note && <span className="min-w-0 max-w-[16rem] truncate text-xs text-muted">{p.note}</span>}
               <span className="ml-auto flex shrink-0 items-center gap-1.5">
-                <button
-                  onClick={() => handleSubmitPlan(p)}
-                  disabled={busyId === p.id}
-                  className="flex items-center gap-1 rounded border border-teal/40 bg-teal-light px-2 py-1 text-xs font-medium text-teal-dark hover:bg-teal/20 disabled:opacity-50"
-                >
-                  <Send size={12} /> {busyId === p.id ? "Podávám…" : "Podat žádost"}
-                </button>
+                {p.alreadyRequested ? (
+                  <span className="text-xs text-muted" title="Pro tenhle termín už máte žádost — tenhle návrh je teď jen navíc, klidně ho smažte.">
+                    Už máte žádost
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleSubmitPlan(p)}
+                    disabled={busyId === p.id}
+                    className="flex items-center gap-1 rounded border border-teal/40 bg-teal-light px-2 py-1 text-xs font-medium text-teal-dark hover:bg-teal/20 disabled:opacity-50"
+                  >
+                    <Send size={12} /> {busyId === p.id ? "Podávám…" : "Podat žádost"}
+                  </button>
+                )}
                 <button
                   onClick={() => handleDelete(p)}
                   disabled={busyId === p.id}

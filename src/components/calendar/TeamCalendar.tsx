@@ -28,6 +28,8 @@ import { useOnDataChanged } from "@/lib/events";
 import { useSearchParams } from "next/navigation";
 import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
 import { fetchMaskedAbsencesStrict } from "@/lib/data";
+import { fetchMyDepartmentIds } from "@/lib/approval-checks";
+import { isAdminRole } from "@/lib/access";
 import { createClient } from "@/lib/supabase/client";
 import { DbDepartment, DbProfile, LeaveColor } from "@/lib/supabase/types";
 import { fetchAll } from "@/lib/fetch-all";
@@ -236,19 +238,30 @@ export function TeamCalendar() {
     const supabase = createClient();
 
     supabase.from("departments").select("*").eq("company_id", profile.company_id).then(({ data }) => setDepartments(data ?? []));
-    supabase.from("profiles").select("id, name, department_id").eq("company_id", profile.company_id).eq("active", true).then(({ data }) => setEmployees((data as unknown as DbProfile[]) ?? []));
     supabase
       .from("leave_types")
       .select("key, label, color")
       .eq("company_id", profile.company_id)
       .eq("active", true)
       .then(({ data }) => setLeaveTypesLegend(data ?? []));
-    supabase
-      .from("companies")
-      .select("weekend_operations")
-      .eq("id", profile.company_id)
-      .single()
-      .then(({ data }) => setWeekendOperations(data?.weekend_operations ?? true));
+
+    (async () => {
+      const [{ data: company }, { data: profs }] = await Promise.all([
+        supabase.from("companies").select("weekend_operations, department_scoped_visibility").eq("id", profile.company_id).single(),
+        supabase.from("profiles").select("id, name, department_id, manager_id, staff_role").eq("company_id", profile.company_id).eq("active", true),
+      ]);
+      setWeekendOperations(company?.weekend_operations ?? true);
+      const all = (profs as unknown as DbProfile[]) ?? [];
+      // Firma s "jen vlastní oddělení vidí jiná oddělení" (department_scoped_visibility): bez tohoto filtru by
+      // kalendář ukazoval jména lidí z cizích oddělení s prázdným řádkem (RLS jejich absence stejně skryje),
+      // což vypadá, jako že jsou v práci, i když ve skutečnosti třeba chybí.
+      if (company?.department_scoped_visibility && !isAdminRole(profile) && !profile.staff_role) {
+        const myDepts = await fetchMyDepartmentIds(profile.company_id, profile.id);
+        setEmployees(all.filter((e) => e.id === profile.id || e.department_id === profile.department_id || (e.department_id && myDepts.has(e.department_id)) || e.manager_id === profile.id));
+      } else {
+        setEmployees(all);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
@@ -316,7 +329,7 @@ export function TeamCalendar() {
     const rowBg = pinned ? "bg-teal-light" : i % 2 === 1 ? "bg-paper" : "bg-white";
 
     return (
-      <div key={emp.id} className={cn("grid grid-cols-[104px_1fr] sm:grid-cols-[200px_1fr] items-center py-2", rowBg, pinned ? "sticky top-[52px] z-20 border-b-2 border-line shadow-sm" : "border-b border-line last:border-0")}>
+      <div key={emp.id} className={cn("grid grid-cols-[132px_1fr] sm:grid-cols-[200px_1fr] items-center py-2", rowBg, pinned ? "sticky top-[52px] z-20 border-b-2 border-line shadow-sm" : "border-b border-line last:border-0")}>
         <div className={cn("sticky left-0 z-10 py-1 pl-1 pr-3", rowBg)}>
           <div className="text-xs font-medium sm:text-sm">
             {emp.name}
@@ -535,7 +548,7 @@ export function TeamCalendar() {
           className="min-w-[var(--cal-min)] sm:min-w-[var(--cal-min-sm)]"
           style={{ "--cal-min": `${104 + days.length * 36}px`, "--cal-min-sm": `max(${104 + days.length * 36}px, 900px)` } as React.CSSProperties}
         >
-          <div className="sticky top-0 z-20 grid h-[52px] grid-cols-[104px_1fr] bg-white sm:grid-cols-[200px_1fr]">
+          <div className="sticky top-0 z-20 grid h-[52px] grid-cols-[132px_1fr] bg-white sm:grid-cols-[200px_1fr]">
             <div className="sticky left-0 z-30 bg-white" />
             <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(34px, 1fr))` }}>
               {days.map((d) => {
@@ -568,7 +581,7 @@ export function TeamCalendar() {
                 const isCollapsed = collapsed.has(g.id);
                 return (
                   <Fragment key={g.id}>
-                    <div className="grid grid-cols-[104px_1fr] border-b border-line bg-paper sm:grid-cols-[200px_1fr]">
+                    <div className="grid grid-cols-[132px_1fr] border-b border-line bg-paper sm:grid-cols-[200px_1fr]">
                       <button
                         onClick={() => toggleGroup(g.id)}
                         aria-expanded={!isCollapsed}

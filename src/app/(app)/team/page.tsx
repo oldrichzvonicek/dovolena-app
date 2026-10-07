@@ -34,6 +34,7 @@ import { fetchDecisionScope } from "@/lib/approval-scope";
 interface Row {
   id: string;
   name: string;
+  role: string;
   department_id: string | null;
   manager_id: string | null;
   substitute_id: string | null;
@@ -43,23 +44,31 @@ interface Row {
 
 type EditableField = "department" | "manager" | "substitute";
 
-/** Balance chip: red when overdrawn, amber when nearly out (0–2 days left). */
-function BalanceChip({ total, used }: { total: number; used: number }) {
+/** Balance chip: red when overdrawn, amber when nearly out (0–2 days left). Overdrawn gets a direct shortcut
+ *  to fix the entitlement — jinak musel admin najít stejnou akci schovanou v tlačítku Upravit na konci řádku. */
+function BalanceChip({ total, used, onFix }: { total: number; used: number; onFix?: () => void }) {
   const remaining = total - used;
   const overdrawn = remaining < 0;
   const low = !overdrawn && total > 0 && remaining <= 2;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-sm",
-        overdrawn && "bg-danger-light font-medium text-danger-dark",
-        low && "bg-warning-light font-medium text-warning-dark",
-        !overdrawn && !low && "text-muted"
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-sm",
+          overdrawn && "bg-danger-light font-medium text-danger-dark",
+          low && "bg-warning-light font-medium text-warning-dark",
+          !overdrawn && !low && "text-muted"
+        )}
+        title={overdrawn ? "Zaměstnanec je v minusu" : low ? "Dochází dovolená" : undefined}
+      >
+        {overdrawn && "🔴"}
+        zbývá {formatNumber(remaining)} z {formatNumber(total)} dní
+      </span>
+      {overdrawn && onFix && (
+        <button onClick={onFix} className="rounded-sm border border-danger/30 px-1.5 py-0.5 text-xs font-medium text-danger-dark hover:bg-danger-light">
+          Upravit nárok
+        </button>
       )}
-      title={overdrawn ? "Zaměstnanec je v minusu" : low ? "Dochází dovolená" : undefined}
-    >
-      {overdrawn && "🔴"}
-      zbývá {formatNumber(remaining)} z {formatNumber(total)} dní
     </span>
   );
 }
@@ -87,21 +96,23 @@ export default function TeamPage() {
 
   const year = new Date().getFullYear();
   const isAdmin = profile?.role === "admin";
-  // HR vidí (a smí zadat absenci) za celou firmu jako admin — viz fetchDecisionScope — ale nemá přístup
-  // k Upravit profil/roli ani k Nastavení firmy, takže tenhle přepínač je jen pro titulek a podtitulek.
+  // HR vidí (a smí zadat absenci) za celou firmu jako admin — viz fetchDecisionScope.
   const showFullCompany = isAdmin || isHr(profile);
+  // Nároky a zůstatky jsou typicky práce HR (ne jen admina) — EditEmployeeModal už sám uvnitř zamyká pole
+  // Role/Doplňková role jen na admina, takže HR smí modal otevřít, jen v něm nemůže měnit roli.
+  const canEditEntitlements = isAdmin || isHr(profile);
 
   async function load() {
     if (!profile) return;
     const supabase = createClient();
 
     const [{ data: employees }, balances, { data: deps }] = await Promise.all([
-      supabase.from("profiles").select("id, name, department_id, manager_id, substitute_id").eq("company_id", profile.company_id).eq("active", true),
+      supabase.from("profiles").select("id, name, role, department_id, manager_id, substitute_id").eq("company_id", profile.company_id).eq("active", true),
       loadBalances(profile.company_id),
       supabase.from("departments").select("*").eq("company_id", profile.company_id),
     ]);
 
-    type Emp = { id: string; name: string; department_id: string | null; manager_id: string | null; substitute_id: string | null };
+    type Emp = { id: string; name: string; role: string; department_id: string | null; manager_id: string | null; substitute_id: string | null };
 
     // Visibility scope: admins see the whole company; a manager sees the people they may decide for
     // (direct reports, their department as head/deputy, or as a standing substitute) — see fetchDecisionScope.
@@ -113,7 +124,7 @@ export default function TeamPage() {
       const b = balances.get(e.id, "vacation");
       const vacationTotal = b.total;
       const vacationUsed = b.used + b.upcoming;
-      return { id: e.id, name: e.name, department_id: e.department_id, manager_id: e.manager_id, substitute_id: e.substitute_id, vacationTotal, vacationUsed };
+      return { id: e.id, name: e.name, role: e.role, department_id: e.department_id, manager_id: e.manager_id, substitute_id: e.substitute_id, vacationTotal, vacationUsed };
     });
 
     setRows(built);
@@ -121,7 +132,7 @@ export default function TeamPage() {
     setDepartments(deps ?? []);
     setLoading(false);
 
-    if (profile.role === "admin") {
+    if (profile.role === "admin" || isHr(profile)) {
       const [emp, lt, ent] = await Promise.all([
         fetchCompanyEmployees(profile.company_id),
         fetchLeaveTypes(profile.company_id),
@@ -146,12 +157,29 @@ export default function TeamPage() {
 
   const isOverdrawn = (r: Row) => r.vacationTotal - r.vacationUsed < 0;
   const overdrawnCount = rows.filter(isOverdrawn).length;
-  const noManagerCount = rows.filter((r) => !r.manager_id).length;
+  // Stejná definice jako na nástěnce (OnboardingChecklist) a v Nastavení firmy → Lidé: nejen manager_id, ale i
+  // vedoucí/zástupce vlastního oddělení se počítá jako schvalovatel. Admin se nepočítá vůbec (jemu schvaluje
+  // kdokoli z adminů, ne jen on sám).
+  const hasApproverAbove = (r: Row) => {
+    if (r.role === "admin" || r.manager_id) return true;
+    const d = departments.find((x) => x.id === r.department_id);
+    return !!d && (!!d.head_profile_id || !!d.deputy_head_profile_id);
+  };
+  // Když "Nadřízený" (manager_id) prázdný, tahle stránka to ukázala jako holé "Bez nadřízeného" — Nastavení
+  // firmy → Lidé ale ve stejné situaci ukazuje, KDO ve skutečnosti žádosti schválí (vedoucí oddělení, nebo
+  // admin jako poslední záchrana), takže vypadaly, že si navzájem odporují. Stejná logika, stejný text tady.
+  const resolvedApproverHint = (r: Row): string | null => {
+    if (r.role === "admin" || r.manager_id) return null;
+    const d = departments.find((x) => x.id === r.department_id);
+    const head = d?.head_profile_id ? people.find((p) => p.id === d.head_profile_id) : null;
+    return head ? `${head.name} (vedoucí)` : "Admin (záložní)";
+  };
+  const noManagerCount = rows.filter((r) => !hasApproverAbove(r)).length;
 
   const visibleRows = rows
     .filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()))
     .filter((r) => deptFilter === "all" || (deptFilter === "none" ? !r.department_id : r.department_id === deptFilter))
-    .filter((r) => quickFilter === "all" || (quickFilter === "overdrawn" ? isOverdrawn(r) : !r.manager_id));
+    .filter((r) => quickFilter === "all" || (quickFilter === "overdrawn" ? isOverdrawn(r) : !hasApproverAbove(r)));
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -423,8 +451,11 @@ export default function TeamPage() {
                               options={others}
                               onChange={(v) => handleManagerChange(e.id, v)}
                             />
+                            {resolvedApproverHint(e) && <div className="pl-1.5 text-[11px] text-muted">Schvaluje: {resolvedApproverHint(e)}</div>}
                           </td>
-                          <td className="px-3 py-2" data-label="Zástup">
+                          {/* Zástup je na mobilu skrytý (dřív z 5 řádků na kartu dělal 1 navíc) — jde upravit přes
+                              Upravit, méně časté než oddělení/nadřízený/zůstatek, co se vejdou do první obrazovky. */}
+                          <td className="!hidden px-3 py-2 md:!table-cell" data-label="Zástup">
                             <EditableCell
                               row={e}
                               field="substitute"
@@ -436,7 +467,7 @@ export default function TeamPage() {
                             />
                           </td>
                           <td className="px-3 py-3" data-label="Dovolená">
-                            <BalanceChip total={e.vacationTotal} used={e.vacationUsed} />
+                            <BalanceChip total={e.vacationTotal} used={e.vacationUsed} onFix={canEditEntitlements ? () => setEditingEmployeeId(e.id) : undefined} />
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex gap-1">
@@ -450,12 +481,12 @@ export default function TeamPage() {
                                   <Plus size={15} />
                                 </button>
                               )}
-                              {isAdmin && (
+                              {canEditEntitlements && (
                                 <button
                                   onClick={() => setEditingEmployeeId(e.id)}
                                   className="rounded p-1.5 text-muted hover:bg-teal-light hover:text-teal-dark"
-                                  title="Upravit profil / roli"
-                                  aria-label="Upravit profil"
+                                  title="Upravit"
+                                  aria-label="Upravit"
                                 >
                                   <Pencil size={15} />
                                 </button>

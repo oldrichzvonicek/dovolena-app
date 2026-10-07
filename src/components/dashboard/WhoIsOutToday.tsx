@@ -7,7 +7,7 @@ import { formatRange } from "@/lib/working-days";
 import { addDays, format, isWeekend, parseISO } from "date-fns";
 import { cs } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { ABSENT_TYPE } from "@/lib/leave-kinds";
+import { ABSENT_TYPE, reducesPresence } from "@/lib/leave-kinds";
 import { fetchMaskedAbsences } from "@/lib/data";
 import { TeamCapacity } from "@/components/dashboard/TeamCapacity";
 import { LoadingLines } from "@/components/ui/skeleton";
@@ -40,7 +40,6 @@ export function WhoIsOutToday() {
   const [allRows, setAllRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [showAllWeek, setShowAllWeek] = useState(false);
   const [coverNames, setCoverNames] = useState<Record<string, string>>({});
   const [tip, setTip] = useState<{ x: number; y: number; name: string; req: Row } | null>(null);
   useEffect(() => {
@@ -117,7 +116,8 @@ export function WhoIsOutToday() {
         // Vlastní absence člověka může přijít z obou zdrojů (plná i zamaskovaná); stejný člověk a termín se ukáže jen jednou.
         const seen = new Set(mapped.map((m) => `${m.profile?.id}|${m.start_date}|${m.end_date}`));
         const extraHidden = hiddenRows.filter((h) => !seen.has(`${h.profile?.id}|${h.start_date}|${h.end_date}`));
-        setAllRows([...mapped, ...extraHidden].sort((a, b) => a.start_date.localeCompare(b.start_date)));
+        // Home Office a další typy, kde člověk pracuje (counts_as_present), nejsou "chybí" — tenhle widget je o absenci.
+        setAllRows([...mapped, ...extraHidden].filter((r) => reducesPresence(r.leave_type?.key)).sort((a, b) => a.start_date.localeCompare(b.start_date)));
         setLoading(false);
         const coverIds = Array.from(new Set(mapped.map((m) => m.covering_profile_id).filter((x): x is string => !!x)));
         if (coverIds.length > 0) {
@@ -295,7 +295,7 @@ export function WhoIsOutToday() {
               </span>
             ))}
             {week.people.length === 0 && <span className="col-span-6 py-2 text-center">Tento týden nikdo nechybí.</span>}
-            {(showAllWeek ? week.people : week.people.slice(0, 6)).map((p) => (
+            {week.people.map((p) => (
               <Fragment key={p.name}>
                 <span className="truncate text-xs text-ink" title={p.name}>
                   <span className="hidden sm:inline">{p.name}</span>
@@ -330,11 +330,6 @@ export function WhoIsOutToday() {
             </div>
           )}
           <p className="mt-2 text-xs text-muted">Barevný pruh (viz vysvětlivky výše) = nepřítomen, prázdné pole = v práci. Dnešní den je podtržený a orámovaný.</p>
-          {week.people.length > 6 && (
-            <button onClick={() => setShowAllWeek((v) => !v)} aria-expanded={showAllWeek} className="mt-2 text-xs font-medium text-teal-dark underline underline-offset-2">
-              {showAllWeek ? "Zobrazit méně" : `Zobrazit všech ${week.people.length} lidí, kteří tento týden chybí (dalších ${week.people.length - 6})`}
-            </button>
-          )}
         </div>
       )}
       {tip && (

@@ -5,14 +5,21 @@ import { Link2, UserPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth-context";
 import { fetchDepartments } from "@/lib/data";
 import { AdminEmployeeRow, fetchCompany, fetchCompanyEmployees, importEmployees } from "@/lib/admin-data";
 import { DbDepartment, Role } from "@/lib/supabase/types";
-import { errorMessage } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 
 const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin" };
+// Jedna volba místo dvou samostatných selectů (Role + Doplňková role) — "je to účetní, ale taky zaměstnanec"
+// působilo jako dvě si odporující odpovědi na stejnou otázku. HR/Účetní tu reálně skoro vždy znamená "běžný
+// zaměstnanec s navíc touhle schopností", takže se to tak rovnou nastaví; vzácnou kombinaci (např. manažer,
+// co je zároveň HR) jde po přijetí pozvánky doladit v Upravit (EditEmployeeModal).
+type RoleChoice = Role | "hr" | "accountant";
+const roleChoiceLabel: Record<RoleChoice, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin", hr: "HR", accountant: "Účetní" };
 
 /** Targeted invite for one specific email — role/department/manager set up front, unlike
  * the generic company-wide link, which anyone who gets forwarded it can use to join. */
@@ -40,11 +47,27 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<Role>("employee");
+  const [roleChoice, setRoleChoice] = useState<RoleChoice>("employee");
+  // Externí HR/účetní (dodavatel, ne zaměstnanec firmy) nemá oddělení ani nadřízeného a nečerpá dovolenou.
+  // Výchozí hodnota podle role (účetní bývá externí, HR bývá interní), ale admin ji může přepnout.
+  const [isExternal, setIsExternal] = useState(false);
   const [departmentId, setDepartmentId] = useState<string>("none");
   const [managerId, setManagerId] = useState<string>("none");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (roleChoice === "accountant") setIsExternal(true);
+    else if (roleChoice === "hr") setIsExternal(false);
+  }, [roleChoice]);
+
+  // Externí nemá oddělení ani nadřízeného — obě pole se vyčistí, ať se omylem nepošlou se starou hodnotou.
+  useEffect(() => {
+    if (isExternal) {
+      setDepartmentId("none");
+      setManagerId("none");
+    }
+  }, [isExternal]);
 
   useEffect(() => {
     if (!open || !profile) return;
@@ -61,7 +84,8 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   function reset() {
     setEmail("");
     setName("");
-    setRole("employee");
+    setRoleChoice("employee");
+    setIsExternal(false);
     setDepartmentId("none");
     setManagerId("none");
     setError(null);
@@ -70,6 +94,8 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   const emails = Array.from(new Set(email.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
   const invalid = emails.filter((e) => !EMAIL_RE.test(e));
   const canSubmit = emails.length > 0 && invalid.length === 0;
+  const role: Role = roleChoice === "hr" || roleChoice === "accountant" ? "employee" : roleChoice;
+  const staffRole: "hr" | "accountant" | null = roleChoice === "hr" || roleChoice === "accountant" ? roleChoice : null;
 
   async function handleSubmit() {
     if (!profile || !canSubmit) return;
@@ -90,6 +116,8 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
           sick_total: defaultSick,
           sick_opening_used: 0,
           role,
+          staff_role: staffRole,
+          is_external: staffRole ? isExternal : false,
         }))
       );
       const res = await fetch("/api/invite/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails }) })
@@ -156,40 +184,60 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={cn("grid gap-3", isExternal ? "grid-cols-1" : "grid-cols-2")}>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Role</label>
-              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+              <Select value={roleChoice} onValueChange={(v) => setRoleChoice(v as RoleChoice)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(roleLabel) as Role[]).map((r) => (
                     <SelectItem key={r} value={r}>
-                      {roleLabel[r]}
+                      {roleChoiceLabel[r]}
                     </SelectItem>
                   ))}
+                  {profile?.role === "admin" && (
+                    <>
+                      <SelectItem value="hr">{roleChoiceLabel.hr}</SelectItem>
+                      <SelectItem value="accountant">{roleChoiceLabel.accountant}</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              {roleChoice === "hr" && <p className="mt-1 text-xs text-muted">Pro HR, co ve firmě nemá klasickou roli (vzácnější kombinaci, třeba manažera, co je zároveň HR, jde doladit po přijetí pozvánky v Upravit).</p>}
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
-              <Select value={departmentId} onValueChange={setDepartmentId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Bez oddělení</SelectItem>
-                  {departments.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!isExternal && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Bez oddělení</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
+          {(roleChoice === "hr" || roleChoice === "accountant") && (
+            <label className="flex cursor-pointer items-center justify-between gap-2 rounded border border-line px-3 py-2 text-sm">
+              <span>
+                Externí
+                <span className="block text-xs font-normal text-muted">Dodavatel, ne zaměstnanec firmy — bez oddělení, nadřízeného a nároku na dovolenou v této firmě.</span>
+              </span>
+              <Switch checked={isExternal} onCheckedChange={setIsExternal} />
+            </label>
+          )}
+
+          {!isExternal && (
           <div>
             <label className="mb-1.5 block text-sm font-medium">Nadřízený (volitelné)</label>
             <Select value={managerId} onValueChange={setManagerId}>
@@ -206,6 +254,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
               </SelectContent>
             </Select>
           </div>
+          )}
 
           {error && <p className="text-sm text-danger">{error}</p>}
 

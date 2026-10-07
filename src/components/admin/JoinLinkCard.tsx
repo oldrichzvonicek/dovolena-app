@@ -77,13 +77,13 @@ export function JoinLinkCard() {
         </div>
       )}
 
-      <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm">
-        <input type="checkbox" checked={info.require_approval} disabled={busy} onChange={(e) => apply(info.enabled, e.target.checked)} className="mt-0.5 h-4 w-4" />
+      <div className="mt-3 flex items-start gap-2 text-sm">
+        <Switch checked={info.require_approval} disabled={busy} onCheckedChange={(v) => apply(info.enabled, v)} label="Nové lidi z odkazu musí schválit admin" />
         <span>
           Nové lidi z odkazu musí schválit admin
           <span className="block text-xs text-muted">Doporučeno. Do schválení se dotyčný nepřihlásí a nic ve firmě neuvidí.</span>
         </span>
-      </label>
+      </div>
       {error && <p className="mt-2 text-sm text-danger-dark">{error}</p>}
     </div>
   );
