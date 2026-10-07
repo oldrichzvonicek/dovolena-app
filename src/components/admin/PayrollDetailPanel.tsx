@@ -53,6 +53,10 @@ export function PayrollDetailPanel() {
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [pamicaMsg, setPamicaMsg] = useState<string | null>(null);
+  // Znovu otevřít uzavřenou mzdovou uzávěrku je silný zásah (mzdy už se mohly zpracovat) — chce to důvod, ne
+  // jen jedno kliknutí, a ten důvod se uloží do Historie změn (viz reopen_payroll_month v schema.sql).
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
 
   useEffect(() => {
     if (!profile) return;
@@ -170,11 +174,13 @@ export function PayrollDetailPanel() {
     setPamicaMsg(notes.length > 0 ? `XML staženo (${notes.join("; ")}).` : "XML staženo.");
   }
 
-  async function toggleClosure() {
+  async function toggleClosure(reason?: string) {
     setBusy(true);
     setMessage(null);
     try {
-      const { error } = await createClient().rpc(closure ? "reopen_payroll_month" : "close_payroll_month", { p_month: `${month}-01` });
+      const { error } = closure
+        ? await createClient().rpc("reopen_payroll_month", { p_month: `${month}-01`, p_reason: reason ?? "" })
+        : await createClient().rpc("close_payroll_month", { p_month: `${month}-01` });
       if (error) throw error;
       setMessage({ ok: true, text: closure ? "Měsíc je znovu otevřený." : "Měsíc je uzavřený. Schválené absence, které ho zasahují, už nejdou přidat, změnit ani smazat." });
       setTick((t) => t + 1);
@@ -289,7 +295,7 @@ export function PayrollDetailPanel() {
           </div>
           <Button
             variant={closure || incomplete ? "secondary" : "primary"}
-            onClick={() => (!closure && incomplete ? setBlockedOpen(true) : toggleClosure())}
+            onClick={() => (!closure && incomplete ? setBlockedOpen(true) : closure ? setReopenOpen(true) : toggleClosure())}
             disabled={busy || loading || (!closure && !monthEnded)}
             className={cn(!closure && incomplete && "border-warning/60 text-warning-dark")}
             aria-describedby={!closure && incomplete ? "closure-blocked" : undefined}
@@ -306,6 +312,50 @@ export function PayrollDetailPanel() {
         )}
         {message && <p className={cn("mt-3 text-sm", message.ok ? "text-teal-dark" : "text-danger")}>{message.text}</p>}
       </div>
+
+      <Dialog
+        open={reopenOpen}
+        onOpenChange={(o) => {
+          setReopenOpen(o);
+          if (!o) setReopenReason("");
+        }}
+      >
+        <DialogContent title="Znovu otevřít uzavřený měsíc">
+          <div className="space-y-3">
+            <p className="text-sm text-muted">
+              Mzdy za tento měsíc už mohly být zpracované — znovu otevřením půjde absence za {month} opět přidávat, měnit i mazat. Uveďte prosím důvod, uloží se do Historie změn.
+            </p>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium" htmlFor="reopen-reason">
+                Důvod
+              </label>
+              <textarea
+                id="reopen-reason"
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                rows={3}
+                placeholder="Např. dodatečně nahlášená nemoc za minulý měsíc"
+                className="w-full rounded border border-line px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setReopenOpen(false)}>
+                Zrušit
+              </Button>
+              <Button
+                variant="danger"
+                disabled={!reopenReason.trim() || busy}
+                onClick={async () => {
+                  await toggleClosure(reopenReason.trim());
+                  setReopenOpen(false);
+                }}
+              >
+                {busy ? "Otevírám…" : "Znovu otevřít"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={blockedOpen} onOpenChange={setBlockedOpen}>
         <DialogContent title="Uzávěrku nejde spustit">
