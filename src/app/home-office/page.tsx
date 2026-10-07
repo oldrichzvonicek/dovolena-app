@@ -8,7 +8,7 @@ import { PageCta } from "@/components/marketing/PageCta";
 import { PageFaq } from "@/components/marketing/PageFaq";
 import { RelatedLinks } from "@/components/marketing/RelatedLinks";
 
-const TITLE = "Evidence home office zaměstnanců | Dodio";
+const TITLE = "Evidence home office zaměstnanců – Dodio";
 const DESCRIPTION =
   "Žádost o home office za pár sekund, schválení jedním kliknutím a přehled, kdo pracuje z domova. Jednoduchá evidence home office pro malé firmy.";
 

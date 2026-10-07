@@ -20,70 +20,70 @@ export function Footer() {
         </div>
 
         <div className="flex flex-wrap gap-10 text-sm lg:gap-16">
-          <div className="flex flex-col gap-3">
-            <div className="font-semibold text-dodio-ink">Řešení</div>
-            <a href="/evidence-absenci" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+          <div className="flex flex-col">
+            <div className="py-1.5 font-semibold text-dodio-ink">Řešení</div>
+            <a href="/evidence-absenci" data-link-location="footer" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Systém pro evidenci absencí
             </a>
-            <a href="/evidence-dovolene" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/evidence-dovolene" data-link-location="footer" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Evidence dovolené zaměstnanců
             </a>
-            <a href="/home-office" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/home-office" data-link-location="footer" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Evidence home office zaměstnanců
             </a>
-            <a href="/sick-days" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/sick-days" data-link-location="footer" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Evidence sick days zaměstnanců
             </a>
-            <a href="/bez-excelu" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/bez-excelu" data-link-location="footer" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Náhrada Excelu pro dovolenou
             </a>
-            <a href="/pro-male-firmy" data-link-location="footer" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/pro-male-firmy" data-link-location="footer" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Evidence dovolené pro malé firmy
             </a>
           </div>
-          <div className="flex flex-col gap-3">
-            <div className="font-semibold text-dodio-ink">Produkt</div>
-            <a href="/#funkce" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+          <div className="flex flex-col">
+            <div className="py-1.5 font-semibold text-dodio-ink">Produkt</div>
+            <a href="/#funkce" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Pro koho
             </a>
-            <a href="/#cenik" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/#cenik" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Ceník
             </a>
-            <a href="/#integrace" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/#integrace" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Integrace
             </a>
-            <a href="/navody" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/navody" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Návody
             </a>
-            <a href="/sablona-dochazky-2027" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/sablona-dochazky-2027" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Šablona docházky zdarma
             </a>
-            <a href="/kalkulacka-dovolene" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/kalkulacka-dovolene" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Kalkulačka dovolené
             </a>
-            <a href="/kalkulacka-pracovnich-dnu" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/kalkulacka-pracovnich-dnu" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Kalkulačka pracovních dnů
             </a>
           </div>
-          <div className="flex flex-col gap-3">
-            <div className="font-semibold text-dodio-ink">Kontakt a právo</div>
-            <a href="/kontakt" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+          <div className="flex flex-col">
+            <div className="py-1.5 font-semibold text-dodio-ink">Kontakt a právo</div>
+            <a href="/kontakt" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Kontakt
             </a>
-            <a href={`mailto:${CONTACT_EMAIL}`} className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               {CONTACT_EMAIL}
             </a>
-            <a href="/obchodni-podminky" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/obchodni-podminky" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Obchodní podmínky
             </a>
-            <a href="/ochrana-osobnich-udaju" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/ochrana-osobnich-udaju" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Ochrana osobních údajů
             </a>
-            <a href="/bezpecnost-dat" className="text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
+            <a href="/bezpecnost-dat" className="flex min-h-11 items-center text-dodio-ink-muted no-underline hover:text-dodio-teal-dark">
               Bezpečnost dat
             </a>
             {/* Decorative until there's a real status page to link and monitor — no live data behind the dot. */}
-            <span className="flex items-center gap-1.5 text-dodio-ink-muted">
+            <span className="flex min-h-11 items-center gap-1.5 text-dodio-ink-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-dodio-teal" aria-hidden="true" />
               Dodio status
             </span>

@@ -41,7 +41,7 @@ const CATEGORIES = [
         a: "Pár minut. Zaregistrujete se, nastavíte typy absencí a nároky, pošlete týmu registrační odkaz — žádný konzultant ani zavádění na týdny.",
       },
       {
-        q: "Jak složitý je přechod z Excelu do Dodio?",
+        q: "Jak složitý je přechod z Excelu do Dodia?",
         a: "Stačí naimportovat seznam zaměstnanců ze souboru a rovnou můžete schvalovat — žádné ruční zakládání účtů jeden po druhém.",
         node: (
           <>

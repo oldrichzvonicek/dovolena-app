@@ -199,16 +199,24 @@ export function SiteHeader() {
             </a>
           </div>
 
-          <button
-            ref={toggleRef}
-            type="button"
-            aria-label="Otevřít menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-dodio-md border border-dodio-border lg:hidden"
-          >
-            <HamburgerIcon />
-          </button>
+          <div className="flex items-center gap-2 lg:hidden">
+            <a
+              href={SIGNUP_URL}
+              className="flex h-11 items-center rounded-dodio-md bg-dodio-teal-dark px-3.5 text-sm font-semibold text-white no-underline hover:bg-dodio-teal"
+            >
+              Vyzkoušet
+            </a>
+            <button
+              ref={toggleRef}
+              type="button"
+              aria-label="Otevřít menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(true)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-dodio-md border border-dodio-border"
+            >
+              <HamburgerIcon />
+            </button>
+          </div>
         </Container>
       </header>
 

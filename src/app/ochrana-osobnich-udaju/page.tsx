@@ -6,6 +6,7 @@ import { CookieBanner } from "@/components/marketing/CookieBanner";
 
 export const metadata: Metadata = {
   title: "Ochrana osobních údajů – Dodio",
+  alternates: { canonical: "https://dodio.cz/ochrana-osobnich-udaju" },
 };
 
 export default function PrivacyPage() {

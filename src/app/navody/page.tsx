@@ -7,6 +7,7 @@ import { CONTACT_EMAIL } from "@/lib/dodio-links";
 
 export const metadata: Metadata = {
   title: "Návody – Dodio",
+  alternates: { canonical: "https://dodio.cz/navody" },
 };
 
 export default function GuidesPage() {

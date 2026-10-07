@@ -55,6 +55,43 @@ const CALENDAR_LINKS = [
   },
 ];
 
+// Mobile gets a single-week snapshot instead of the full two-week grid —
+// at 390px there's no room for 14 day columns, and a horizontally-scrolling
+// table hides most of the content behind a swipe. This mirrors the second
+// week of the desktop grid (Po 5. – Ne 11. 10.), the week with the most
+// absence variety, so the two views stay consistent with each other.
+const MOBILE_WEEK_LABEL = "5. – 11. 10. 2026";
+const MOBILE_ROWS: {
+  name: string;
+  tag?: string;
+  dept: string;
+  absence?: { label: string; range: string; color: string; dark?: boolean };
+}[] = [
+  {
+    name: "Jana Nováková",
+    tag: "(vy)",
+    dept: "e-Commerce",
+    absence: { label: "Dovolená", range: "Po–Út", color: "bg-dodio-teal" },
+  },
+  { name: "Alena Králová", dept: "Finance" },
+  {
+    name: "Ondřej Veselý",
+    dept: "Finance",
+    absence: { label: "Sick Day", range: "Po–Út", color: "bg-dodio-danger" },
+  },
+  {
+    name: "Veronika Sedláková",
+    dept: "Finance",
+    absence: { label: "Nepřítomen", range: "Út–St", color: "bg-dodio-border", dark: true },
+  },
+  {
+    name: "David Kučera",
+    dept: "Obchod",
+    absence: { label: "Home Office", range: "Po–St", color: "bg-[#4A7FC9]" },
+  },
+  { name: "Roman Richter", dept: "Obchod" },
+];
+
 export function TeamCalendar() {
   return (
     <section id="kalendar" className="scroll-mt-16 border-y border-dodio-border bg-dodio-surface-card font-dodio-sans lg:scroll-mt-24">
@@ -96,7 +133,41 @@ export function TeamCalendar() {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-dodio-lg border border-dodio-border">
+        {/* Mobile: simplified single-week list — the full grid needs 1180px
+            and doesn't fit a phone screen without hiding most of itself
+            behind a horizontal scroll. */}
+        <div className="flex flex-col gap-2.5 lg:hidden">
+          <div className="flex items-center justify-between text-sm text-dodio-ink-muted">
+            <span className="font-semibold text-dodio-ink">Tento týden</span>
+            <span>{MOBILE_WEEK_LABEL}</span>
+          </div>
+          {MOBILE_ROWS.map((row) => (
+            <div
+              key={row.name}
+              className="flex items-center justify-between gap-3 rounded-dodio-md border border-dodio-border bg-dodio-surface-card px-4 py-3"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-dodio-ink">
+                  {row.name} {row.tag && <span className="font-normal text-dodio-ink-muted">{row.tag}</span>}
+                </div>
+                <div className="text-xs text-dodio-ink-muted">{row.dept}</div>
+              </div>
+              {row.absence ? (
+                <span
+                  className={`shrink-0 whitespace-nowrap rounded-dodio-md px-2.5 py-1.5 text-xs font-semibold ${row.absence.color} ${
+                    row.absence.dark ? "text-dodio-ink" : "text-white"
+                  }`}
+                >
+                  {row.absence.label} · {row.absence.range}
+                </span>
+              ) : (
+                <span className="shrink-0 text-xs text-dodio-ink-muted">V práci</span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-dodio-lg border border-dodio-border lg:block">
           <div className="grid min-w-[1180px] grid-cols-[190px_repeat(14,minmax(56px,1fr))] grid-rows-[52px_60px_36px_56px_56px_56px_36px_56px_56px] relative bg-dodio-surface-card">
             {/* header row */}
             <div className="col-start-1 flex items-center border-b border-dodio-border bg-[#FAF9F5] px-4 text-[13px] font-semibold text-dodio-ink-muted">
@@ -191,7 +262,7 @@ export function TeamCalendar() {
                 <a
                   href={item.href}
                   data-link-location="calendar-legend"
-                  className="mt-auto text-[13px] font-medium text-dodio-teal-dark no-underline hover:underline"
+                  className="-mx-1 mt-auto flex min-h-11 items-center px-1 text-[13px] font-medium text-dodio-teal-dark no-underline hover:underline"
                 >
                   {item.linkLabel} →
                 </a>

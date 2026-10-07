@@ -8,7 +8,7 @@ import { PageCta } from "@/components/marketing/PageCta";
 import { PageFaq } from "@/components/marketing/PageFaq";
 import { RelatedLinks } from "@/components/marketing/RelatedLinks";
 
-const TITLE = "Evidence absencí zaměstnanců online | Dodio";
+const TITLE = "Evidence absencí zaměstnanců online – Dodio";
 const DESCRIPTION =
   "Nemoc, lékař, náhradní volno i dovolená v jednom systému. Přehled o nepřítomnosti zaměstnanců a exporty pro mzdovou účetní. Zdarma do 5 lidí.";
 

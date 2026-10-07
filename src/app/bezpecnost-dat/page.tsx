@@ -11,6 +11,7 @@ import { CookieBanner } from "@/components/marketing/CookieBanner";
 export const metadata: Metadata = {
   title: "Bezpečnost dat – Dodio",
   robots: { index: false, follow: false },
+  alternates: { canonical: "https://dodio.cz/bezpecnost-dat" },
 };
 
 const H2 = "m-0 mt-10 font-dodio-display text-2xl font-extrabold text-dodio-ink first:mt-0 lg:text-[28px]";

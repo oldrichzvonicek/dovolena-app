@@ -10,7 +10,7 @@ import { RelatedLinks } from "@/components/marketing/RelatedLinks";
 import { TemplateEmailForm } from "@/components/marketing/TemplateEmailForm";
 import { CheckIcon } from "@/components/marketing/icons";
 
-const TITLE = "Evidence dovolené a absencí bez Excelu | Dodio";
+const TITLE = "Evidence dovolené a absencí bez Excelu – Dodio";
 const DESCRIPTION =
   "Evidence dovolené v Excelu přestává stačit? Dodio převezme zůstatky, kalendář i schvalování. Přechod z tabulky bez složité implementace. Zdarma do 5 lidí.";
 

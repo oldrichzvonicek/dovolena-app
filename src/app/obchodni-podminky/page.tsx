@@ -6,6 +6,7 @@ import { CookieBanner } from "@/components/marketing/CookieBanner";
 
 export const metadata: Metadata = {
   title: "Obchodní podmínky – Dodio",
+  alternates: { canonical: "https://dodio.cz/obchodni-podminky" },
 };
 
 export default function TermsPage() {

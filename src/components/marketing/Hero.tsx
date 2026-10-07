@@ -128,7 +128,7 @@ function OverviewCard() {
   return (
     <div
       aria-hidden="true"
-      className="flex w-full max-w-[520px] flex-col gap-5 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-7 shadow-[0_24px_48px_-24px_rgba(44,44,42,0.25)]"
+      className="flex w-full max-w-[520px] flex-col gap-5 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_24px_48px_-24px_rgba(44,44,42,0.25)] lg:p-7"
     >
       <div className="flex items-center justify-between">
         <div className="font-dodio-display text-xl font-bold">Můj přehled</div>
@@ -229,6 +229,12 @@ export function Hero() {
               </span>
             ))}
           </div>
+        </div>
+
+        {/* Mobile/tablet: single overview card in normal flow, so there's a
+            product visual above the fold instead of text only. */}
+        <div className="lg:hidden">
+          <OverviewCard />
         </div>
 
         {/* Desktop: overview card + overlapping chat approval card */}

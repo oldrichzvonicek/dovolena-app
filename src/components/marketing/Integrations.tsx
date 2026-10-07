@@ -17,7 +17,11 @@ const CZECH_POINTS = [
 ];
 
 const INTEGRATION_GROUPS = [
-  { title: "Kalendáře", items: ["Google Kalendář", "Outlook", "iCal"] },
+  {
+    title: "Kalendáře",
+    items: ["Google Kalendář", "Outlook", "iCal"],
+    caption: "Google Kalendář a Outlook se napojí přes odběr iCal (jednosměrně, z Dodia do kalendáře).",
+  },
   { title: "Mzdy a účetnictví", items: ["CSV", "Excel", "ODS"] },
   { title: "Chystáme", items: ["Slack", "Microsoft Teams", "Discord", "Webhooky"] },
 ];
@@ -92,6 +96,9 @@ export function Integrations() {
                     Do té doby stačí e-mailové upozornění a schválení přímo v appce — pokryje naprostou
                     většinu týmů.
                   </p>
+                )}
+                {group.caption && (
+                  <p className="m-0 text-[13px] leading-5 text-dodio-ink-muted">{group.caption}</p>
                 )}
               </div>
             );

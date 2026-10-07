@@ -8,7 +8,7 @@ import { Pricing } from "@/components/marketing/Pricing";
 import { PageFaq } from "@/components/marketing/PageFaq";
 import { RelatedLinks } from "@/components/marketing/RelatedLinks";
 
-const TITLE = "Evidence dovolené a absencí pro malé firmy | Dodio";
+const TITLE = "Evidence dovolené a absencí pro malé firmy – Dodio";
 const DESCRIPTION =
   "Přerostli jste Excel, ale nechcete drahý HR systém? Jednoduchá evidence dovolené a absencí pro firmy do 50 lidí. Paušál od 290 Kč, zdarma do 5 lidí.";
 

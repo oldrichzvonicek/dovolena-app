@@ -8,7 +8,7 @@ import { PageCta } from "@/components/marketing/PageCta";
 import { PageFaq } from "@/components/marketing/PageFaq";
 import { RelatedLinks } from "@/components/marketing/RelatedLinks";
 
-const TITLE = "Evidence dovolené zaměstnanců online | Dodio";
+const TITLE = "Evidence dovolené zaměstnanců online – Dodio";
 const DESCRIPTION =
   "Evidence a plánování dovolených bez tabulek. Zůstatky, kalendář dovolených a schvalování jedním kliknutím. Celé dny, půldny i hodiny. Zdarma do 5 lidí.";
 

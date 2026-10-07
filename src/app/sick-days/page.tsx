@@ -8,7 +8,7 @@ import { PageCta } from "@/components/marketing/PageCta";
 import { PageFaq } from "@/components/marketing/PageFaq";
 import { RelatedLinks } from "@/components/marketing/RelatedLinks";
 
-const TITLE = "Evidence sick days zaměstnanců | Dodio";
+const TITLE = "Evidence sick days zaměstnanců – Dodio";
 const DESCRIPTION =
   "Sick days jako benefit, ne jako chaos v tabulce. Limit pro každého, žádost za pár sekund a přehled čerpání. Jednoduchá evidence sick days.";
 
