@@ -206,7 +206,7 @@ export function UsersPanel() {
   }
 
   async function handleCancelInvite(id: string) {
-    if (!(await confirmDialog("Zrušit tuto pozvánku?", { confirmLabel: "Zrušit pozvánku", danger: true }))) return;
+    if (!(await confirmDialog("Zrušit tuto pozvánku?", { confirmLabel: "Zrušit pozvánku", cancelLabel: "Zpět", danger: true }))) return;
     await deleteInvite(id);
     load();
   }

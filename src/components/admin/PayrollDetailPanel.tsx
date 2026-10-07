@@ -268,7 +268,7 @@ export function PayrollDetailPanel() {
               <p className="flex items-start gap-1.5">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
                 <span>
-                  Kód pro mzdy není vyplněný u: {missingCode.join(", ")}. Podklad je použitelný i tak (každý řádek nese název typu). Kódy jsou v každém mzdovém systému jiné, proto je nepředvyplňujeme — doplňte je jen tehdy, když je váš systém vyžaduje, v{" "}
+                  Kód pro mzdy není vyplněný u: {missingCode.join(", ")}. Náhled a stažení podkladu funguje i bez nich (každý řádek nese název typu) — ale uzávěrku měsíce bez nich nejde spustit, to je záměrná pojistka. Kódy jsou v každém mzdovém systému jiné, proto je nepředvyplňujeme, v{" "}
                   <Link href="/admin/settings?sekce=leave-types" className="underline">
                     Nastavení → Typy absencí
                   </Link>{" "}

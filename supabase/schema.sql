@@ -1164,8 +1164,9 @@ begin
 
   select key, label into type_key, type_label from leave_types where id = new.leave_type_id;
   date_range := case
-    when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
-    else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
+    -- FM potlačí nuly na začátku (to_char bez něj dává "09. 11.", zbytek appky píše "9. 11.").
+    when new.start_date = new.end_date then to_char(new.start_date, 'FMDD. FMMM. YYYY')
+    else to_char(new.start_date, 'FMDD. FMMM.') || ' – ' || to_char(new.end_date, 'FMDD. FMMM. YYYY')
   end;
   -- Typ (leave_types.label) je volný text, který si firma může přejmenovat nebo přidat vlastní, takže ho
   -- obecně nejde skloňovat. Pro výchozí "Dovolená" (drtivá většina žádostí) proto zní rovnou "o dovolenou";
@@ -1222,8 +1223,9 @@ begin
 
   select key, label into type_key, type_label from leave_types where id = new.leave_type_id;
   date_range := case
-    when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
-    else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
+    -- FM potlačí nuly na začátku (to_char bez něj dává "09. 11.", zbytek appky píše "9. 11.").
+    when new.start_date = new.end_date then to_char(new.start_date, 'FMDD. FMMM. YYYY')
+    else to_char(new.start_date, 'FMDD. FMMM.') || ' – ' || to_char(new.end_date, 'FMDD. FMMM. YYYY')
   end;
   -- Viz pozn. u notify_on_leave_request_insert — typ se neskloňuje obecně, jen "Dovolená" má vlastní tvar.
   type_phrase := case
@@ -1861,8 +1863,9 @@ begin
   select company_id, name into cid, who from profiles where id = new.profile_id;
   select case when hide_from_colleagues then 'absenci' else label end into lt from leave_types where id = new.leave_type_id;
   rng := case
-    when new.start_date = new.end_date then to_char(new.start_date, 'DD. MM. YYYY')
-    else to_char(new.start_date, 'DD. MM.') || ' – ' || to_char(new.end_date, 'DD. MM. YYYY')
+    -- FM potlačí nuly na začátku (to_char bez něj dává "09. 11.", zbytek appky píše "9. 11.").
+    when new.start_date = new.end_date then to_char(new.start_date, 'FMDD. FMMM. YYYY')
+    else to_char(new.start_date, 'FMDD. FMMM.') || ' – ' || to_char(new.end_date, 'FMDD. FMMM. YYYY')
   end;
 
   if tg_op = 'INSERT' and new.status = 'pending' then

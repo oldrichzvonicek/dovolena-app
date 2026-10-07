@@ -83,7 +83,7 @@ export function UpcomingLeave() {
   useOnDataChanged(load);
 
   async function handleCancel(id: string) {
-    if (!(await confirmDialog("Zrušit tuto žádost? Nejde vzít zpět — pro jiný termín podáte novou.", { confirmLabel: "Zrušit žádost", danger: true }))) return;
+    if (!(await confirmDialog("Zrušit tuto žádost? Nejde vzít zpět — pro jiný termín podáte novou.", { confirmLabel: "Zrušit žádost", cancelLabel: "Zpět", danger: true }))) return;
     setBusyId(id);
     setError(null);
     try {
@@ -97,7 +97,7 @@ export function UpcomingLeave() {
   }
 
   async function handleRequestCancellation(r: UpcomingRow) {
-    if (!(await confirmDialog("Požádat manažera o zrušení této schválené absence?", { confirmLabel: "Požádat o zrušení" }))) return;
+    if (!(await confirmDialog("Požádat manažera o zrušení této schválené absence?", { confirmLabel: "Požádat o zrušení", cancelLabel: "Zpět" }))) return;
     setBusyId(r.id);
     setError(null);
     try {

@@ -9,15 +9,18 @@ const EVENT = "dodio:confirm";
 interface Request {
   message: string;
   confirmLabel: string;
+  cancelLabel: string;
   danger: boolean;
   resolve: (ok: boolean) => void;
 }
 
 /** Styled, keyboard-accessible replacement for window.confirm(). Usage: `if (!(await confirmDialog("…"))) return;` */
-export function confirmDialog(message: string, opts: { confirmLabel?: string; danger?: boolean } = {}): Promise<boolean> {
+export function confirmDialog(message: string, opts: { confirmLabel?: string; cancelLabel?: string; danger?: boolean } = {}): Promise<boolean> {
   return new Promise((resolve) => {
     window.dispatchEvent(
-      new CustomEvent<Request>(EVENT, { detail: { message, confirmLabel: opts.confirmLabel ?? "Potvrdit", danger: opts.danger ?? false, resolve } })
+      new CustomEvent<Request>(EVENT, {
+        detail: { message, confirmLabel: opts.confirmLabel ?? "Potvrdit", cancelLabel: opts.cancelLabel ?? "Zrušit", danger: opts.danger ?? false, resolve },
+      })
     );
   });
 }
@@ -43,7 +46,7 @@ export function ConfirmHost() {
         <p className="text-sm text-muted">{req?.message}</p>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => close(false)}>
-            Zrušit
+            {req?.cancelLabel}
           </Button>
           <Button variant={req?.danger ? "danger" : "primary"} onClick={() => close(true)} autoFocus>
             {req?.confirmLabel}

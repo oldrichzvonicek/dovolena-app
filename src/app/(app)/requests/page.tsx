@@ -162,7 +162,7 @@ export default function RequestsPage() {
   }
 
   async function handleCancel(id: string) {
-    if (!(await confirmDialog("Zrušit tuto žádost? Nejde vzít zpět — pro jiný termín podáte novou.", { confirmLabel: "Zrušit žádost", danger: true }))) return;
+    if (!(await confirmDialog("Zrušit tuto žádost? Nejde vzít zpět — pro jiný termín podáte novou.", { confirmLabel: "Zrušit žádost", cancelLabel: "Zpět", danger: true }))) return;
     setCancellingId(id);
     try {
       await cancelLeaveRequest(id);
@@ -173,7 +173,7 @@ export default function RequestsPage() {
   }
 
   async function handleRequestCancellation(r: Row) {
-    if (!(await confirmDialog("Požádat manažera o zrušení této schválené absence?", { confirmLabel: "Požádat o zrušení" }))) return;
+    if (!(await confirmDialog("Požádat manažera o zrušení této schválené absence?", { confirmLabel: "Požádat o zrušení", cancelLabel: "Zpět" }))) return;
     setActionError(null);
     try {
       await requestLeaveCancellation(r.id);
