@@ -2669,6 +2669,13 @@ create trigger default_hide_sick_type
 -- s counts_against = 'none', takže je výše uvedený backfill (where counts_against = 'sick') nezahrnul a kolegům se
 -- ukazoval konkrétní typ místo "Nepřítomen". Redefinice seedu (pro nově zakládané firmy) + backfill (pro firmy, co
 -- tyto typy mají už založené se starým výchozím nastavením a admin ho sám nezměnil).
+--
+-- POZOR, dřívější chyba: tahle redefinice byla napsaná bez vědomí o souběžné migraci
+-- 20260930010000_unpaid_leave_type.sql, která stejnou funkci mezitím redefinovala a přidala do seedu typ
+-- "Neplacené volno" — ta novější verze (bez hide_from_colleagues) tím nevědomky přepsala tuhle opravu
+-- soukromí zpátky na "vypnuto" u Lékaře/Nemoci. 49 řádků v produkci tak mělo skutečný typ viditelný kolegům,
+-- dokud se znovu neopravilo (viz migrace 20261007020000). Seed teď obsahuje OBOJE — typ i příznak soukromí —
+-- v jedné definici, ať se tohle neopakuje.
 create or replace function seed_default_leave_types(target_company_id uuid)
 returns void
 language sql
@@ -2682,11 +2689,15 @@ as $$
     (target_company_id, 'osetrovacka', 'Ošetřování člena rodiny', 'plum', 'none', false, false),
     (target_company_id, 'materska', 'Mateřská dovolená', 'forest', 'none', false, false),
     (target_company_id, 'nemoc', 'Nemoc', 'sage', 'none', false, true),
-    (target_company_id, 'sluzebni_cesta', 'Služební cesta', 'slate', 'none', false, false)
+    (target_company_id, 'sluzebni_cesta', 'Služební cesta', 'slate', 'none', false, false),
+    (target_company_id, 'neplacene_volno', 'Neplacené volno', 'amber', 'none', false, false)
   on conflict (company_id, key) do nothing;
 
   update leave_types set counts_as_present = true
    where company_id = target_company_id and key in ('home_office', 'sluzebni_cesta') and counts_as_present = false;
+
+  update leave_types set paid = false
+   where company_id = target_company_id and key = 'neplacene_volno' and paid = true;
 $$;
 
 update leave_types set hide_from_colleagues = true where key in ('lekar', 'nemoc') and hide_from_colleagues = false;
