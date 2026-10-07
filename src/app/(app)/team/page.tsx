@@ -96,9 +96,11 @@ export default function TeamPage() {
 
   const year = new Date().getFullYear();
   const isAdmin = profile?.role === "admin";
-  // HR vidí (a smí zadat absenci) za celou firmu jako admin — viz fetchDecisionScope — ale nemá přístup
-  // k Upravit profil/roli ani k Nastavení firmy, takže tenhle přepínač je jen pro titulek a podtitulek.
+  // HR vidí (a smí zadat absenci) za celou firmu jako admin — viz fetchDecisionScope.
   const showFullCompany = isAdmin || isHr(profile);
+  // Nároky a zůstatky jsou typicky práce HR (ne jen admina) — EditEmployeeModal už sám uvnitř zamyká pole
+  // Role/Doplňková role jen na admina, takže HR smí modal otevřít, jen v něm nemůže měnit roli.
+  const canEditEntitlements = isAdmin || isHr(profile);
 
   async function load() {
     if (!profile) return;
@@ -130,7 +132,7 @@ export default function TeamPage() {
     setDepartments(deps ?? []);
     setLoading(false);
 
-    if (profile.role === "admin") {
+    if (profile.role === "admin" || isHr(profile)) {
       const [emp, lt, ent] = await Promise.all([
         fetchCompanyEmployees(profile.company_id),
         fetchLeaveTypes(profile.company_id),
@@ -162,6 +164,15 @@ export default function TeamPage() {
     if (r.role === "admin" || r.manager_id) return true;
     const d = departments.find((x) => x.id === r.department_id);
     return !!d && (!!d.head_profile_id || !!d.deputy_head_profile_id);
+  };
+  // Když "Nadřízený" (manager_id) prázdný, tahle stránka to ukázala jako holé "Bez nadřízeného" — Nastavení
+  // firmy → Lidé ale ve stejné situaci ukazuje, KDO ve skutečnosti žádosti schválí (vedoucí oddělení, nebo
+  // admin jako poslední záchrana), takže vypadaly, že si navzájem odporují. Stejná logika, stejný text tady.
+  const resolvedApproverHint = (r: Row): string | null => {
+    if (r.role === "admin" || r.manager_id) return null;
+    const d = departments.find((x) => x.id === r.department_id);
+    const head = d?.head_profile_id ? people.find((p) => p.id === d.head_profile_id) : null;
+    return head ? `${head.name} (vedoucí)` : "Admin (záložní)";
   };
   const noManagerCount = rows.filter((r) => !hasApproverAbove(r)).length;
 
@@ -440,6 +451,7 @@ export default function TeamPage() {
                               options={others}
                               onChange={(v) => handleManagerChange(e.id, v)}
                             />
+                            {resolvedApproverHint(e) && <div className="pl-1.5 text-[11px] text-muted">Schvaluje: {resolvedApproverHint(e)}</div>}
                           </td>
                           {/* Zástup je na mobilu skrytý (dřív z 5 řádků na kartu dělal 1 navíc) — jde upravit přes
                               Upravit, méně časté než oddělení/nadřízený/zůstatek, co se vejdou do první obrazovky. */}
@@ -455,7 +467,7 @@ export default function TeamPage() {
                             />
                           </td>
                           <td className="px-3 py-3" data-label="Dovolená">
-                            <BalanceChip total={e.vacationTotal} used={e.vacationUsed} onFix={isAdmin ? () => setEditingEmployeeId(e.id) : undefined} />
+                            <BalanceChip total={e.vacationTotal} used={e.vacationUsed} onFix={canEditEntitlements ? () => setEditingEmployeeId(e.id) : undefined} />
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex gap-1">
@@ -469,12 +481,12 @@ export default function TeamPage() {
                                   <Plus size={15} />
                                 </button>
                               )}
-                              {isAdmin && (
+                              {canEditEntitlements && (
                                 <button
                                   onClick={() => setEditingEmployeeId(e.id)}
                                   className="rounded p-1.5 text-muted hover:bg-teal-light hover:text-teal-dark"
-                                  title="Upravit profil / roli"
-                                  aria-label="Upravit profil"
+                                  title="Upravit"
+                                  aria-label="Upravit"
                                 >
                                   <Pencil size={15} />
                                 </button>
