@@ -14,6 +14,7 @@ import { CancellationRequests } from "@/components/manager/CancellationRequests"
 import { useAuth } from "@/lib/auth-context";
 import { useOnDataChanged } from "@/lib/events";
 import { isNameDayFor } from "@/lib/name-days";
+import { isHr } from "@/lib/access";
 
 export default function DashboardPage() {
   const { profile } = useAuth();
@@ -61,7 +62,10 @@ export default function DashboardPage() {
           <div className="space-y-6">{mine}</div>
           <section aria-labelledby="team-overview-heading" className="space-y-6 rounded-lg bg-teal-light/30 p-4 sm:p-6">
             <h2 id="team-overview-heading" className="flex items-center gap-2 font-display text-h2">
-              <Users size={18} className="text-teal-dark" /> {isManager ? "Týmový přehled a agenda manažera" : "Týmový přehled"}
+              <Users size={18} className="text-teal-dark" />{" "}
+              {/* "...a agenda manažera" předpokládá, že vidíte schvalování vlastního týmu — pro HR (i když má
+                  roli admin) to není výstižné, ta vidí celou firmu, ne agendu manažera. */}
+              {isHr(profile) ? "Přehled firmy" : isManager ? "Týmový přehled a agenda manažera" : "Týmový přehled"}
             </h2>
             {team}
           </section>
