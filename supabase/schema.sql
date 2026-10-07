@@ -544,6 +544,11 @@ alter table profile_hr add column if not exists personal_number text;
 --   accountant — mzdová účetní: jen čte absence a nároky celé firmy pro mzdy (Exporty, Analytika). Nic nemění.
 alter table profiles add column if not exists staff_role text check (staff_role in ('hr', 'accountant'));
 
+-- Externí HR/účetní (dodavatel, ne zaměstnanec firmy): nemá oddělení ani nadřízeného a sám nečerpá dovolenou
+-- v téhle firmě — RLS proto takovému profilu nedovolí založit si (ani dostat založenou) leave_requests, viz
+-- policy "create own leave_requests" a "managers create leave_requests for team" níž. Nastavuje jen admin.
+alter table profiles add column if not exists is_external boolean not null default false;
+
 -- Nové registrace z odkazu čekají na schválení adminem (viz company_join / join_company_by_code).
 alter table profiles add column if not exists join_pending boolean not null default false;
 
@@ -872,9 +877,11 @@ create policy "select leave_requests in company" on leave_requests
     )
   );
 
+-- Externí HR/účetní (is_external) nečerpá dovolenou v téhle firmě — nejde o jejího zaměstnance, jen o dodavatele
+-- s přístupem ke čtení dat pro mzdy, viz is_external na profiles.
 drop policy if exists "create own leave_requests" on leave_requests;
 create policy "create own leave_requests" on leave_requests
-  for insert with check (profile_id = auth.uid());
+  for insert with check (profile_id = auth.uid() and not coalesce((select is_external from profiles where id = auth.uid()), false));
 
 -- A manager/admin booking leave on someone's behalf (e.g. a phoned-in sick
 -- day) — always for someone in their own company, not necessarily a direct
@@ -974,6 +981,9 @@ alter table company_invites add column if not exists hire_date date;
 -- obyčejný zaměstnanec. Teď jde nastavit rovnou při pozvání.
 alter table company_invites add column if not exists staff_role text check (staff_role in ('hr', 'accountant'));
 
+-- Externí HR/účetní — viz is_external na profiles níž.
+alter table company_invites add column if not exists is_external boolean not null default false;
+
 alter table company_invites enable row level security;
 
 drop policy if exists "admins manage invites" on company_invites;
@@ -1022,11 +1032,11 @@ begin
     where u.email = inv.manager_invite_email and p.company_id = inv.company_id;
   end if;
 
-  insert into profiles (id, company_id, department_id, manager_id, name, role, avatar_initials, email, staff_role)
+  insert into profiles (id, company_id, department_id, manager_id, name, role, avatar_initials, email, staff_role, is_external)
   values (
     auth.uid(), inv.company_id, inv.department_id, resolved_manager_id, inv.name, inv.role,
     upper(left(split_part(inv.name, ' ', 1), 1) || left(split_part(inv.name, ' ', 2), 1)),
-    caller_email, inv.staff_role
+    caller_email, inv.staff_role, inv.is_external
   );
 
   if inv.hire_date is not null then
@@ -1908,6 +1918,7 @@ declare
   dept_name text;
   n int := 0;
   wanted_staff_role text;
+  wanted_external boolean;
 begin
   if current_company_id() is distinct from target_company_id
      or (current_user_role() is distinct from 'admin' and current_user_staff() is distinct from 'hr') then
@@ -1948,16 +1959,23 @@ begin
       end if;
     end if;
 
+    -- Externí HR/účetní nemá oddělení ani nadřízeného (dodavatel, ne zaměstnanec firmy) — platí jen spolu s
+    -- doplňkovou rolí, jinak se ignoruje. Pole se tu rovnou vynulují, i kdyby je klient přesto poslal.
+    wanted_external := wanted_staff_role is not null and coalesce((r->>'is_external')::boolean, false);
+    if wanted_external then
+      dept_id := null;
+    end if;
+
     insert into company_invites (
       company_id, email, name, department_id, manager_id, manager_invite_email,
-      vacation_total, vacation_opening_used, sick_total, sick_opening_used, role, hire_date, staff_role
+      vacation_total, vacation_opening_used, sick_total, sick_opening_used, role, hire_date, staff_role, is_external
     ) values (
       target_company_id,
       lower(trim(r->>'email')),
       r->>'name',
       dept_id,
-      nullif(r->>'manager_id', '')::uuid,
-      nullif(r->>'manager_invite_email', ''),
+      case when wanted_external then null else nullif(r->>'manager_id', '')::uuid end,
+      case when wanted_external then null else nullif(r->>'manager_invite_email', '') end,
       coalesce((r->>'vacation_total')::numeric, 0),
       coalesce((r->>'vacation_opening_used')::numeric, 0),
       coalesce((r->>'sick_total')::numeric, 0),
@@ -1965,7 +1983,8 @@ begin
       -- HR smí zvát jen zaměstnance; role manažer / admin přiděluje jen admin.
       case when current_user_role() = 'admin' then coalesce(nullif(r->>'role', '')::user_role, 'employee') else 'employee'::user_role end,
       nullif(r->>'hire_date', '')::date,
-      wanted_staff_role
+      wanted_staff_role,
+      wanted_external
     )
     on conflict (company_id, email) do update set
       name = excluded.name,
@@ -1978,7 +1997,8 @@ begin
       sick_opening_used = excluded.sick_opening_used,
       role = excluded.role,
       hire_date = excluded.hire_date,
-      staff_role = excluded.staff_role;
+      staff_role = excluded.staff_role,
+      is_external = excluded.is_external;
 
     n := n + 1;
   end loop;
@@ -2985,7 +3005,7 @@ create policy "managers approve leave_requests" on leave_requests
 drop policy if exists "managers create leave_requests for team" on leave_requests;
 create policy "managers create leave_requests for team" on leave_requests
   for insert with check (
-    exists (select 1 from profiles p where p.id = leave_requests.profile_id and p.company_id = current_company_id())
+    exists (select 1 from profiles p where p.id = leave_requests.profile_id and p.company_id = current_company_id() and not p.is_external)
     and (
       current_user_role() = 'admin'
       or (current_user_role() = 'manager' and is_superior_of(leave_requests.profile_id))

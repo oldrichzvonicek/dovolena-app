@@ -100,6 +100,7 @@ export interface DbProfile {
   active: boolean;
   email_notifications: boolean;
   staff_role: "hr" | "accountant" | null;
+  is_external: boolean;
   join_pending: boolean;
 }
 
