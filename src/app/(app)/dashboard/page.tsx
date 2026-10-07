@@ -23,7 +23,10 @@ export default function DashboardPage() {
   const now = new Date();
   const today = now.toLocaleDateString("cs-CZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const isManager = profile?.role === "manager" || profile?.role === "admin";
-  const firstName = profile?.name.split(" ")[0] ?? "";
+  // Jméno chybí, nebo je to jen e-mail z nedokončené registrace (viz claim_invite) — "Vítejte zpět, jan@firma.cz"
+  // vypadá jako chyba a na mobilu dlouhý e-mail zbytečně zabírá řádky navíc. Bez jména je lepší obecný pozdrav.
+  const rawFirstName = profile?.name.split(" ")[0] ?? "";
+  const firstName = rawFirstName.includes("@") ? "" : rawFirstName;
   const isMyNameDay = isNameDayFor(now, firstName);
 
   const subtitle = `${today.charAt(0).toUpperCase()}${today.slice(1)}${isMyNameDay ? " · Dnes máte svátek — všechno nejlepší! 🎉" : ""}`;
@@ -48,7 +51,7 @@ export default function DashboardPage() {
   // Pro všechny stejně: nahoře moje absence, pod nimi týmový přehled (u manažera a admina i schvalování).
   return (
     <div key={refreshKey}>
-      <Header title={`Vítejte zpět, ${firstName}`} subtitle={subtitle} />
+      <Header title={firstName ? `Vítejte zpět, ${firstName}` : "Vítejte zpět"} subtitle={subtitle} />
       {/* Ukotveno vlevo (bez mx-auto), do max-width 1600px pro širokoúhlé monitory. Od xl (>=1280px) dva
           sloupce vedle sebe — vlevo moje absence, vpravo týmový přehled; pod xl padají pod sebe. */}
       <div className="max-w-[1600px] space-y-6 p-4 sm:p-8">

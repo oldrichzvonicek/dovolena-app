@@ -103,7 +103,9 @@ export const sections: HelpSection[] = [
     ],
   },
   {
-    title: "Můj tým",
+    // Stejná stránka (/team) se v menu jmenuje "Zaměstnanci" pro admina a "Můj tým" pro manažera — tahle
+    // sekce v nápovědě je ale společná pro oba, takže v titulku musí zůstat oba názvy.
+    title: "Zaměstnanci / Můj tým",
     icon: Users,
     color: "moss",
     roles: ["manager", "admin"],
@@ -360,7 +362,7 @@ const ALL_FAQS: HelpFaq[] = [
   },
   {
     q: "Jak pozvu nového kolegu do firmy?",
-    section: "Můj tým",
+    section: "Zaměstnanci / Můj tým",
     top: true,
     a: "V Můj tým nebo v Nastavení firmy → Lidé zvolte „Pozvat uživatele“ (e-mail), „Kopírovat registrační odkaz“ nebo hromadný CSV import.",
     roles: ["manager", "admin"],
@@ -368,18 +370,18 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Chci zadat absenci za zaměstnance (např. nemoc oznámenou telefonem).",
     a: "V Můj tým klikněte na „Zadat absenci za zaměstnance“ nebo na + u jeho řádku. Absence se založí rovnou schválená. Můžete ji zadat jen za své lidi, za ostatní ji zadá admin nebo HR.",
-    section: "Můj tým",
+    section: "Zaměstnanci / Můj tým",
     roles: ["manager","admin"],
   },
   {
     q: "Proč nemůžu změnit nadřízeného nebo oddělení někomu ve firmě?",
     a: "Manažer smí přeřazovat jen lidi, za které odpovídá. Ostatní přeřadí admin nebo HR (Nastavení firmy → Lidé → Upravit).",
-    section: "Můj tým",
+    section: "Zaměstnanci / Můj tým",
     roles: ["manager","admin"],
   },
   {
     q: "Jak funguje upozornění na riziko vyhoření?",
-    section: "Můj tým",
+    section: "Zaměstnanci / Můj tým",
     a: "Na stránce Můj tým se zobrazí lidé, kteří si déle než 6 měsíců nevzali delší dovolenou (aspoň 3 dny v kuse) — stojí za to jim ji připomenout.",
     roles: ["manager", "admin"],
   },

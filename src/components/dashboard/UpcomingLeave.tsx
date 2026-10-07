@@ -14,6 +14,7 @@ import { cancelLeaveRequest, requestLeaveCancellation } from "@/lib/data";
 import { RequestLeaveModal } from "@/components/dashboard/RequestLeaveModal";
 import { emitDataChanged, useOnDataChanged } from "@/lib/events";
 import { errorMessage } from "@/lib/utils";
+import { czForm, czRequests } from "@/lib/czech";
 
 interface UpcomingRow {
   id: string;
@@ -164,7 +165,7 @@ export function UpcomingLeave() {
             // "Zobrazit dalších" (rozbalí tenhle seznam na místě), ne "Zobrazit všech" — to vedle odkazu
             // na /requests vypadalo jako dva odkazy na totéž.
             <button onClick={() => setShowAll((v) => !v)} className="text-sm font-medium text-teal-dark hover:underline">
-              {showAll ? "Zobrazit méně" : `Zobrazit dalších ${rows.length - VISIBLE} →`}
+              {showAll ? "Zobrazit méně" : `Zobrazit ${czForm(rows.length - VISIBLE, "další", "další", "dalších")} ${czRequests(rows.length - VISIBLE)} →`}
             </button>
           )}
           {rows.length > 0 && (

@@ -5,6 +5,7 @@ import { HelpCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Balance, HomeOfficeYear, loadBalances, loadHomeOfficeYear, remainingOf } from "@/lib/balances";
 import { cn, formatNumber } from "@/lib/utils";
+import { dayWord } from "@/lib/working-days";
 
 /** Slim three-card version of the dashboard balances, for the top of Moje žádosti. */
 export function CompactBalances() {
@@ -71,7 +72,9 @@ export function CompactBalances() {
               {low && <span className="rounded-sm bg-warning-light px-1.5 py-0.5 text-[10px] font-medium text-warning-dark">Dochází</span>}
             </div>
             <div className="text-sm font-medium">
-              {c.remaining !== null ? `${formatNumber(c.remaining)} z ${formatNumber(total)} dní zbývá` : `${formatNumber(c.used + c.planned)} dní letos`}
+              {c.remaining !== null
+                ? `${formatNumber(c.remaining)} z ${formatNumber(total)} ${dayWord(total)} zbývá`
+                : `${formatNumber(c.used + c.planned)} ${dayWord(c.used + c.planned)} letos`}
             </div>
             {total > 0 && (
               <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-paper" role="img" aria-label={`${c.label}: vyčerpáno ${formatNumber(c.used)}, plánováno ${formatNumber(c.planned)}, zbývá ${formatNumber(c.remaining ?? 0)}`}>

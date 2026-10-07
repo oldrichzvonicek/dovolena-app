@@ -153,7 +153,12 @@ export function BridgeDays({ onSaved }: { onSaved?: () => void }) {
         <CalendarHeart size={18} className="text-teal-dark" /> Chytré návrhy dovolené
       </div>
       <p className="mt-0.5 text-xs text-muted">
-        S málem dní dovolené si prodloužíte volno kolem svátků. Zbývá vám {remaining !== null ? `${formatNumber(remaining)} ${dayWord(remaining)}` : "—"}.
+        {/* "S málem dní..." předpokládá nedostatek — při 26 zbývajících dnech to působí divně. Pod 10 dní je
+            to naopak přesně ta situace, na kterou chytré návrhy cílí nejvíc, tam zůstává. */}
+        {remaining !== null && remaining < 10
+          ? "S málem dní dovolené si prodloužíte volno kolem svátků."
+          : "Pár dní dovolené kolem svátků vám protáhne volno nejvíc."}{" "}
+        Zbývá vám {remaining !== null ? `${formatNumber(remaining)} ${dayWord(remaining)}` : "—"}.
       </p>
       <ul className="mt-3 divide-y divide-line">
         {shown.map((t) => (

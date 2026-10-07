@@ -240,7 +240,7 @@ export default function AccountPage() {
 
         <div className="card p-5">
           <h2 className="font-display text-h2">Přihlášená zařízení</h2>
-          <p className="mb-3 mt-1 text-sm text-muted">Ztratili jste telefon nebo jste zapomněli odhlášení na cizím počítači? Odhlaste se všude.</p>
+          <p className="mb-3 mt-1 text-sm text-muted">Ztratili jste telefon nebo jste zapomněli se odhlásit na cizím počítači? Odhlaste se všude.</p>
           <Button variant="secondary" onClick={signOutEverywhere}>
             Odhlásit ze všech zařízení
           </Button>

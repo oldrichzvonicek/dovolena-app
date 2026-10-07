@@ -20,7 +20,7 @@ const steps: Step[] = [
   { target: "nav-calendar", title: "Týmový kalendář", text: "Přehled absencí celého týmu. Na svém řádku můžete termín vybrat přetažením myší." },
   { target: "nav-requests", title: "Moje žádosti", text: "Historie vašich žádostí, jejich stavy a možnost upravit nebo zopakovat." },
   { target: "nav-approvals", title: "Ke schválení", text: "Žádosti čekající na vaše rozhodnutí — jde schvalovat i hromadně.", roles: ["manager", "admin"] },
-  { target: "nav-team", title: "Můj tým", text: "Zůstatky lidí, zařazení do oddělení a upozornění na riziko vyhoření.", roles: ["manager", "admin"] },
+  { target: "nav-team", title: "Zaměstnanci / Můj tým", text: "Zůstatky lidí, zařazení do oddělení a upozornění na riziko vyhoření.", roles: ["manager", "admin"] },
   { target: "nav-admin-overview", title: "Analytika", text: "Firma na jeden pohled a nevyčerpaná dovolená ke konci roku.", roles: ["admin"] },
   { target: "nav-admin-settings", title: "Nastavení firmy", text: "Uživatelé, oddělení, typy absencí, provozní pravidla a fakturace.", roles: ["admin"] },
   { target: "header-notifications", title: "Notifikace", text: "Tady se dozvíte o schválení, zamítnutí i nových žádostech." },
