@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { fetchDepartments } from "@/lib/data";
 import { AdminEmployeeRow, fetchCompany, fetchCompanyEmployees, importEmployees } from "@/lib/admin-data";
 import { DbDepartment, Role } from "@/lib/supabase/types";
-import { errorMessage } from "@/lib/utils";
+import { cn, errorMessage } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 
 const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin" };
@@ -51,6 +51,15 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   const [managerId, setManagerId] = useState<string>("none");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Účetní bývá externí (ne ve firemní struktuře) — oddělení a nadřízený na něj nedávají smysl, takže se
+  // při přepnutí na tuhle roli obě pole vyčistí, ať se omylem nepošlou se starou hodnotou z dřívějšího výběru.
+  useEffect(() => {
+    if (roleChoice === "accountant") {
+      setDepartmentId("none");
+      setManagerId("none");
+    }
+  }, [roleChoice]);
 
   useEffect(() => {
     if (!open || !profile) return;
@@ -165,7 +174,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={cn("grid gap-3", roleChoice === "accountant" ? "grid-cols-1" : "grid-cols-2")}>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Role</label>
               <Select value={roleChoice} onValueChange={(v) => setRoleChoice(v as RoleChoice)}>
@@ -186,28 +195,32 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
                   )}
                 </SelectContent>
               </Select>
-              {(roleChoice === "hr" || roleChoice === "accountant") && (
-                <p className="mt-1 text-xs text-muted">Pro externího účetního nebo HR, co ve firmě nemá klasickou roli (vzácnější kombinaci, třeba manažera, co je zároveň HR, jde doladit po přijetí pozvánky v Upravit).</p>
+              {roleChoice === "hr" && <p className="mt-1 text-xs text-muted">Pro HR, co ve firmě nemá klasickou roli (vzácnější kombinaci, třeba manažera, co je zároveň HR, jde doladit po přijetí pozvánky v Upravit).</p>}
+              {roleChoice === "accountant" && (
+                <p className="mt-1 text-xs text-muted">Účetní bývá externí — proto bez oddělení a nadřízeného. Jen čte absence pro mzdy, neschvaluje a nezapadá do firemní struktury.</p>
               )}
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
-              <Select value={departmentId} onValueChange={setDepartmentId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Bez oddělení</SelectItem>
-                  {departments.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {roleChoice !== "accountant" && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Bez oddělení</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
+          {roleChoice !== "accountant" && (
           <div>
             <label className="mb-1.5 block text-sm font-medium">Nadřízený (volitelné)</label>
             <Select value={managerId} onValueChange={setManagerId}>
@@ -224,6 +237,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
               </SelectContent>
             </Select>
           </div>
+          )}
 
           {error && <p className="text-sm text-danger">{error}</p>}
 
