@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader, Card, Stat, Pill, AllGood, tableClass, thClass, tdClass } from "@/components/platform/ui";
 import { formatKc, planName } from "@/components/platform/format";
+import { czForm } from "@/lib/czech";
 import { platformDb, resolveContext } from "@/server/platform/auth";
 import { countDueSoon } from "@/server/platform/dsr";
 import { ATTENTION_LABELS, loadDashboard } from "@/server/platform/companies";
@@ -24,7 +25,7 @@ export default async function DashboardPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="MRR (měsíční příjem)" value={formatKc(s.mrr)} hint="Aktivní firmy, roční platby přepočtené na měsíc" href="/companies?sort=mrr&dir=desc" />
         <Stat label="ARR (roční příjem)" value={formatKc(s.arr)} hint="MRR × 12" href="/companies?sort=mrr&dir=desc" />
-        <Stat label="Firmy" value={s.companies} hint={`${s.paying} platících, ${s.free} na Free · ${s.newLast30Days} nových za 30 dní`} href="/companies" />
+        <Stat label="Firmy" value={s.companies} hint={`${s.paying} ${czForm(s.paying, "platící", "platící", "platících")}, ${s.free} na Free · ${s.newLast30Days} ${czForm(s.newLast30Days, "nová", "nové", "nových")} za 30 dní`} href="/companies" />
         <Stat label="Aktivní uživatelé" value={s.users} hint="Bez ukázkových účtů" href="/companies?sort=users&dir=desc" />
       </div>
 

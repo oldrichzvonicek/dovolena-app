@@ -32,9 +32,10 @@ export interface CompanyListItem extends CompanyRow {
   attention: AttentionReason[];
 }
 
-export type AttentionReason = "overdue" | "expired" | "expiring" | "near_limit" | "over_limit" | "pending_plan";
+export type AttentionReason = "overdue" | "expired" | "expiring" | "near_limit" | "over_limit" | "pending_plan" | "no_invoice";
 
 export const ATTENTION_LABELS: Record<AttentionReason, string> = {
+  no_invoice: "Placený tarif bez faktury",
   overdue: "Faktura po splatnosti",
   expired: "Platnost tarifu skončila",
   expiring: "Platnost tarifu brzy končí",
@@ -85,10 +86,20 @@ function priceOf(c: CompanyRow, byId: Map<string, PlanPriceRow>, current: Map<st
   return row ? rowToPlan(row) : undefined;
 }
 
-export function attentionFor(c: CompanyRow, users: number, overdueInvoices: number, today: string): AttentionReason[] {
+/** Počet faktur firmy, které nejsou stornované (vystavené nebo zaplacené) — podle nich se počítají tržby. */
+async function invoiceCounts(): Promise<Map<string, number>> {
+  const { data } = await fetchAll<{ company_id: string }>((from, to) => platformDb().from("company_invoices").select("company_id").neq("status", "void").order("id").range(from, to));
+  const map = new Map<string, number>();
+  for (const i of data) map.set(i.company_id, (map.get(i.company_id) ?? 0) + 1);
+  return map;
+}
+
+export function attentionFor(c: CompanyRow, users: number, overdueInvoices: number, today: string, invoiceCount = 1): AttentionReason[] {
   const out: AttentionReason[] = [];
   if (overdueInvoices > 0) out.push("overdue");
   const paid = planByKey(c.plan).monthly > 0;
+  // Placený tarif, ale zatím žádná vystavená ani zaplacená faktura: nejde o tržby, jen o slib, který je potřeba dotáhnout.
+  if (paid && invoiceCount === 0) out.push("no_invoice");
   if (paid && c.plan_paid_until) {
     if (c.plan_paid_until < today) out.push("expired");
     else if (c.plan_paid_until <= addDaysIso(today, 7)) out.push("expiring");
@@ -104,11 +115,12 @@ export function attentionFor(c: CompanyRow, users: number, overdueInvoices: numb
 
 export async function loadOverview(): Promise<CompanyListItem[]> {
   const today = todayIso();
-  const [{ data: companies, error }, users, overdue, priceRows] = await Promise.all([
+  const [{ data: companies, error }, users, overdue, priceRows, invoices] = await Promise.all([
     fetchAll<CompanyRow>((from, to) => platformDb().from("companies").select(COMPANY_COLUMNS).order("id").range(from, to)),
     activeUserCounts(),
     overdueCounts(today),
     loadPriceRows().catch(() => []),
+    invoiceCounts(),
   ]);
   if (error) throw new Error(error.message);
   const current = currentRows(priceRows, today);
@@ -116,31 +128,52 @@ export async function loadOverview(): Promise<CompanyListItem[]> {
   return companies.map((c) => {
     const u = users.get(c.id) ?? 0;
     const o = overdue.get(c.id) ?? 0;
+    const inv = invoices.get(c.id) ?? 0;
+    const active = c.status === "active" || !c.status;
     return {
       ...c,
       discount_pct: Number(c.discount_pct ?? 0),
       status: c.status ?? "active",
       users: u,
-      mrr: c.status === "active" || !c.status ? monthlyRevenue({ plan: c.plan, addons: c.addons, billingPeriod: c.billing_period, users: u, discountPct: Number(c.discount_pct ?? 0), priceOverride: priceOf(c, byId, current) }) : 0,
+      // Tržby (MRR) jen z firem, kterým byla vystavena aspoň jedna faktura; placený tarif bez faktury se nepočítá a svítí v „Vyžaduje pozornost".
+      mrr: active && inv > 0 ? monthlyRevenue({ plan: c.plan, addons: c.addons, billingPeriod: c.billing_period, users: u, discountPct: Number(c.discount_pct ?? 0), priceOverride: priceOf(c, byId, current) }) : 0,
       overdueInvoices: o,
-      attention: attentionFor(c, u, o, today),
+      attention: attentionFor(c, u, o, today, inv),
     };
   });
 }
 
 /**
- * Poslední aktivita firmy = nejnovější žádost o absenci jejích lidí za 90 dní. Čistý výpočet, nic nezapisuje —
- * pro zobrazení stačí, a běžné otevření seznamu Firem tak nedělá zápisy do databáze (viz refreshActivity níže).
+ * Poslední aktivita firmy = nejnovější z: přihlášení kteréhokoli jejího člena, vytvoření nebo rozhodnutí o žádosti o absenci
+ * (za 90 dní). Dřív se bral jen čas podání žádosti, takže firma, kde lidé jen pracují v aplikaci, vypadala nečinně.
+ * Čistý výpočet, nic nezapisuje — běžné otevření seznamu Firem tak nedělá zápisy do databáze (viz refreshActivity níže).
  */
 async function computeActivity(): Promise<Map<string, string>> {
+  const db = platformDb();
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
-  const { data } = await fetchAll<{ created_at: string; profile: { company_id: string | null } | { company_id: string | null }[] | null }>((from, to) =>
-    platformDb().from("leave_requests").select("created_at, profile:profiles!leave_requests_profile_id_fkey(company_id)").gte("created_at", since).order("id").range(from, to)
-  );
   const latest = new Map<string, string>();
-  for (const r of data) {
+  const bump = (companyId: string | null | undefined, at: string | null | undefined) => {
+    if (companyId && at && at >= since && (!latest.get(companyId) || latest.get(companyId)! < at)) latest.set(companyId, at);
+  };
+
+  const [{ data: requests }, { data: members }] = await Promise.all([
+    fetchAll<{ created_at: string; updated_at: string | null; profile: { company_id: string | null } | { company_id: string | null }[] | null }>((from, to) =>
+      db.from("leave_requests").select("created_at, updated_at, profile:profiles!leave_requests_profile_id_fkey(company_id)").gte("updated_at", since).order("id").range(from, to)
+    ),
+    fetchAll<{ id: string; company_id: string | null }>((from, to) => db.from("profiles").select("id, company_id").not("company_id", "is", null).order("id").range(from, to)),
+  ]);
+  for (const r of requests) {
     const p = Array.isArray(r.profile) ? r.profile[0] : r.profile;
-    if (p?.company_id && (!latest.get(p.company_id) || latest.get(p.company_id)! < r.created_at)) latest.set(p.company_id, r.created_at);
+    bump(p?.company_id, r.updated_at && r.updated_at > r.created_at ? r.updated_at : r.created_at);
+  }
+
+  // Poslední přihlášení členů firem (Supabase Auth); stránkuje se po 200 uživatelích.
+  const companyOf = new Map(members.map((m) => [m.id, m.company_id]));
+  for (let page = 1; page <= 25; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) break;
+    for (const u of data.users) bump(companyOf.get(u.id), u.last_sign_in_at);
+    if (data.users.length < 200) break;
   }
   return latest;
 }
@@ -335,14 +368,15 @@ export async function loadCompany(id: string, opts: { full: boolean }): Promise<
   const c = row as CompanyRow;
   const priceRows = await loadPriceRows().catch(() => []);
   const overdue = invs.filter((i) => isOverdue(i, today)).length;
+  const billable = invs.filter((i) => i.status !== "void").length;
   const item: CompanyListItem = {
     ...c,
     discount_pct: Number(c.discount_pct ?? 0),
     status: c.status ?? "active",
     users: activeUsers,
-    mrr: monthlyRevenue({ plan: c.plan, addons: c.addons, billingPeriod: c.billing_period, users: activeUsers, discountPct: Number(c.discount_pct ?? 0), priceOverride: priceOf(c, new Map(priceRows.map((r) => [r.id, r])), currentRows(priceRows, today)) }),
+    mrr: billable > 0 ? monthlyRevenue({ plan: c.plan, addons: c.addons, billingPeriod: c.billing_period, users: activeUsers, discountPct: Number(c.discount_pct ?? 0), priceOverride: priceOf(c, new Map(priceRows.map((r) => [r.id, r])), currentRows(priceRows, today)) }) : 0,
     overdueInvoices: overdue,
-    attention: attentionFor(c, activeUsers, overdue, today),
+    attention: attentionFor(c, activeUsers, overdue, today, billable),
   };
   return {
     company: item,

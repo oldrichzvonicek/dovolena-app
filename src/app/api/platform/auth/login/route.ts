@@ -19,14 +19,14 @@ export async function POST(req: Request) {
   // Zámek: 5 pokusů na e-mail za 15 minut (a širší limit na IP proti procházení účtů).
   const allowed = (await allowRequest(`platform-login:${email}`, 5, 900)) && (await allowRequest(`platform-login-ip:${meta.ip}`, 30, 900));
   if (!allowed) {
-    await writeAudit(null, { action: "auth.locked", result: "denied", details: { email }, meta });
+    await writeAudit(null, { action: "auth.locked", result: "denied", details: { email }, actor: { userId: null, label: email }, meta });
     return apiError("locked", "Příliš mnoho pokusů. Zkuste to za 15 minut.", 429, { "Retry-After": "900" });
   }
 
   const supabase = await createRouteClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
-    await writeAudit(null, { action: "auth.login_failed", result: "denied", details: { email }, meta });
+    await writeAudit(null, { action: "auth.login_failed", result: "denied", details: { email }, actor: { userId: null, label: email }, meta });
     return apiError("invalid_credentials", BAD_LOGIN, 401);
   }
 
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   if (!admin?.active) {
     // Účet zákazníka nebo vypnutý admin: stejná hláška jako u špatného hesla, ať se nedá zjistit, kdo je admin.
     await supabase.auth.signOut();
-    await writeAudit(null, { action: "auth.login_denied", result: "denied", details: { email }, meta });
+    await writeAudit(null, { action: "auth.login_denied", result: "denied", details: { email }, actor: { userId: null, label: email }, meta });
     return apiError("invalid_credentials", BAD_LOGIN, 401);
   }
 

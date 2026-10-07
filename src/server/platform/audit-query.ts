@@ -56,13 +56,55 @@ export const ACTION_LABELS: Record<string, string> = {
   "auth.stepup": "Ověření citlivé akce",
   "auth.stepup_failed": "Chybné ověření citlivé akce",
   "plan.change": "Změna tarifu",
+  "pricing.change": "Změna ceníku",
   "invoice.create": "Vystavení faktury",
   "invoice.paid": "Faktura zaplacena",
   "invoice.void": "Storno faktury",
+  "invoice.remind": "Ruční upomínka k faktuře",
   "note.create": "Poznámka k firmě",
   "team.update": "Změna admina",
   "audit.export": "Export audit logu",
   "company.view": "Zobrazení firmy",
+  "company.status": "Změna stavu firmy",
+  "company.suspend": "Pozastavení firmy",
+  "company.unsuspend": "Obnovení provozu firmy",
+  "company.delete": "Naplánování smazání firmy",
+  "company.restore": "Obnovení firmy před smazáním",
+  "company.deleted": "Firma definitivně smazána",
+  "company.export": "Export dat firmy",
+  "impersonation.start": "Zahájení náhledu firmy",
+  "impersonation.view": "Zobrazení náhledu firmy",
+  "impersonation.end": "Ukončení náhledu firmy",
+  "dsr.create": "GDPR žádost založena",
+  "dsr.forward": "GDPR žádost předána firmě",
+  "dsr.resolve": "GDPR žádost vyřízena",
+  "legal.create": "Nová verze právního dokumentu",
+  "jobs.run": "Ruční spuštění úloh",
+  "job.failed": "Úloha selhala",
+  "dunning.reminder_1": "Upomínka po splatnosti (1.)",
+  "dunning.reminder_2": "Upomínka po splatnosti (2.)",
+  "dunning.reminder_3": "Poslední upomínka po splatnosti",
+  "dunning.suspend": "Pozastavení firmy kvůli nezaplacené faktuře",
+  "denied:step_up": "Zamítnuto: chybí ověření kódem TOTP",
 };
 
-export const actionLabel = (a: string) => (a.startsWith("denied:") ? `Zamítnuto: ${a.slice(7)}` : ACTION_LABELS[a] ?? a);
+/** Oprávnění, která se v auditu objevují jako „denied:<oprávnění>“, česky. */
+const PERMISSION_LABELS: Record<string, string> = {
+  "company.suspend": "pozastavení firmy",
+  "company.delete": "smazání firmy",
+  "company.impersonate": "náhled firmy",
+  "company.export": "export dat firmy",
+  "plan.change": "změna tarifu",
+  "billing.write": "úprava faktur",
+  "gdpr.handle": "vyřízení GDPR žádosti",
+  "settings.write": "nastavení",
+  "pricing.write": "změna ceníku",
+  "team.manage": "správa týmu",
+  "notes.write": "poznámky",
+};
+
+export const actionLabel = (a: string) => {
+  if (ACTION_LABELS[a]) return ACTION_LABELS[a];
+  if (a.startsWith("denied:")) return `Zamítnuto (chybí oprávnění): ${PERMISSION_LABELS[a.slice(7)] ?? a.slice(7)}`;
+  return a;
+};

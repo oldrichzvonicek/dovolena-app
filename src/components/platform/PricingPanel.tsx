@@ -109,6 +109,11 @@ export function PricingPanel({ current }: { current: PlanPrice[] }) {
           <label className={labelClass} htmlFor="pr-y">Cena ročně (Kč)</label>
           <input id="pr-y" inputMode="decimal" className={inputClass} value={yearly} onChange={(e) => { setYearly(e.target.value); setPreview(null); }} />
         </div>
+        {plan.included_users === null && (
+          <p className="text-caption text-muted sm:col-span-3">
+            Cena za dalšího uživatele se u tarifu {plan.name} neúčtuje, má pevný limit uživatelů. Platí jen u tarifu s uživateli v ceně (Pro).
+          </p>
+        )}
         {plan.included_users !== null && (
           <>
             <div>

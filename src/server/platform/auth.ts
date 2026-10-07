@@ -126,6 +126,20 @@ export async function writeAudit(ctx: PlatformContext | null, entry: AuditEntry)
   if (error) console.error("platform audit:", error.message);
 }
 
+/**
+ * Jako writeAudit, ale stejná akce téhož admina nad toutéž firmou se v daném okně zapíše jen jednou. Pro „zobrazení“
+ * (company.view, impersonation.view): jedno otevření stránky se kvůli obnovení po akcích a opakovanému renderu jinak zapisovalo
+ * 6–7× za minutu a skutečné zásahy v logu zanikaly.
+ */
+export async function writeAuditOnce(ctx: PlatformContext, entry: AuditEntry, windowSeconds = 600): Promise<void> {
+  const since = new Date(Date.now() - windowSeconds * 1000).toISOString();
+  let q = platformDb().from("platform_audit_log").select("id", { head: true, count: "exact" }).eq("action", entry.action).eq("actor_id", ctx.userId).gte("created_at", since);
+  q = entry.companyId ? q.eq("company_id", entry.companyId) : q.is("company_id", null);
+  const { count } = await q;
+  if ((count ?? 0) > 0) return;
+  await writeAudit(ctx, entry);
+}
+
 // ---------------------------------------------------------------------------
 // API pomocníci
 // ---------------------------------------------------------------------------

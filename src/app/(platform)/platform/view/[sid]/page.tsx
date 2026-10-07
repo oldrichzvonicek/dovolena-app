@@ -4,7 +4,7 @@ import { ImpersonationBar } from "@/components/platform/ImpersonationBar";
 import { Card, Empty, Pill, tableClass, tdClass, thClass } from "@/components/platform/ui";
 import { formatDate } from "@/components/platform/format";
 import { planName } from "@/components/platform/format";
-import { resolveContext, writeAudit } from "@/server/platform/auth";
+import { resolveContext, writeAuditOnce } from "@/server/platform/auth";
 import { isActive, loadCompanyView, loadSession } from "@/server/platform/impersonation";
 import { can } from "@/server/platform/permissions";
 
@@ -25,7 +25,7 @@ export default async function ImpersonationView({ params }: { params: Promise<{ 
   if (!session || !isActive(session)) redirect(session ? `/companies/${session.company_id}` : "/companies");
   const view = await loadCompanyView(session.company_id);
   if (!view) redirect("/companies");
-  await writeAudit(r.ctx, { action: "impersonation.view", companyId: session.company_id, companyLabel: `${view.company.name} (#${view.company.seq_id})`, viaImpersonation: true });
+  await writeAuditOnce(r.ctx, { action: "impersonation.view", companyId: session.company_id, companyLabel: `${view.company.name} (#${view.company.seq_id})`, viaImpersonation: true });
 
   return (
     <div className="min-h-screen bg-paper">

@@ -25,6 +25,10 @@ function describe(job: JobRow): string {
   if (job.type === "company.deletion.execute") return r.skipped ? `přeskočeno (${r.skipped})` : `smazáno účtů: ${r.deletedUsers ?? 0}${r.done ? ", firma smazána" : ", pokračuje"}`;
   if (job.type === "company.deletion.remind") return r.skipped ? "přeskočeno" : `e-mail odeslán (${r.sent ?? 0})`;
   if (job.type === "plans.unlock") return `uvolněno firem: ${r.unlocked ?? 0}`;
+  if (job.type === "maintenance.run") {
+    const m = r as { jobs?: { ran?: number; done?: number; failed?: number }; dunning?: { reminders?: number; suspended?: number }; activityUpdated?: number };
+    return `úlohy ${m.jobs?.ran ?? 0} (hotovo ${m.jobs?.done ?? 0}, selhalo ${m.jobs?.failed ?? 0}), upomínky ${m.dunning?.reminders ?? 0}, pozastaveno ${m.dunning?.suspended ?? 0}, aktivita ${m.activityUpdated ?? 0} firem`;
+  }
   return "";
 }
 

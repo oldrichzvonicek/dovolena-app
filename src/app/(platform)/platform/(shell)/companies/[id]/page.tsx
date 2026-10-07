@@ -7,7 +7,7 @@ import { CompanyStatusActions } from "@/components/platform/CompanyStatusActions
 import { Card, PageHeader, Pill, Stat } from "@/components/platform/ui";
 import { COMPANY_STATUS, formatDate, formatDateTime, formatKc, planName } from "@/components/platform/format";
 import { ADDONS, planByKey, userLimitOf } from "@/lib/plans";
-import { resolveContext, writeAudit } from "@/server/platform/auth";
+import { resolveContext, writeAuditOnce } from "@/server/platform/auth";
 import { ATTENTION_LABELS, companyLabel, loadCompany } from "@/server/platform/companies";
 import { toInvoiceItems } from "@/server/platform/invoices";
 import { actionLabel } from "@/server/platform/audit-query";
@@ -26,7 +26,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   const d = await loadCompany(id, { full });
   if (!d) notFound();
   const { company: c } = d;
-  if (full) await writeAudit(r.ctx, { action: "company.view", companyId: c.id, companyLabel: companyLabel(c) });
+  if (full) await writeAuditOnce(r.ctx, { action: "company.view", companyId: c.id, companyLabel: companyLabel(c) });
 
   const plan = planByKey(c.plan);
   const limit = userLimitOf(c.plan);

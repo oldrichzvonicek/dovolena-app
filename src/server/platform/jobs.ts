@@ -32,6 +32,7 @@ export const JOB_LABELS: Record<string, string> = {
   "company.deletion.remind": "Připomenutí smazání",
   "company.deletion.execute": "Smazání firmy",
   "plans.unlock": "Uvolnění zamčené ceny",
+  "maintenance.run": "Běh plánovače",
 };
 
 const MAX_ATTEMPTS: Record<string, number> = { "company.deletion.execute": 30 };
@@ -145,6 +146,30 @@ export async function runMaintenance(): Promise<{ jobs: JobsSummary; dunning: Du
   const dunning = await runDunning();
   const activityUpdated = await refreshActivity(await loadOverview());
   return { jobs, dunning, activityUpdated };
+}
+
+export type MaintenanceSummary = Awaited<ReturnType<typeof runMaintenance>>;
+
+/**
+ * Zapíše běh plánovače do historie úloh. Ruční spuštění (force) se zapíše vždy, běh z cronu jen když se opravdu něco stalo,
+ * ať se frontou nezahltí prázdné záznamy každých pár minut.
+ */
+export async function recordMaintenance(summary: MaintenanceSummary, createdBy: string | null, force: boolean): Promise<void> {
+  const didSomething = summary.jobs.ran > 0 || summary.dunning.reminders > 0 || summary.dunning.suspended > 0 || summary.activityUpdated > 0;
+  if (!force && !didSomething) return;
+  const now = new Date().toISOString();
+  const { error } = await platformDb().from("platform_jobs").insert({
+    type: "maintenance.run",
+    payload: { manual: force },
+    status: "done",
+    run_at: now,
+    attempts: 1,
+    result: summary as unknown as Record<string, unknown>,
+    created_by: createdBy,
+    started_at: now,
+    finished_at: now,
+  });
+  if (error) console.error("platform job history:", error.message);
 }
 
 export async function cancelCompanyJobs(companyId: string, types: JobType[]): Promise<void> {

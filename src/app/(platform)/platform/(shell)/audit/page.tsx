@@ -95,7 +95,9 @@ export default async function AuditPage({ searchParams }: { searchParams: SP }) 
                 {rows.map((row) => (
                   <tr key={row.id}>
                     <td className={`${tdClass} whitespace-nowrap text-muted`}>{formatDateTime(row.created_at)}</td>
-                    <td className={tdClass}>{row.actor_label ?? (row.actor_type === "system" ? "systém" : "–")}{row.ip && <div className="text-caption text-muted">{row.ip}</div>}</td>
+                    <td className={tdClass}>{row.actor_label ?? (row.actor_type === "system" ? "systém" : "–")}
+                      {row.actor_type === "system" && row.actor_label && <div className="text-caption text-muted">nepřihlášený pokus</div>}
+                      {row.ip && <div className="text-caption text-muted">{row.ip}</div>}</td>
                     <td className={tdClass}>
                       <div className="flex flex-wrap items-center gap-2">
                         <span>{actionLabel(row.action)}</span>

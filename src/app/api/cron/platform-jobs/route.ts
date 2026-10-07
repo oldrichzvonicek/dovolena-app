@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/email";
-import { runMaintenance } from "@/server/platform/jobs";
+import { recordMaintenance, runMaintenance } from "@/server/platform/jobs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -12,5 +12,7 @@ export const maxDuration = 60;
  */
 export async function GET(req: Request) {
   if (!isAuthorizedCron(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  return NextResponse.json(await runMaintenance());
+  const summary = await runMaintenance();
+  await recordMaintenance(summary, null, false);
+  return NextResponse.json(summary);
 }

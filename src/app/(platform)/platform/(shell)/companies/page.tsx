@@ -39,7 +39,8 @@ export default async function CompaniesPage({ searchParams }: { searchParams: SP
   const canImpersonate = can(r.ctx.role, "company.impersonate");
   const canChangePlan = can(r.ctx.role, "plan.change");
   const showActions = canImpersonate || canChangePlan;
-  const counts = Object.fromEntries(FILTERS.map((f) => [f, f === "inactive" ? null : applyFilter(all, f, today).length])) as Record<CompanyFilter, number | null>;
+  // Aktivita je dopočítaná pro všechny firmy, takže jde spočítat i filtr Neaktivní (dřív jako jediný počet neměl).
+  const counts = Object.fromEntries(FILTERS.map((f) => [f, applyFilter(all, f, today).length])) as Record<CompanyFilter, number>;
   const rows = applySort(applySearch(applyFilter(all, filter, today), q), sort, desc);
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const shown = rows.slice((Math.min(page, pages) - 1) * PAGE_SIZE, Math.min(page, pages) * PAGE_SIZE);
@@ -76,7 +77,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: SP
         {FILTERS.map((f) => (
           <Link key={f} href={href({ filter: f === "all" ? undefined : f, page: undefined })} aria-current={f === filter ? "true" : undefined} className={cn("rounded-full border px-3 py-1 text-sm transition-colors", f === filter ? f === "test" ? "border-ink border-dashed bg-transparent text-ink" : "border-teal-dark bg-teal-light text-teal-dark" : "border-line bg-surface text-ink hover:bg-paper")}>
             {FILTER_LABELS[f]}
-            {counts[f] !== null && <span className="ml-1.5 text-caption text-muted tabular-nums">{counts[f]}</span>}
+            <span className="ml-1.5 text-caption text-muted tabular-nums">{counts[f]}</span>
           </Link>
         ))}
       </div>
@@ -93,7 +94,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: SP
                 <th className={thClass}>Tarif</th>
                 <th className={thClass}>Stav</th>
                 <th className={`${thClass} text-right`}>{sortLink("users", "Uživatelé", true)}</th>
-                <th className={thClass}>Aktivita</th>
+                <th className={thClass} title="Poslední přihlášení člena firmy nebo práce se žádostmi o absenci (za 90 dní)">Aktivita</th>
                 <th className={thClass}>{sortLink("paid_until", "Platí do")}</th>
                 <th className={`${thClass} text-right`}>{sortLink("mrr", "MRR", true)}</th>
                 <th className={thClass}>Upozornění</th>
