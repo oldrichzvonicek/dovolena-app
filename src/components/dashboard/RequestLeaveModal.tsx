@@ -574,8 +574,7 @@ export function RequestLeaveModal({
         )}
 
         <div className="rounded bg-paper px-3 py-2 text-sm text-ink">
-          Celkem: <span className="font-medium">{workingDaysPhrase(workingDays)}</span>{" "}
-          <span className="text-muted">— víkendy a státní svátky odečteny automaticky</span>
+          Celkem: <span className="font-medium">{workingDaysPhrase(workingDays)}</span>
           {remainingForType !== null && (
             <>
               {" "}
