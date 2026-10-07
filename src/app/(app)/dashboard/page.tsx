@@ -33,7 +33,11 @@ export default function DashboardPage() {
   const subtitle = `${today.charAt(0).toUpperCase()}${today.slice(1)}${isMyNameDay ? " · Dnes máte svátek — všechno nejlepší! 🎉" : ""}`;
   const refresh = () => setRefreshKey((k) => k + 1);
 
-  const mine = (
+  // Externí HR/účetní (dodavatel) nečerpá dovolenou v téhle firmě — vlastní zůstatky, nadcházející absence
+  // a tipy na prodloužení volna by tu byly jen prázdné/nulové karty.
+  const mine = profile?.is_external ? (
+    <div className="card p-5 text-sm text-muted">Jako externí nemáte v této firmě nárok na dovolenou.</div>
+  ) : (
     <div className="space-y-6">
       <BalanceCards />
       <UpcomingLeave />

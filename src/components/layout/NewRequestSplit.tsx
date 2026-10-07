@@ -51,6 +51,10 @@ export function NewRequestSplit() {
     };
   }, [menuOpen]);
 
+  // Externí HR/účetní (dodavatel, ne zaměstnanec firmy) nečerpá dovolenou tady — RLS by založení žádosti
+  // stejně odmítlo, takže tlačítko radši vůbec nenabízet, než aby narazili na nejasnou chybu.
+  if (profile?.is_external) return null;
+
   const known = QUICK_KEYS.map((k) => types.find((t) => t.key === k)).filter((t): t is DbLeaveType => !!t);
   const rest = types.filter((t) => !QUICK_KEYS.includes(t.key));
   const quick = [...known, ...rest];

@@ -5,6 +5,7 @@ import { Link2, UserPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth-context";
 import { fetchDepartments } from "@/lib/data";
 import { AdminEmployeeRow, fetchCompany, fetchCompanyEmployees, importEmployees } from "@/lib/admin-data";
@@ -47,19 +48,26 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [roleChoice, setRoleChoice] = useState<RoleChoice>("employee");
+  // Externí HR/účetní (dodavatel, ne zaměstnanec firmy) nemá oddělení ani nadřízeného a nečerpá dovolenou.
+  // Výchozí hodnota podle role (účetní bývá externí, HR bývá interní), ale admin ji může přepnout.
+  const [isExternal, setIsExternal] = useState(false);
   const [departmentId, setDepartmentId] = useState<string>("none");
   const [managerId, setManagerId] = useState<string>("none");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Účetní bývá externí (ne ve firemní struktuře) — oddělení a nadřízený na něj nedávají smysl, takže se
-  // při přepnutí na tuhle roli obě pole vyčistí, ať se omylem nepošlou se starou hodnotou z dřívějšího výběru.
   useEffect(() => {
-    if (roleChoice === "accountant") {
+    if (roleChoice === "accountant") setIsExternal(true);
+    else if (roleChoice === "hr") setIsExternal(false);
+  }, [roleChoice]);
+
+  // Externí nemá oddělení ani nadřízeného — obě pole se vyčistí, ať se omylem nepošlou se starou hodnotou.
+  useEffect(() => {
+    if (isExternal) {
       setDepartmentId("none");
       setManagerId("none");
     }
-  }, [roleChoice]);
+  }, [isExternal]);
 
   useEffect(() => {
     if (!open || !profile) return;
@@ -77,6 +85,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
     setEmail("");
     setName("");
     setRoleChoice("employee");
+    setIsExternal(false);
     setDepartmentId("none");
     setManagerId("none");
     setError(null);
@@ -108,6 +117,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
           sick_opening_used: 0,
           role,
           staff_role: staffRole,
+          is_external: staffRole ? isExternal : false,
         }))
       );
       const res = await fetch("/api/invite/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails }) })
@@ -174,7 +184,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
             </div>
           )}
 
-          <div className={cn("grid gap-3", roleChoice === "accountant" ? "grid-cols-1" : "grid-cols-2")}>
+          <div className={cn("grid gap-3", isExternal ? "grid-cols-1" : "grid-cols-2")}>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Role</label>
               <Select value={roleChoice} onValueChange={(v) => setRoleChoice(v as RoleChoice)}>
@@ -196,11 +206,8 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
                 </SelectContent>
               </Select>
               {roleChoice === "hr" && <p className="mt-1 text-xs text-muted">Pro HR, co ve firmě nemá klasickou roli (vzácnější kombinaci, třeba manažera, co je zároveň HR, jde doladit po přijetí pozvánky v Upravit).</p>}
-              {roleChoice === "accountant" && (
-                <p className="mt-1 text-xs text-muted">Účetní bývá externí — proto bez oddělení a nadřízeného. Jen čte absence pro mzdy, neschvaluje a nezapadá do firemní struktury.</p>
-              )}
             </div>
-            {roleChoice !== "accountant" && (
+            {!isExternal && (
               <div>
                 <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
                 <Select value={departmentId} onValueChange={setDepartmentId}>
@@ -220,7 +227,17 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
             )}
           </div>
 
-          {roleChoice !== "accountant" && (
+          {(roleChoice === "hr" || roleChoice === "accountant") && (
+            <label className="flex cursor-pointer items-center justify-between gap-2 rounded border border-line px-3 py-2 text-sm">
+              <span>
+                Externí
+                <span className="block text-xs font-normal text-muted">Dodavatel, ne zaměstnanec firmy — bez oddělení, nadřízeného a nároku na dovolenou v této firmě.</span>
+              </span>
+              <Switch checked={isExternal} onCheckedChange={setIsExternal} />
+            </label>
+          )}
+
+          {!isExternal && (
           <div>
             <label className="mb-1.5 block text-sm font-medium">Nadřízený (volitelné)</label>
             <Select value={managerId} onValueChange={setManagerId}>
