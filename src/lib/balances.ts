@@ -12,6 +12,10 @@ export interface Balance {
   upcoming: number;
   /** Soukromé návrhy (leave_plans) — zatím nic neschváleného, proto se nepočítají do "zbývá" (viz remainingOf). */
   planned: number;
+  /** Podané, ale ještě neschválené žádosti — taky se nepočítají do "zbývá" (čeká se na rozhodnutí), ale na
+   *  rozdíl od planned jde o reálně podanou žádost, takže se dá použít k varování při zadávání DALŠÍ žádosti,
+   *  ať nejde přečerpat nárok několika souběžnými žádostmi, než je někdo stihne schválit. */
+  pending: number;
   carryover: number;
 }
 
@@ -34,6 +38,8 @@ export interface ReqRow {
   leave_type: { counts_against: string } | null;
   /** Soukromý návrh (leave_plans), ne skutečná žádost — vždy počítán jako "naplánováno", nikdy jako "vyčerpáno". */
   isDraft?: boolean;
+  /** Podaná žádost, co ještě čeká na schválení — nepočítá se do used/upcoming, jen do pending. */
+  isPending?: boolean;
 }
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + Number(x), 0);
@@ -88,12 +94,13 @@ export function computeBalance(
 
   return {
     total: sum(curEnts.map((e) => e.total_days)) + carryover,
-    used: sum(curEnts.map((e) => e.opening_used_days)) + sum(catReqs.filter((r) => !r.isDraft && r.end_date < today).map((r) => inYear(r, year))),
-    upcoming: sum(catReqs.filter((r) => !r.isDraft && r.end_date >= today).map((r) => inYear(r, year))),
+    used: sum(curEnts.map((e) => e.opening_used_days)) + sum(catReqs.filter((r) => !r.isDraft && !r.isPending && r.end_date < today).map((r) => inYear(r, year))),
+    upcoming: sum(catReqs.filter((r) => !r.isDraft && !r.isPending && r.end_date >= today).map((r) => inYear(r, year))),
     // Návrhy (leave_plans) se počítají zvlášť, ne do "upcoming" — jsou to soukromé plány, ne schválené
     // žádosti, takže by neměly tiše ukrajovat ze "zbývá" (viz remainingOf). Vždy "naplánováno" bez ohledu
     // na datum, i kdyby si někdo výjimečně naplánoval den, který mezitím uplynul.
     planned: sum(catReqs.filter((r) => r.isDraft).map((r) => inYear(r, year))),
+    pending: sum(catReqs.filter((r) => r.isPending).map((r) => inYear(r, year))),
     carryover,
   };
 }
@@ -117,10 +124,12 @@ export async function loadBalances(
     .from("leave_entitlements")
     .select("profile_id, year, total_days, opening_used_days, leave_type:leave_types(counts_against)")
     .in("year", [year - 1, year]);
+  // Pending se dotahuje spolu se schválenými, aby šlo spočítat Balance.pending (viz tam) — used/upcoming
+  // dál počítají jen ze schválených, pending se v computeBalance drží mimo ně.
   let reqQ = supabase
     .from("leave_requests")
-    .select("id, profile_id, start_date, end_date, working_days, leave_type:leave_types(counts_against)")
-    .eq("status", "approved")
+    .select("id, profile_id, start_date, end_date, working_days, status, leave_type:leave_types(counts_against)")
+    .in("status", ["approved", "pending"])
     .gte("start_date", `${year - 1}-01-01`);
   // Soukromé návrhy (leave_plans) — jen vlastní, RLS ostatní stejně nepustí. Bez company/profileId filtru
   // (celofiremní přehledy) je zbytečné je vůbec dotazovat, žádné cizí návrhy se nevrátí.
@@ -147,7 +156,8 @@ export async function loadBalances(
 
   const entRows = (ents as unknown as EntRow[]) ?? [];
   const planRows = ((plansRes.data as unknown as ReqRow[]) ?? []).map((r) => ({ ...r, isDraft: true }));
-  const reqRows = [...((reqs as unknown as ReqRow[]) ?? []), ...planRows].filter((r) => r.id !== opts.excludeRequestId);
+  const fetchedReqRows = ((reqs as unknown as (ReqRow & { status: string })[]) ?? []).map((r) => ({ ...r, isPending: r.status === "pending" }));
+  const reqRows = [...fetchedReqRows, ...planRows].filter((r) => r.id !== opts.excludeRequestId);
   // carryOverride umožňuje simulovat dopad ještě neuložené změny pravidel (Nároky a zůstatky → náhled dopadu)
   // na reálná data, bez nutnosti změnu napřed uložit.
   const carry = opts.carryOverride ?? {

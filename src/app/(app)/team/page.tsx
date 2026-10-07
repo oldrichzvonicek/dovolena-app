@@ -30,6 +30,7 @@ import { showToast } from "@/lib/toast";
 import { LoadingLines } from "@/components/ui/skeleton";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { fetchDecisionScope } from "@/lib/approval-scope";
+import { useFeatures } from "@/lib/use-features";
 
 interface Row {
   id: string;
@@ -75,6 +76,7 @@ function BalanceChip({ total, used, onFix }: { total: number; used: number; onFi
 
 export default function TeamPage() {
   const { profile } = useAuth();
+  const features = useFeatures();
   const [rows, setRows] = useState<Row[]>([]);
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
   const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
@@ -311,7 +313,7 @@ export default function TeamPage() {
           </div>
         </div>
 
-        {!loading && <BurnoutWatch employees={rows.map((r) => ({ id: r.id, name: r.name }))} />}
+        {!loading && features.has("hr_insights") && <BurnoutWatch employees={rows.map((r) => ({ id: r.id, name: r.name }))} />}
 
         {loading && <LoadingLines rows={4} />}
         {!loading && (

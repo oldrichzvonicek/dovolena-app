@@ -53,6 +53,20 @@ describe("computeBalance", () => {
     expect(b.upcoming).toBe(0);
     expect(b.planned).toBe(4);
   });
+
+  it("counts a still-pending request as pending, never as used or upcoming", () => {
+    const pending = { ...req("2026-11-01", "2026-11-03", 3), isPending: true };
+    const approved = req("2026-10-01", "2026-10-02", 2);
+    const b = computeBalance("vacation", [ent(2026, 20)], [pending, approved], 2026, "2026-09-25", noCarry);
+    expect(b.upcoming).toBe(2);
+    expect(b.used).toBe(0);
+    expect(b.pending).toBe(3);
+    // Two pending requests submitted back to back must both show up in the running total, so a second
+    // request can't silently overdraw a balance the first one already committed.
+    const secondPending = { ...req("2026-11-10", "2026-11-11", 2), isPending: true };
+    const both = computeBalance("vacation", [ent(2026, 20)], [pending, secondPending, approved], 2026, "2026-09-25", noCarry);
+    expect(both.pending).toBe(5);
+  });
 });
 
 describe("dayAfterExpiry", () => {
