@@ -227,6 +227,8 @@ export function PendingApprovals() {
 
   async function approve(id: string) {
     if (!profile) return;
+    const row = pending.find((r) => r.id === id);
+    if (row && hasWarning(row) && !(await confirmDialog("Tato žádost má varování (konflikt v týmu, kapacita nebo minus). Přesto schválit?", { confirmLabel: "Schválit" }))) return;
     await approveLeaveRequest(id, profile.id);
     emitDataChanged();
   }
