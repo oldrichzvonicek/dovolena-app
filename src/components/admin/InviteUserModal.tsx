@@ -11,16 +11,12 @@ import { useFeatures } from "@/lib/use-features";
 import { fetchDepartments } from "@/lib/data";
 import { AdminEmployeeRow, fetchCompany, fetchCompanyEmployees, importEmployees } from "@/lib/admin-data";
 import { DbDepartment, Role } from "@/lib/supabase/types";
-import { cn, errorMessage } from "@/lib/utils";
+import { errorMessage } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 
 const roleLabel: Record<Role, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin" };
-// Jedna volba místo dvou samostatných selectů (Role + Doplňková role) — "je to účetní, ale taky zaměstnanec"
-// působilo jako dvě si odporující odpovědi na stejnou otázku. HR/Účetní tu reálně skoro vždy znamená "běžný
-// zaměstnanec s navíc touhle schopností", takže se to tak rovnou nastaví; vzácnou kombinaci (např. manažer,
-// co je zároveň HR) jde po přijetí pozvánky doladit v Upravit (EditEmployeeModal).
-type RoleChoice = Role | "hr" | "accountant";
-const roleChoiceLabel: Record<RoleChoice, string> = { employee: "Zaměstnanec", manager: "Manažer", admin: "Admin", hr: "HR", accountant: "Účetní" };
+type StaffRoleChoice = "none" | "hr" | "accountant";
+const staffRoleLabel: Record<StaffRoleChoice, string> = { none: "Žádná", hr: "HR", accountant: "Účetní" };
 
 /** Targeted invite for one specific email — role/department/manager set up front, unlike
  * the generic company-wide link, which anyone who gets forwarded it can use to join. */
@@ -49,9 +45,11 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [roleChoice, setRoleChoice] = useState<RoleChoice>("employee");
+  const [role, setRole] = useState<Role>("employee");
+  const [staffRole, setStaffRole] = useState<StaffRoleChoice>("none");
   // Externí HR/účetní (dodavatel, ne zaměstnanec firmy) nemá oddělení ani nadřízeného a nečerpá dovolenou.
-  // Výchozí hodnota podle role (účetní bývá externí, HR bývá interní), ale admin ji může přepnout.
+  // Výchozí hodnota podle doplňkové role (účetní bývá externí, HR bývá interní), ale admin ji může přepnout.
+  // Externí je vždy jen Zaměstnanec — dodavatel nemůže řídit vaše lidi (vynuceno i v DB).
   const [isExternal, setIsExternal] = useState(false);
   const [departmentId, setDepartmentId] = useState<string>("none");
   const [managerId, setManagerId] = useState<string>("none");
@@ -59,9 +57,9 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (roleChoice === "accountant") setIsExternal(true);
-    else if (roleChoice === "hr") setIsExternal(false);
-  }, [roleChoice]);
+    if (staffRole === "accountant") setIsExternal(true);
+    else if (staffRole === "hr") setIsExternal(false);
+  }, [staffRole]);
 
   // Externí nemá oddělení ani nadřízeného — obě pole se vyčistí, ať se omylem nepošlou se starou hodnotou.
   useEffect(() => {
@@ -86,7 +84,8 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   function reset() {
     setEmail("");
     setName("");
-    setRoleChoice("employee");
+    setRole("employee");
+    setStaffRole("none");
     setIsExternal(false);
     setDepartmentId("none");
     setManagerId("none");
@@ -96,8 +95,6 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
   const emails = Array.from(new Set(email.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
   const invalid = emails.filter((e) => !EMAIL_RE.test(e));
   const canSubmit = emails.length > 0 && invalid.length === 0;
-  const role: Role = roleChoice === "hr" || roleChoice === "accountant" ? "employee" : roleChoice;
-  const staffRole: "hr" | "accountant" | null = roleChoice === "hr" || roleChoice === "accountant" ? roleChoice : null;
 
   async function handleSubmit() {
     if (!profile || !canSubmit) return;
@@ -118,8 +115,8 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
           sick_total: defaultSick,
           sick_opening_used: 0,
           role,
-          staff_role: staffRole,
-          is_external: staffRole ? isExternal : false,
+          staff_role: staffRole === "none" ? null : staffRole,
+          is_external: staffRole !== "none" ? isExternal : false,
         }))
       );
       const res = await fetch("/api/invite/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails }) })
@@ -186,59 +183,74 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
             </div>
           )}
 
-          <div className={cn("grid gap-3", isExternal ? "grid-cols-1" : "grid-cols-2")}>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Role</label>
-              <Select value={roleChoice} onValueChange={(v) => setRoleChoice(v as RoleChoice)}>
+              <Select value={role} onValueChange={(v) => setRole(v as Role)} disabled={isExternal}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(roleLabel) as Role[]).map((r) => (
                     <SelectItem key={r} value={r}>
-                      {roleChoiceLabel[r]}
+                      {roleLabel[r]}
                     </SelectItem>
                   ))}
-                  {profile?.role === "admin" && (
-                    <>
-                      <SelectItem value="hr">{roleChoiceLabel.hr}</SelectItem>
-                      <SelectItem value="accountant" disabled={!features.has("accountant")}>
-                        {roleChoiceLabel.accountant}{features.has("accountant") ? "" : " (doplněk Účetní)"}
-                      </SelectItem>
-                    </>
-                  )}
                 </SelectContent>
               </Select>
-              {roleChoice === "hr" && <p className="mt-1 text-xs text-muted">Pro HR, co ve firmě nemá klasickou roli (vzácnější kombinaci, třeba manažera, co je zároveň HR, jde doladit po přijetí pozvánky v Upravit).</p>}
+              {isExternal && <p className="mt-1 text-xs text-muted">Externí dodavatel je vždy Zaměstnanec.</p>}
             </div>
-            {!isExternal && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
-                <Select value={departmentId} onValueChange={setDepartmentId}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Bez oddělení</SelectItem>
-                    {departments.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Doplňková role</label>
+              <Select value={staffRole} onValueChange={(v) => setStaffRole(v as StaffRoleChoice)} disabled={profile?.role !== "admin"}>
+                <SelectTrigger aria-label="Doplňková role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{staffRoleLabel.none}</SelectItem>
+                  <SelectItem value="hr">{staffRoleLabel.hr}</SelectItem>
+                  <SelectItem value="accountant" disabled={!features.has("accountant")}>
+                    {staffRoleLabel.accountant}{features.has("accountant") ? "" : " (doplněk Účetní)"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted">Přidává práva navrch k roli vlevo (jde kombinovat, např. manažer, co je zároveň HR).</p>
+            </div>
           </div>
 
-          {(roleChoice === "hr" || roleChoice === "accountant") && (
+          {staffRole !== "none" && (
             <label className="flex cursor-pointer items-center justify-between gap-2 rounded border border-line px-3 py-2 text-sm">
               <span>
                 Externí
-                <span className="block text-xs font-normal text-muted">Dodavatel, ne zaměstnanec firmy — bez oddělení, nadřízeného a nároku na dovolenou v této firmě.</span>
+                <span className="block text-xs font-normal text-muted">Dodavatel, ne zaměstnanec firmy — bez oddělení, nadřízeného a nároku na dovolenou v této firmě. Vždy jen Zaměstnanec.</span>
               </span>
-              <Switch checked={isExternal} onCheckedChange={setIsExternal} />
+              <Switch
+                checked={isExternal}
+                onCheckedChange={(v) => {
+                  setIsExternal(v);
+                  if (v) setRole("employee");
+                }}
+              />
             </label>
+          )}
+
+          {!isExternal && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
+              <Select value={departmentId} onValueChange={setDepartmentId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Bez oddělení</SelectItem>
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {!isExternal && (

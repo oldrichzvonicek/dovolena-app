@@ -219,10 +219,16 @@ export async function updateEmployeeStaffRole(id: string, staffRole: "hr" | "acc
   if (error) throw error;
 }
 
-/** Externí HR/účetní (dodavatel, ne zaměstnanec firmy) — nemá oddělení ani nadřízeného a nesmí si (ani mu) založit
- *  dovolenou v téhle firmě (vynuceno i v RLS). Nastavuje jen admin. */
-export async function updateEmployeeExternal(id: string, isExternal: boolean) {
-  const { error } = await supabase.from("profiles").update({ is_external: isExternal, ...(isExternal ? { department_id: null, manager_id: null } : {}) }).eq("id", id);
+/** Role a Externí se mění vždy spolu v JEDNOM update — DB vynucuje "externí jen jako Zaměstnanec" (viz
+ *  guard_profile_update), a dva oddělené requesty by mohly dorazit v pořadí, co tu podmínku na chvíli
+ *  poruší (např. ...role=manažer, is_external ještě true...) a request by spadl, i když výsledný stav je v pořádku.
+ *  Externí HR/účetní (dodavatel, ne zaměstnanec firmy) nemá oddělení ani nadřízeného a nesmí si (ani mu) založit
+ *  dovolenou v téhle firmě (vynuceno i v RLS). Obojí nastavuje jen admin. */
+export async function updateEmployeeRoleAndExternal(id: string, role: AdminEmployeeRow["role"], isExternal: boolean) {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ role, is_external: isExternal, ...(isExternal ? { department_id: null, manager_id: null } : {}) })
+    .eq("id", id);
   if (error) throw error;
 }
 
@@ -255,11 +261,6 @@ export async function setEmployeeActive(id: string, active: boolean) {
     .from("profiles")
     .update({ active, deactivated_at: active ? null : new Date().toISOString() })
     .eq("id", id);
-  if (error) throw error;
-}
-
-export async function updateEmployeeRole(id: string, role: AdminEmployeeRow["role"]) {
-  const { error } = await supabase.from("profiles").update({ role }).eq("id", id);
   if (error) throw error;
 }
 

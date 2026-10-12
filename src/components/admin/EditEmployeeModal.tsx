@@ -14,11 +14,10 @@ import {
   EntitlementMap,
   previewProratedVacation,
   updateEmployeeDepartment,
-  updateEmployeeExternal,
   updateEmployeeHireDate,
   updateEmployeeHrData,
   updateEmployeeManager,
-  updateEmployeeRole,
+  updateEmployeeRoleAndExternal,
   updateEmployeeStaffRole,
   updateEmployeeSubstitute,
   upsertEntitlement,
@@ -93,9 +92,8 @@ export function EditEmployeeModal({
     setError(null);
     try {
       await Promise.all([
-        role !== employee.role ? updateEmployeeRole(employee.id, role) : null,
+        role !== employee.role || isExternal !== (employee.is_external ?? false) ? updateEmployeeRoleAndExternal(employee.id, role, isExternal) : null,
         staffRole !== (employee.staff_role ?? "none") ? updateEmployeeStaffRole(employee.id, staffRole === "none" ? null : (staffRole as "hr" | "accountant")) : null,
-        isExternal !== (employee.is_external ?? false) ? updateEmployeeExternal(employee.id, isExternal) : null,
         !isExternal && departmentId !== (employee.department_id ?? "none")
           ? updateEmployeeDepartment(employee.id, departmentId === "none" ? null : departmentId)
           : null,
@@ -145,7 +143,7 @@ export function EditEmployeeModal({
           <div className="contents">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Role</label>
-              <Select value={role} onValueChange={(v) => setRole(v as Role)} disabled={!isAdmin}>
+              <Select value={role} onValueChange={(v) => setRole(v as Role)} disabled={!isAdmin || isExternal}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -157,6 +155,7 @@ export function EditEmployeeModal({
                   ))}
                 </SelectContent>
               </Select>
+              {isExternal && <p className="mt-1 text-xs text-muted">Externí dodavatel je vždy Zaměstnanec — nemůže řídit vaše lidi.</p>}
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Oddělení</label>
@@ -279,7 +278,14 @@ export function EditEmployeeModal({
                 Externí
                 <span className="block text-xs font-normal text-muted">Dodavatel, ne zaměstnanec firmy — bez oddělení, nadřízeného a nároku na dovolenou v této firmě.</span>
               </span>
-              <Switch checked={isExternal} onCheckedChange={setIsExternal} disabled={!isAdmin} />
+              <Switch
+                checked={isExternal}
+                onCheckedChange={(v) => {
+                  setIsExternal(v);
+                  if (v) setRole("employee");
+                }}
+                disabled={!isAdmin}
+              />
             </label>
           )}
 

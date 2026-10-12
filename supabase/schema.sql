@@ -3826,6 +3826,11 @@ alter function public.send_vacation_reminders(target_profile_ids uuid[]) set sea
 revoke execute on function public.guard_company_writable() from public;
 revoke execute on function public.reopen_payroll_month(date, text) from public;
 
+-- Externí (dodavatel, ne zaměstnanec firmy) nikdy nemá smysl jako Manažer/Admin — viz migrace
+-- 20261012010000_external_only_employee_role.sql.
+alter table profiles add constraint profiles_external_only_employee check (not is_external or role = 'employee');
+alter table company_invites add constraint company_invites_external_only_employee check (not is_external or role = 'employee');
+
 
 -- ---------------------------------------------------------------------------
 -- Dodio Super-admin, fáze 1 (viz dokument „Dodio Super-admin – technická dokumentace BE“).
