@@ -93,26 +93,29 @@ export function PendingApprovals() {
   async function load() {
     if (!profile) return;
     const supabase = createClient();
-    const year = new Date().getFullYear();
 
     await autoApproveOwnPending(profile).catch(() => false);
-    const { data } = await supabase
-      .from("leave_requests")
-      .select(
-        `id, start_date, end_date, working_days, note, covering_profile_id,
+    // Tyto čtyři dotazy na sobě nezávisí — dřív se čekalo na každý zvlášť, což na pomalejším
+    // připojení zbytečně natahovalo načtení stránky o čas tří dalších síťových cest navíc.
+    const [{ data }, mine, scope, hiddenAllRaw] = await Promise.all([
+      supabase
+        .from("leave_requests")
+        .select(
+          `id, start_date, end_date, working_days, note, covering_profile_id,
          leave_type:leave_types(key, label, color, counts_against),
          profile:profiles!leave_requests_profile_id_fkey(id, name, avatar_initials, avatar_url, manager_id, department_id, department:departments!profiles_department_id_fkey(name))`
-      )
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: true }),
+      fetchMyDepartmentIds(profile.company_id, profile.id),
+      fetchDecisionScope(profile),
+      fetchMaskedAbsences(),
+    ]);
     // Direct reports first (matches "auto-assigned approver" — this manager
     // is the one actually meant to act on those); Array.sort is stable, so
     // the FIFO order from the query above is preserved within each group.
-    const mine = await fetchMyDepartmentIds(profile.company_id, profile.id);
     setMyDepts(mine);
     // Only requests this approver may decide: their people (manager / department head / deputy / substitute) or everything for an admin.
-    const scope = await fetchDecisionScope(profile);
     const rows = ((data as unknown as PendingRow[]) ?? [])
       .filter((r) => scope.canDecide(r.profile))
       .filter((r) => r.profile.id !== profile.id)
@@ -122,35 +125,57 @@ export function PendingApprovals() {
       return aMine - bMine;
     });
     setPending(rows);
-    const coverIds = Array.from(new Set(rows.map((r) => r.covering_profile_id).filter((x): x is string => !!x)));
-    if (coverIds.length > 0) {
-      const { data: cn } = await supabase.from("profiles").select("id, name").in("id", coverIds);
-      setCoverNames(Object.fromEntries((cn ?? []).map((c) => [c.id as string, c.name as string])));
-    }
 
     // Conflict = colleagues from the SAME department who already have approved leave overlapping the request
     // (home office doesn't count). Same rule as the capacity warning and the calendar preview below.
     const conflictMap: Record<string, string> = {};
     // Private absences (sick leave) of people this approver doesn't supervise arrive without a type.
-    const hiddenAll = (await fetchMaskedAbsences()).filter((m) => m.status === "approved");
-    const { data: coProfiles } = hiddenAll.length
-      ? await supabase.from("profiles").select("id, name, department_id").eq("company_id", profile.company_id)
-      : { data: [] as { id: string; name: string; department_id: string | null }[] };
-    const coById = new Map((coProfiles ?? []).map((p) => [p.id, p]));
+    const hiddenAll = hiddenAllRaw.filter((m) => m.status === "approved");
+    const coverIds = Array.from(new Set(rows.map((r) => r.covering_profile_id).filter((x): x is string => !!x)));
     // One query for all pending requests together (instead of one per request), matched in memory below.
     type Overlap = { start_date: string; end_date: string; profile_id: string; leave_type: { key: string } | null; profile: { name: string; department_id: string | null } | null };
-    let allOverlaps: Overlap[] = [];
-    if (rows.length > 0) {
-      const minStart = rows.reduce((m, r) => (r.start_date < m ? r.start_date : m), rows[0].start_date);
-      const maxEnd = rows.reduce((m, r) => (r.end_date > m ? r.end_date : m), rows[0].end_date);
-      const { data: ov } = await supabase
-        .from("leave_requests")
-        .select("start_date, end_date, profile_id, leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(name, department_id)")
-        .eq("status", "approved")
-        .lte("start_date", maxEnd)
-        .gte("end_date", minStart);
-      allOverlaps = (ov as unknown as Overlap[]) ?? [];
-    }
+    const minStart = rows.length > 0 ? rows.reduce((m, r) => (r.start_date < m ? r.start_date : m), rows[0].start_date) : null;
+    const maxEnd = rows.length > 0 ? rows.reduce((m, r) => (r.end_date > m ? r.end_date : m), rows[0].end_date) : null;
+    // Fairness hlavních termínů (Vánoce/léto): dotaz na poslední dva roky schválené dovolené žadatelů.
+    const periodRows = rows.filter((r) => mainPeriodOf(r));
+    const since = `${new Date().getFullYear() - 1}-01-01`;
+    // Zase nezávislé dotazy najednou místo za sebou — žádný z nich nepotřebuje výsledek jiného
+    // (conflict/coverNames dotazy ani fairness/warnings na sobě nezávisí, všechny jen na "rows").
+    const [{ data: cn }, { data: coProfiles }, { data: ov }, { data: past }, warnings] = await Promise.all([
+      coverIds.length > 0 ? supabase.from("profiles").select("id, name").in("id", coverIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      hiddenAll.length ? supabase.from("profiles").select("id, name, department_id").eq("company_id", profile.company_id) : Promise.resolve({ data: [] as { id: string; name: string; department_id: string | null }[] }),
+      minStart && maxEnd
+        ? supabase
+            .from("leave_requests")
+            .select("start_date, end_date, profile_id, leave_type:leave_types(key), profile:profiles!leave_requests_profile_id_fkey(name, department_id)")
+            .eq("status", "approved")
+            .lte("start_date", maxEnd)
+            .gte("end_date", minStart)
+        : Promise.resolve({ data: [] as unknown[] }),
+      periodRows.length > 0
+        ? supabase
+            .from("leave_requests")
+            .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against)")
+            .eq("status", "approved")
+            .in("profile_id", Array.from(new Set(periodRows.map((r) => r.profile.id))))
+            .gte("end_date", since)
+        : Promise.resolve({ data: [] as unknown[] }),
+      computeApprovalWarnings(
+        profile.company_id,
+        rows.map((r) => ({
+          id: r.id,
+          start_date: r.start_date,
+          end_date: r.end_date,
+          working_days: r.working_days,
+          counts_against: r.leave_type.counts_against,
+          type_key: r.leave_type.key,
+          profile: { id: r.profile.id, department_id: r.profile.department_id },
+        }))
+      ),
+    ]);
+    setCoverNames(Object.fromEntries((cn ?? []).map((c) => [c.id as string, c.name as string])));
+    const coById = new Map((coProfiles ?? []).map((p) => [p.id, p]));
+    const allOverlaps = (ov as unknown as Overlap[]) ?? [];
     for (const r of rows) {
       if (!reducesPresence(r.leave_type.key) || !r.profile.department_id) continue;
       const overlap = allOverlaps.filter((o) => o.profile_id !== r.profile.id && o.start_date <= r.end_date && o.end_date >= r.start_date);
@@ -169,16 +194,8 @@ export function PendingApprovals() {
     }
     setConflicts(conflictMap);
 
-    // Fairness of main periods: one query for the last two years of approved vacations of all requesters.
-    const periodRows = rows.filter((r) => mainPeriodOf(r));
+    // Fairness of main periods: hints from the already-fetched last two years of approved vacations.
     if (periodRows.length > 0) {
-      const since = `${new Date().getFullYear() - 1}-01-01`;
-      const { data: past } = await supabase
-        .from("leave_requests")
-        .select("profile_id, start_date, end_date, working_days, status, leave_type:leave_types(key, counts_against)")
-        .eq("status", "approved")
-        .in("profile_id", Array.from(new Set(periodRows.map((r) => r.profile.id))))
-        .gte("end_date", since);
       const all = (past as unknown as InRequest[]) ?? [];
       const hints: Record<string, string> = {};
       for (const r of periodRows) {
@@ -192,18 +209,6 @@ export function PendingApprovals() {
 
     // Remaining balance after approval: entitlement total minus already-approved usage
     // minus this pending request's days, per profile + counts_against category.
-    const warnings = await computeApprovalWarnings(
-      profile.company_id,
-      rows.map((r) => ({
-        id: r.id,
-        start_date: r.start_date,
-        end_date: r.end_date,
-        working_days: r.working_days,
-        counts_against: r.leave_type.counts_against,
-        type_key: r.leave_type.key,
-        profile: { id: r.profile.id, department_id: r.profile.department_id },
-      }))
-    );
     setRemaining(warnings.remaining);
     setCapacityWarnings(warnings.capacity);
 
