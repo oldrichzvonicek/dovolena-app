@@ -93,3 +93,13 @@ describe("renderHtml", () => {
     expect(renderHtml("P", "Text", "neznama")).toContain("/dashboard");
   });
 });
+
+describe("renderHtml – připomínka registrace", () => {
+  it("poslední řádek s odkazem se stane tlačítkem a text nemá odkaz na nástěnku", async () => {
+    const { renderHtml } = await import("./email");
+    const html = renderHtml("Dokončete registraci", "Potvrzení chybí.\n\nhttps://x.supabase.co/auth/v1/verify?token=abc", "signup_reminder");
+    expect(html).toContain('href="https://x.supabase.co/auth/v1/verify?token=abc"');
+    expect(html).toContain("Potvrdit e-mail a začít");
+    expect(html).not.toContain("/dashboard");
+  });
+});

@@ -8,6 +8,7 @@ import { computeBalance, dayAfterExpiry, type EntRow, type ReqRow } from "@/lib/
 import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
 import { DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
 import { templateText } from "@/lib/email-templates";
+import { signupAction } from "@/lib/signup-reminders";
 import { hasFeature } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,40 @@ export async function GET(req: Request) {
       }));
     if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
     await supabase.from("companies").update({ pending_plan_notified: true }).eq("id", co.id);
+  }
+
+  // Nedokončené registrace: připomínka po 24 h a po 7 dnech, po 30 dnech smazání (jen účet bez profilu). Bez nasazené
+  // migrace funkce neexistuje a krok se přeskočí.
+  const signups = { reminded: 0, deleted: 0 };
+  {
+    const { data: unconfirmed } = await supabase.rpc("unconfirmed_signups", { p_older_than: "24 hours" });
+    const users = (unconfirmed as { id: string; email: string; created_at: string }[] | null) ?? [];
+    if (users.length > 0) {
+      const { data: done } = await supabase.from("signup_reminders").select("user_id, first_sent_at, last_sent_at").in("user_id", users.map((u) => u.id));
+      const sentBy = new Map((done ?? []).map((r) => [r.user_id as string, r]));
+      for (const u of users) {
+        const prev = sentBy.get(u.id);
+        const action = signupAction((now.getTime() - new Date(u.created_at).getTime()) / 3_600_000, { first: !!prev?.first_sent_at, last: !!prev?.last_sent_at });
+        if (action === "delete") {
+          const { error } = await supabase.auth.admin.deleteUser(u.id);
+          if (!error) {
+            await supabase.from("signup_reminders").delete().eq("user_id", u.id);
+            signups.deleted++;
+          }
+        } else if (action) {
+          const { data: link } = await supabase.auth.admin.generateLink({ type: "magiclink", email: u.email });
+          const url = link?.properties?.action_link;
+          if (!url) continue;
+          const t = templateText(action === "first" ? "signup_reminder" : "signup_reminder_last", {});
+          await supabase.from("email_outbox").insert({ to_email: u.email, subject: t.subject, body: `${t.body}\n\n${url}`, category: "signup_reminder" });
+          await supabase.from("signup_reminders").upsert(
+            { user_id: u.id, first_sent_at: prev?.first_sent_at ?? now.toISOString(), ...(action === "last" ? { last_sent_at: now.toISOString() } : {}) },
+            { onConflict: "user_id" }
+          );
+          signups.reminded++;
+        }
+      }
+    }
   }
 
   for (const company of companies ?? []) {
@@ -316,5 +351,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ escalated, digestsQueued: digests, carryoverWarnings, planChangesApplied: (applied.data as number | null) ?? 0 });
+  return NextResponse.json({ escalated, digestsQueued: digests, carryoverWarnings, planChangesApplied: (applied.data as number | null) ?? 0, signups });
 }
