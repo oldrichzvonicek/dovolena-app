@@ -14,6 +14,9 @@
 | `APP_URL` | veřejná adresa aplikace (odkazy v e-mailech) |
 | `RESEND_API_KEY` | odesílání e-mailů (resend.com); bez něj se e-maily jen řadí do fronty |
 | `EMAIL_FROM` | např. `Dodio <notifikace@vase-domena.cz>` (doména musí být ověřená v Resend) |
+| `EMAIL_FROM_BILLING` | volitelné: odesílatel provozních e-mailů o fakturaci a tarifu, např. `Dodio fakturace <fakturace@dodio.cz>`; bez něj se použije `EMAIL_FROM` |
+| `EMAIL_REPLY_TO` | volitelné: adresa pro odpovědi, např. `podpora@dodio.cz` (musí existovat schránka, jinak odpovědi zmizí) |
+| `RESEND_WEBHOOK_SECRET` | podpisový klíč `whsec_…` webhooku Resendu (viz sekce „E-maily: doručení a potlačené adresy“); bez něj endpoint odpovídá 503 |
 | `NEXT_PUBLIC_SALES_EMAIL` | kam míří tlačítko „Přejít na vyšší tarif“ (mailto) |
 | `CRON_SECRET` | libovolný dlouhý náhodný řetězec; Vercel ho posílá cron úlohám jako `Authorization: Bearer …` |
 | `APPROVAL_TOKEN_SECRET` | min. 32 náhodných znaků; podepisuje odkazy „Schválit / Zamítnout“ v e-mailech (v produkci je povinný) |
@@ -39,3 +42,8 @@ Ověření, že úloha běží: `select jobid, jobname, schedule, active from cr
 
 ## 5. Změny schématu
 `supabase/schema.sql` je zdroj pravdy a je idempotentní. `supabase/migrations/…_baseline.sql` je jeho kopie pro `supabase db push`; další změny přidávejte jako nové očíslované soubory ve `supabase/migrations/` a do `schema.sql` je promítněte také.
+
+## E-maily: doručení a potlačené adresy
+1. V Supabase → SQL Editor spusťte `supabase/migrations/20261013000000_email_delivery_tracking.sql` (nové sloupce v `email_outbox`, tabulka `email_suppressions`). Aplikace běží i bez ní, jen nevidí stav doručení.
+2. Resend → Webhooks → Add: adresa `https://<vaše-aplikace>/api/webhooks/resend`, události `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`. Zkopírujte podpisový klíč `whsec_…` do Vercelu jako `RESEND_WEBHOOK_SECRET` a nasaďte znovu.
+3. Co se děje: každý e-mail dostane `Idempotency-Key` (opakované odeslání nevyrobí duplicitu), neúspěšný se opakuje s odstupem 3 min, 15 min, 1 h, 4 h (pak je „Nedoručeno“ a admin ho může poslat znovu), trvalý bounce a stížnost na spam adresu potlačí a v Nastavení → Odeslané e-maily je vidět „Doručeno“ / „Adresa nedoručitelná“ / „Označeno jako spam“.

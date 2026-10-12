@@ -87,10 +87,13 @@ export function categoryLabel(category: string | null | undefined): string {
   return categoryByKey(category)?.label ?? (category ? category.replace(/_/g, " ") : "—");
 }
 
-export type EmailStatus = "sent" | "pending" | "retrying" | "failed";
+export type EmailStatus = "sent" | "delivered" | "bounced" | "complained" | "pending" | "retrying" | "failed";
 
 export const STATUS_LABEL: Record<EmailStatus, string> = {
   sent: "Odesláno",
+  delivered: "Doručeno",
+  bounced: "Adresa nedoručitelná",
+  complained: "Označeno jako spam",
   pending: "Čeká na odeslání",
   retrying: "Opakuje se",
   failed: "Nedoručeno",

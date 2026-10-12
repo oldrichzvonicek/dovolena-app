@@ -47,7 +47,7 @@ export function PrehledPanel() {
       const deptsWithoutHead = depts.filter((d) => !d.head_profile_id);
       const emptyDepts = depts.filter((d) => active.filter((e) => e.department_id === d.id).length === 0);
       const missingHireDate = company.data?.seniority_enabled ? active.filter((e) => !e.hire_date) : [];
-      const failedEmails = ((emailFails.data as { status: string }[] | null) ?? []).filter((r) => r.status === "failed" || r.status === "retrying");
+      const failedEmails = ((emailFails.data as { status: string }[] | null) ?? []).filter((r) => ["failed", "retrying", "bounced", "complained"].includes(r.status));
 
       const list: Issue[] = [];
       if (noApprover.length > 0)

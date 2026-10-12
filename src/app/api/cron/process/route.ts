@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { appUrl, isAuthorizedCron, sendEmail } from "@/lib/email";
+import { appUrl, isAuthorizedCron, retryDelayMinutes, sendEmailBatch } from "@/lib/email";
 import { emailLayout, FOOTER_NOTIFICATION } from "@/lib/email-templates";
 import { newApprovalToken } from "@/lib/approval-token";
 import { dispatchIntegrationEvents } from "@/lib/integration-dispatch";
@@ -44,6 +44,8 @@ async function withApprovalButtons(supabase: Admin, m: { notification_id?: strin
   }
 }
 
+type Row = { id: string; to_email: string; subject: string; body: string; attempts: number; notification_id?: string | null; category?: string | null };
+
 /** Sends queued e-mails from email_outbox. Call every few minutes (Vercel Cron / pg_cron + pg_net). */
 export async function GET(req: Request) {
   if (!isAuthorizedCron(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -51,14 +53,14 @@ export async function GET(req: Request) {
   const supabase = createAdminClient();
   // Rows are claimed atomically (FOR UPDATE SKIP LOCKED), so two overlapping cron runs never send the same e-mail twice.
   // Falls back to a plain read only when the SQL function is not deployed yet.
-  let pending: { id: string; to_email: string; subject: string; body: string; attempts: number; notification_id?: string | null }[] | null = null;
+  let pending: Row[] | null = null;
   const claimed = await supabase.rpc("claim_email_outbox", { p_limit: 50 });
   if (!claimed.error) {
-    pending = claimed.data as typeof pending;
+    pending = claimed.data as Row[];
   } else {
     const { data, error } = await supabase
       .from("email_outbox")
-      .select("id, to_email, subject, body, attempts, notification_id")
+      .select("id, to_email, subject, body, attempts, notification_id, category")
       .is("sent_at", null)
       .lt("attempts", 5)
       .order("created_at", { ascending: true })
@@ -66,13 +68,37 @@ export async function GET(req: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     pending = data;
   }
+  const rows = pending ?? [];
+
+  // Adresy, které natvrdo nedoručily nebo si stěžovaly na spam (webhook Resendu), se už nezkouší — chrání pověst domény.
+  // Bez nasazené tabulky (migrace) se kontrola tiše přeskočí.
+  const suppressed = new Set<string>();
+  if (rows.length > 0) {
+    const { data: sup } = await supabase.from("email_suppressions").select("email").in("email", [...new Set(rows.map((r) => r.to_email.toLowerCase()))]);
+    for (const s of sup ?? []) suppressed.add(s.email as string);
+  }
+  const isSuppressed = (m: Row) => suppressed.has(m.to_email.toLowerCase());
 
   let sent = 0;
   let failed = 0;
   let skipped = 0;
-  for (const m of pending ?? []) {
-    const buttons = await withApprovalButtons(supabase, m);
-    const r = buttons ? await sendEmail(m.to_email, m.subject, buttons.body, buttons.html) : await sendEmail(m.to_email, m.subject, m.body);
+  let exhausted = 0;
+  const blockedRows = rows.filter(isSuppressed);
+  for (const m of blockedRows) {
+    await supabase.from("email_outbox").update({ attempts: 5, error: "Adresa je na seznamu potlačených (dřívější nedoručitelnost nebo stížnost na spam)." }).eq("id", m.id);
+  }
+
+  const toSend = rows.filter((m) => !isSuppressed(m));
+  const prepared = await Promise.all(
+    toSend.map(async (m) => {
+      const buttons = await withApprovalButtons(supabase, m);
+      return { to: m.to_email, subject: m.subject, body: buttons?.body ?? m.body, html: buttons?.html, category: m.category, idempotencyKey: `dodio-outbox-${m.id}` };
+    })
+  );
+  const results = await sendEmailBatch(prepared);
+
+  for (const [i, m] of toSend.entries()) {
+    const r = results[i];
     if (r.skipped) {
       skipped++;
       continue;
@@ -80,11 +106,29 @@ export async function GET(req: Request) {
     if (r.ok) {
       sent++;
       await supabase.from("email_outbox").update({ sent_at: new Date().toISOString(), error: null }).eq("id", m.id);
+      // Zvlášť a nezávazně: před nasazením migrace sloupec neexistuje a nesmí kvůli němu e-mail zůstat "neodeslaný".
+      if (r.id) await supabase.from("email_outbox").update({ resend_id: r.id }).eq("id", m.id);
     } else {
       failed++;
-      await supabase.from("email_outbox").update({ attempts: m.attempts + 1, error: r.error ?? "unknown" }).eq("id", m.id);
+      const attempts = m.attempts + 1;
+      if (attempts >= 5) {
+        exhausted++;
+        console.error(`e-mail ${m.id} (${m.category ?? "?"}) se nepodařilo odeslat ani na ${attempts}. pokus: ${r.error ?? "unknown"}`);
+      }
+      await supabase.from("email_outbox").update({ attempts, error: r.error ?? "unknown" }).eq("id", m.id);
+      const next = new Date(Date.now() + retryDelayMinutes(attempts) * 60_000).toISOString();
+      await supabase.from("email_outbox").update({ next_attempt_at: next }).eq("id", m.id);
     }
   }
   const integrations = await dispatchIntegrationEvents();
-  return NextResponse.json({ pending: pending?.length ?? 0, sent, failed, skipped, integrations, note: skipped > 0 ? "RESEND_API_KEY není nastaven — nic se neodeslalo" : undefined });
+  return NextResponse.json({
+    pending: rows.length,
+    sent,
+    failed,
+    skipped,
+    blocked: blockedRows.length,
+    exhausted,
+    integrations,
+    note: skipped > 0 ? "RESEND_API_KEY není nastaven — nic se neodeslalo" : undefined,
+  });
 }

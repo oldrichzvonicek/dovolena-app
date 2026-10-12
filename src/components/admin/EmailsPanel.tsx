@@ -180,6 +180,9 @@ function Overview() {
 
 const badgeClass: Record<EmailStatus, string> = {
   sent: "bg-teal-light text-teal-dark",
+  delivered: "bg-teal-light text-teal-dark",
+  bounced: "bg-danger-light text-danger-dark",
+  complained: "bg-danger-light text-danger-dark",
   pending: "bg-paper text-muted",
   retrying: "bg-warning-light text-warning-dark",
   failed: "bg-danger-light text-danger-dark",
@@ -226,8 +229,9 @@ function SentLog() {
     }
   }
 
-  const filtered = (rows ?? []).filter((r) => filter === "all" || r.status !== "sent");
-  const problems = (rows ?? []).filter((r) => r.status === "failed" || r.status === "retrying").length;
+  const isOk = (s: EmailStatus) => s === "sent" || s === "delivered";
+  const filtered = (rows ?? []).filter((r) => filter === "all" || !isOk(r.status));
+  const problems = (rows ?? []).filter((r) => ["failed", "retrying", "bounced", "complained"].includes(r.status)).length;
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
   const shown = filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
@@ -295,13 +299,13 @@ function SentLog() {
                     </td>
                     <td className="px-3 py-2">
                       <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium", badgeClass[r.status])}>
-                        {r.status === "sent" ? <CheckCircle2 size={11} /> : r.status === "pending" ? <Clock size={11} /> : <AlertTriangle size={11} />}
+                        {isOk(r.status) ? <CheckCircle2 size={11} /> : r.status === "pending" ? <Clock size={11} /> : <AlertTriangle size={11} />}
                         {STATUS_LABEL[r.status]}
                       </span>
                       {r.error && <div className="mt-0.5 max-w-[14rem] truncate text-[11px] text-danger" title={r.error}>{r.error}</div>}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {r.status !== "sent" && (
+                      {(r.status === "pending" || r.status === "retrying" || r.status === "failed") && (
                         <button
                           onClick={() => retry(r.id)}
                           disabled={busy === r.id}
