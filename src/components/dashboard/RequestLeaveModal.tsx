@@ -213,10 +213,12 @@ export function RequestLeaveModal({
   }, [startDate, endDate, durationMode, hoursValue, dailyHours, company?.work_days]);
 
   // "Team" = same department when the employee has one, otherwise the whole company.
+  // size = ostatní kolegové (bez žadatele samotného) — stejně jako na nástěnce v "Chytrých návrzích"
+  // (BridgeDays), ať "X z Y členů týmu" obě místa počítají shodně.
   const team = useMemo(() => {
-    if (!profile) return { colleagues: [] as DbProfile[], size: 1 };
+    if (!profile) return { colleagues: [] as DbProfile[], size: 0 };
     const mates = profile.department_id ? colleagues.filter((c) => c.department_id === profile.department_id) : colleagues;
-    return { colleagues: mates, size: mates.length + 1 };
+    return { colleagues: mates, size: mates.length };
   }, [colleagues, profile]);
 
   // Remaining balance for the selected type's category (null when the type doesn't count against a balance).

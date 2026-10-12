@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth-context";
+import { useFeatures } from "@/lib/use-features";
 import { fetchDepartments } from "@/lib/data";
 import { AdminEmployeeRow, fetchCompany, fetchCompanyEmployees, importEmployees } from "@/lib/admin-data";
 import { DbDepartment, Role } from "@/lib/supabase/types";
@@ -39,6 +40,7 @@ function nameFromEmail(email: string) {
 
 export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => void; onCopyLink?: () => void }) {
   const { profile } = useAuth();
+  const features = useFeatures();
   const [open, setOpen] = useState(false);
   const [departments, setDepartments] = useState<DbDepartment[]>([]);
   const [employees, setEmployees] = useState<AdminEmployeeRow[]>([]);
@@ -200,7 +202,9 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
                   {profile?.role === "admin" && (
                     <>
                       <SelectItem value="hr">{roleChoiceLabel.hr}</SelectItem>
-                      <SelectItem value="accountant">{roleChoiceLabel.accountant}</SelectItem>
+                      <SelectItem value="accountant" disabled={!features.has("accountant")}>
+                        {roleChoiceLabel.accountant}{features.has("accountant") ? "" : " (doplněk Účetní)"}
+                      </SelectItem>
                     </>
                   )}
                 </SelectContent>
