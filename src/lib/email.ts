@@ -42,10 +42,14 @@ export function renderHtml(subject: string, body: string): string {
   });
 }
 
-/** Odesílatel podle kategorie; bez nastavené proměnné se použije obecný EMAIL_FROM. Doména musí být ověřená v Resendu. */
+// Schránky fakturace@ a podpora@ musí na doméně existovat, jinak odpovědi zmizí (přepsat jde proměnnými EMAIL_FROM_BILLING / EMAIL_REPLY_TO).
+const DEFAULT_BILLING_FROM = "Dodio fakturace <fakturace@dodio.cz>";
+const DEFAULT_REPLY_TO = "podpora@dodio.cz";
+
+/** Odesílatel podle kategorie (fakturace má vlastního, ostatní EMAIL_FROM). Doména musí být ověřená v Resendu. */
 export function senderFor(category?: string | null): string {
   const general = process.env.EMAIL_FROM ?? "Dodio <onboarding@resend.dev>";
-  if (category === "billing") return process.env.EMAIL_FROM_BILLING ?? general;
+  if (category === "billing") return process.env.EMAIL_FROM_BILLING ?? DEFAULT_BILLING_FROM;
   return general;
 }
 
@@ -53,7 +57,7 @@ export function senderFor(category?: string | null): string {
 const isSkippedAddress = (to: string) => to.toLowerCase().endsWith(".invalid");
 
 function payload(to: string, subject: string, body: string, html: string | undefined, category?: string | null) {
-  const replyTo = process.env.EMAIL_REPLY_TO;
+  const replyTo = process.env.EMAIL_REPLY_TO ?? DEFAULT_REPLY_TO;
   return {
     from: senderFor(category),
     to: [to],

@@ -16,9 +16,9 @@ describe("senderFor", () => {
   it("fakturace má vlastního odesílatele, jen když je nastavený", () => {
     process.env.EMAIL_FROM = "Dodio <info@dodio.cz>";
     delete process.env.EMAIL_FROM_BILLING;
-    expect(senderFor("billing")).toBe("Dodio <info@dodio.cz>");
-    process.env.EMAIL_FROM_BILLING = "Dodio fakturace <fakturace@dodio.cz>";
     expect(senderFor("billing")).toBe("Dodio fakturace <fakturace@dodio.cz>");
+    process.env.EMAIL_FROM_BILLING = "Jiné <jine@dodio.cz>";
+    expect(senderFor("billing")).toBe("Jiné <jine@dodio.cz>");
     expect(senderFor("weekly_digest")).toBe("Dodio <info@dodio.cz>");
   });
 });

@@ -14,8 +14,8 @@
 | `APP_URL` | veřejná adresa aplikace (odkazy v e-mailech) |
 | `RESEND_API_KEY` | odesílání e-mailů (resend.com); bez něj se e-maily jen řadí do fronty |
 | `EMAIL_FROM` | např. `Dodio <notifikace@vase-domena.cz>` (doména musí být ověřená v Resend) |
-| `EMAIL_FROM_BILLING` | volitelné: odesílatel provozních e-mailů o fakturaci a tarifu, např. `Dodio fakturace <fakturace@dodio.cz>`; bez něj se použije `EMAIL_FROM` |
-| `EMAIL_REPLY_TO` | volitelné: adresa pro odpovědi, např. `podpora@dodio.cz` (musí existovat schránka, jinak odpovědi zmizí) |
+| `EMAIL_FROM_BILLING` | volitelné přepsání odesílatele provozních e-mailů o fakturaci a tarifu; výchozí `Dodio fakturace <fakturace@dodio.cz>` (schránka musí existovat) |
+| `EMAIL_REPLY_TO` | volitelné přepsání adresy pro odpovědi; výchozí `podpora@dodio.cz` (schránka musí existovat, jinak odpovědi zmizí) |
 | `RESEND_WEBHOOK_SECRET` | podpisový klíč `whsec_…` webhooku Resendu (viz sekce „E-maily: doručení a potlačené adresy“); bez něj endpoint odpovídá 503 |
 | `NEXT_PUBLIC_SALES_EMAIL` | kam míří tlačítko „Přejít na vyšší tarif“ (mailto) |
 | `CRON_SECRET` | libovolný dlouhý náhodný řetězec; Vercel ho posílá cron úlohám jako `Authorization: Bearer …` |
