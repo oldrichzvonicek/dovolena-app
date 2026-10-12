@@ -1,3 +1,25 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["src/**/*.ts", "src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/server/platform", "@/server/platform/*", "@/components/platform", "@/components/platform/*"],
+                "message": "Kód super-adminu (Dodio provozovatel) se do zákaznické aplikace neimportuje."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/server/platform/**", "src/components/platform/**", "src/app/(platform)/**", "src/app/api/platform/**", "src/app/api/cron/platform-jobs/**", "src/middleware.ts"],
+      "rules": { "no-restricted-imports": "off" }
+    }
+  ]
 }
