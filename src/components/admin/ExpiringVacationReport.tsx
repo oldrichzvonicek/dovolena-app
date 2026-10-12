@@ -74,7 +74,8 @@ export function ExpiringVacationReport({ departmentId = "all" }: { departmentId?
     setSending(true);
     setSentMessage(null);
     try {
-      const n = await sendVacationReminders(Array.from(selected));
+      const ids = Array.from(selected);
+      const n = await sendVacationReminders(ids, Object.fromEntries(rows!.filter((r) => selected.has(r.id)).map((r) => [r.id, r.remaining])));
       setSentMessage({ text: `Úspěšně odesláno ${n} připomínek.`, error: false });
       setSelected(new Set());
     } catch (e) {

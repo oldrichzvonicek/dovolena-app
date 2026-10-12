@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { carryoverExpiryWarning, czDays, czForm, czPeople, czRequests, weeklyDigestIntro } from "./czech";
+import { carryoverExpiryWarning, vacationReminderText, czDays, czForm, czPeople, czRequests, weeklyDigestIntro } from "./czech";
 
 describe("czForm", () => {
   it("1 → jednotné, 2–4 → množné, jinak 2. pád množného", () => {
@@ -53,5 +53,14 @@ describe("weeklyDigestIntro", () => {
 
   it("když nikdo nechybí, věta zůstává jako dřív", () => {
     expect(weeklyDigestIntro(0, 3)).toBe("tady je váš týdenní přehled — tento týden nikdo nechybí.");
+  });
+});
+
+describe("vacationReminderText", () => {
+  it("počet dnů se skloňuje, desetinné dny mají tvar „dne“", () => {
+    expect(vacationReminderText(1)).toContain("zbývá 1 den nevyčerpané");
+    expect(vacationReminderText(3)).toContain("zbývají 3 dny nevyčerpané");
+    expect(vacationReminderText(12)).toContain("zbývá 12 dní nevyčerpané");
+    expect(vacationReminderText(2.5)).toContain("zbývá 2,5 dne nevyčerpané");
   });
 });

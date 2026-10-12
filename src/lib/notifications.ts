@@ -51,7 +51,13 @@ export async function markAllNotificationsRead(profileId: string) {
 }
 
 /** Admin-only bulk nudge for employees sitting on a large unused vacation balance near year-end. */
-export async function sendVacationReminders(profileIds: string[]): Promise<number> {
+export async function sendVacationReminders(profileIds: string[], days?: Record<string, number>): Promise<number> {
+  if (days) {
+    const withDays = await supabase.rpc("send_vacation_reminders_with_days", { target_profile_ids: profileIds, p_days: days });
+    if (!withDays.error) return withDays.data as number;
+    // Před nasazením migrace funkce neexistuje — pošle se připomínka bez počtu dnů.
+    if (withDays.error.code !== "PGRST202" && withDays.error.code !== "42883") throw withDays.error;
+  }
   const { data, error } = await supabase.rpc("send_vacation_reminders", { target_profile_ids: profileIds });
   if (error) throw error;
   return data as number;

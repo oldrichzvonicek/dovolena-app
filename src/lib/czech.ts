@@ -38,3 +38,12 @@ export function weeklyDigestIntro(missing: number, pending: number): string {
   const waiting = pending > 0 ? ` a ${czForm(pending, "čeká", "čekají", "čeká")} na vás ${czRequests(pending)} ke schválení` : "";
   return `tady je váš týdenní přehled — tento týden ${absent}${waiting}.`;
 }
+
+/** Text hromadné připomínky nevyčerpané dovolené s počtem dnů (stejný jako v SQL send_vacation_reminders_with_days). */
+export function vacationReminderText(days: number): string {
+  const whole = Number.isInteger(days);
+  const num = whole ? String(days) : days.toFixed(1).replace(".", ",");
+  const unit = whole ? czForm(days, "den", "dny", "dní") : "dne";
+  const verb = whole ? czForm(days, "zbývá", "zbývají", "zbývá") : "zbývá";
+  return `Do konce roku vám ${verb} ${num} ${unit} nevyčerpané dovolené. Naplánujte si ji včas, ať vám nepropadne.`;
+}

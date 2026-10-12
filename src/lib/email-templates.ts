@@ -4,7 +4,7 @@
 // `live: false` = připraveno k zapojení (fakturace, trial se NEpoužívá — tarif Free je trvale zdarma).
 // Zdravotní údaje se do e-mailů nikdy nepíšou; u soukromých absencí (nemoc) se typ uvádí jen schvalovateli.
 
-import { carryoverExpiryWarning, weeklyDigestIntro } from "@/lib/czech";
+import { carryoverExpiryWarning, vacationReminderText, weeklyDigestIntro } from "@/lib/czech";
 
 export type Vars = Record<string, string>;
 
@@ -196,9 +196,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     when: "HR nebo admin pošle hromadnou připomínku (Analytika → Nevyčerpaná dovolená).",
     to: "Vybraní zaměstnanci",
     live: true,
-    vars: [],
+    vars: ["dny"],
     subject: () => "Nevyčerpaná dovolená",
-    paragraphs: () => ["Do konce roku vám zbývá nevyčerpaná dovolená. Naplánujte si ji včas, ať vám nepropadne."],
+    paragraphs: (v) => [vacationReminderText(Number(v.dny))],
     cta: { label: "Naplánovat dovolenou", path: "/calendar" },
     optOut: true,
   },
