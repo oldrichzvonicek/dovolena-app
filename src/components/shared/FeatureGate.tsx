@@ -13,7 +13,7 @@ export function unlockHint(feature: FeatureKey): string {
   const plan = minPlanFor(feature);
   const addon = ADDONS.find((a) => a.key === feature);
   const buy = addon && addon.availableOn.length > 0 ? ` Dá se i přikoupit za ${formatKc(addon.monthly)} měsíčně.` : "";
-  return `Je od tarifu ${plan.name}.${buy}`;
+  return `Dostupné od tarifu ${plan.name}.${buy}`;
 }
 
 /** Zamčená funkce: vysvětlí, co dělá, od jakého tarifu je a kam pro odemčení (admin) nebo koho požádat (ostatní). */

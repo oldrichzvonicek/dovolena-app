@@ -13,6 +13,7 @@ import { safeCell } from "@/lib/csv";
 import { autoFitSheet } from "@/lib/xlsx-utils";
 import { toCsv } from "@/lib/payroll";
 import { DEFAULT_WORK_DAYS, daysWithin, dayWord } from "@/lib/working-days";
+import { czPeople } from "@/lib/czech";
 import { DbDepartment } from "@/lib/supabase/types";
 import { LoadingLines } from "@/components/ui/skeleton";
 
@@ -227,7 +228,7 @@ export function ExportsPanel() {
         {!loading && (
           <p className="border-b border-line bg-paper px-5 py-2 text-xs text-muted">
             Celkem {formatNumber(grandTotal)} {dayWord(grandTotal)} absencí ve vybraných řádcích — mělo by sedět s kalendářem.
-            {hideZero && zeroCount > 0 && ` Skryto ${zeroCount} lidí bez absence v tomto měsíci.`} Stažený soubor obsahuje jen zobrazené řádky.
+            {hideZero && zeroCount > 0 && ` Skryto ${czPeople(zeroCount)} bez absence v tomto měsíci.`} Stažený soubor obsahuje jen zobrazené řádky.
           </p>
         )}
         {loading ? (

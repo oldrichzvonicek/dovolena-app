@@ -136,9 +136,11 @@ export function PendingApprovalsWidget({ onChanged }: { onChanged?: () => void }
               >
                 <X size={14} /> Zamítnout
               </Button>
-              <Link href={`/approvals?zadost=${r.id}`} className="inline-flex items-center rounded border border-line bg-white px-3 py-1.5 text-sm hover:bg-paper">
-                Detail
-              </Link>
+              {!hasWarning && (
+                <Link href={`/approvals?zadost=${r.id}`} className="inline-flex items-center rounded border border-line bg-white px-3 py-1.5 text-sm hover:bg-paper">
+                  Detail
+                </Link>
+              )}
             </div>
           </div>
           );
