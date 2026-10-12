@@ -22,5 +22,7 @@ alter function public.send_vacation_reminders(target_profile_ids uuid[]) set sea
 -- guard_company_writable je trigger funkce (nedává smysl ji volat jako RPC) a reopen_payroll_month má
 -- vlastní kontrolu role uvnitř (cid is null → chyba), takže anon reálně nic nezmůže — ale PostgREST ji
 -- bez tohohle REVOKE pořád nabízí na /rest/v1/rpc/... nepřihlášeným, zbytečně.
-revoke execute on function public.guard_company_writable() from anon;
-revoke execute on function public.reopen_payroll_month(date, text) from anon;
+-- Revoke musí jít na PUBLIC, ne na "anon" samotné — anon je implicitně členem PUBLIC, takže dokud má
+-- EXECUTE PUBLIC (výchozí stav při vytvoření funkce), revoke jen z role "anon" je no-op.
+revoke execute on function public.guard_company_writable() from public;
+revoke execute on function public.reopen_payroll_month(date, text) from public;
