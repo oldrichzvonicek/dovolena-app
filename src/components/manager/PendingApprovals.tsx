@@ -46,6 +46,10 @@ interface PendingRow {
 
 export function PendingApprovals() {
   const { profile } = useAuth();
+  // fetchDecisionScope dává HR "all: true" pro SPRÁVU lidí (viz tam) — na schvalování to ale neplatí (HR
+  // žádosti neschvaluje, viz access.ts). Bez tohohle by HR po přímém vstupu na /approvals (odkaz v menu
+  // nemá) uviděl celofiremní frontu žádostí s tlačítky Schválit/Zamítnout, co by stejně spadly na RLS.
+  const isApprover = profile?.role === "manager" || profile?.role === "admin";
   const [pending, setPending] = useState<PendingRow[]>([]);
   const [conflicts, setConflicts] = useState<Record<string, string>>({});
   // Hint for requests in a main period (Christmas, summer): did the person have the same period last year?
@@ -71,7 +75,7 @@ export function PendingApprovals() {
   useOnDataChanged(() => load());
 
   useEffect(() => {
-    if (!profile || loading || pending.length > 0 || recentDecided !== null) return;
+    if (!profile || !isApprover || loading || pending.length > 0 || recentDecided !== null) return;
     (async () => {
       const supabase = createClient();
       const scope = await fetchDecisionScope(profile);
@@ -88,10 +92,14 @@ export function PendingApprovals() {
         .map((r) => ({ id: r.id, name: r.profile!.name, status: r.status, label: r.leave_type?.label ?? "Absence", termin: formatRange(r.start_date, r.end_date) }));
       setRecentDecided(rows);
     })();
-  }, [profile, loading, pending.length, recentDecided]);
+  }, [profile, isApprover, loading, pending.length, recentDecided]);
 
   async function load() {
     if (!profile) return;
+    if (!isApprover) {
+      setLoading(false);
+      return;
+    }
     const supabase = createClient();
 
     await autoApproveOwnPending(profile).catch(() => false);

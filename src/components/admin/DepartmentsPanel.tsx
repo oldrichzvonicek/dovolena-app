@@ -383,11 +383,15 @@ function EditDepartmentModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Bez vedoucího</SelectItem>
-                  {employees.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.name}
-                    </SelectItem>
-                  ))}
+                  {employees
+                    // Vedoucí/zástupce fakticky schvaluje žádosti oddělení — bez role manažer/admin by to i
+                    // tak reálně nešlo (vynucuje RLS), jen by to tiše spadlo na chybu při schvalování.
+                    .filter((e) => e.role === "manager" || e.role === "admin" || e.id === headId)
+                    .map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -402,11 +406,13 @@ function EditDepartmentModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Bez zástupce</SelectItem>
-                  {employees.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.name}
-                    </SelectItem>
-                  ))}
+                  {employees
+                    .filter((e) => e.role === "manager" || e.role === "admin" || e.id === deputyId)
+                    .map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

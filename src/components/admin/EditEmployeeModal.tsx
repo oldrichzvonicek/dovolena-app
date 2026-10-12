@@ -213,7 +213,10 @@ export function EditEmployeeModal({
                 <SelectContent>
                   <SelectItem value="none">Bez zástupu</SelectItem>
                   {employees
-                    .filter((e) => e.id !== employee.id)
+                    // Zástup fakticky schvaluje za dotyčného — bez role manažer/admin by to i tak reálně
+                    // nešlo (vynucuje RLS), jen by to tiše spadlo na chybu. Aktuálně nastavená hodnota
+                    // zůstává vidět, i kdyby (ze starších dat) šlo o někoho bez téhle role.
+                    .filter((e) => e.id !== employee.id && (e.role === "manager" || e.role === "admin" || e.id === substituteId))
                     .map((e) => (
                       <SelectItem key={e.id} value={e.id}>
                         {e.name}
