@@ -6,7 +6,8 @@ import { carryoverExpiryWarning } from "@/lib/czech";
 import { buildWeeklyDigest, type DigestRow } from "@/lib/weekly-digest";
 import { computeBalance, dayAfterExpiry, type EntRow, type ReqRow } from "@/lib/balances";
 import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
-import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
+import { templateText } from "@/lib/email-templates";
 import { hasFeature } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
@@ -104,24 +105,50 @@ export async function GET(req: Request) {
 
       let targets = [dept?.deputy_head_profile_id].filter((x): x is string => !!x && x !== p.id && x !== approverId && ids.has(x));
       if (targets.length === 0) targets = admins.map((a) => a.id).filter((x) => x !== p.id && x !== approverId);
-      if (targets.length === 0) continue;
 
-      const reason = approverAway ? "schvalovatel je dnes nepřítomen" : `čeká už ${Math.floor(ageHours)} h`;
-      // Typ (leave_type.label) je volný text, který firma může přejmenovat — obecně ho nejde skloňovat.
-      // Výchozí "Dovolená" má proto vlastní tvar, zbytek je jen nálepka v pomlčkách (viz schema.sql: stejná
-      // logika v notify_on_leave_request_insert/notify_on_leave_request_status_change).
-      const typePhrase = r.leave_type?.key === "dovolena" ? "o dovolenou" : `— ${r.leave_type?.label ?? "absence"} —`;
-      await supabase.from("notifications").insert(
-        targets.map((t) => ({
-          profile_id: t,
-          type: "request_created",
-          leave_request_id: r.id,
-          title: "Žádost čeká na schválení",
-          body: `${p.name} čeká na rozhodnutí o žádosti ${typePhrase} — zaskakujete za schvalovatele (${reason}), tak to prosím vyřiďte.`,
-        }))
-      );
+      // Typ (leave_type.label) je volný text, který firma může přejmenovat — nejde skloňovat, proto je jen v textu jako štítek.
+      const typ = r.leave_type?.label ?? "absence";
+      const reason = approverAway ? "schvalovatel je dnes nepřítomen" : `žádost čeká už ${Math.floor(ageHours)} h`;
+      let notified = false;
+      // Schvalovatel, který je přítomen, ale žádost nechává ležet, dostane připomínku sám (s tlačítky Schválit / Zamítnout).
+      if (!approverAway && approverId && approverId !== p.id && ids.has(approverId)) {
+        const w = templateText("approval_waiting", { zadatel: p.name, typ, hodiny: String(Math.floor(ageHours)) });
+        await supabase.from("notifications").insert({ profile_id: approverId, type: "request_created", leave_request_id: r.id, title: w.subject, body: w.body });
+        notified = true;
+      }
+      if (targets.length > 0) {
+        const e = templateText("escalation", { zadatel: p.name, typ, duvod: reason });
+        await supabase.from("notifications").insert(targets.map((t) => ({ profile_id: t, type: "request_created", leave_request_id: r.id, title: e.subject, body: e.body })));
+        notified = true;
+      }
+      if (!notified) continue;
       await supabase.from("leave_requests").update({ escalated_at: now.toISOString() }).eq("id", r.id);
       escalated++;
+    }
+
+    // 1a) připomínka "zítra začíná dovolená" (v pátek i pro víkend a pondělí), jednou na žádost; bez migrace sloupec chybí a dotaz se přeskočí
+    {
+      const dow = new Date(`${today}T12:00:00Z`).getUTCDay();
+      const from = iso(addDays(now, 1));
+      const to = iso(addDays(now, dow === 5 ? 3 : 1));
+      const { data: starting } = await supabase
+        .from("leave_requests")
+        .select("id, start_date, end_date, profile_id, leave_type:leave_types(key)")
+        .eq("status", "approved")
+        .is("start_reminded_at", null)
+        .gte("start_date", from)
+        .lte("start_date", to)
+        .in("profile_id", Array.from(ids));
+      const due = ((starting as unknown as { id: string; start_date: string; end_date: string; profile_id: string; leave_type: { key: string } | null }[]) ?? []).filter((x) => x.leave_type?.key === "dovolena");
+      if (due.length > 0) {
+        await supabase.from("notifications").insert(
+          due.map((x) => {
+            const t = templateText("leave_starting", { termin: formatRange(x.start_date, x.end_date) });
+            return { profile_id: x.profile_id, type: "leave_starting", leave_request_id: x.id, title: t.subject, body: t.body };
+          })
+        );
+        await supabase.from("leave_requests").update({ start_reminded_at: now.toISOString() }).in("id", due.map((x) => x.id));
+      }
     }
 
     // 1b) chat digest "who is out today" (Mon–Fri, once per company per day, only if a webhook subscribes)
@@ -175,7 +202,7 @@ export async function GET(req: Request) {
       const rows = people
         .filter((p) => emailSettings.weekly_digest !== false && (p.role === "manager" || p.role === "admin") && p.email && p.email_notifications)
         .map((p) => {
-          const d = buildWeeklyDigest({ rows: weekRows, pending: pendingCount, firstName: p.name.split(" ")[0], from: today, to: weekEnd });
+          const d = buildWeeklyDigest({ rows: weekRows, pending: pendingCount, from: today, to: weekEnd });
           return { company_id: company.id, category: "weekly_digest", to_email: p.email!, subject: d.subject, body: d.body };
         });
       if (rows.length > 0) await supabase.from("email_outbox").insert(rows);

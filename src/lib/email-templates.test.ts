@@ -39,3 +39,19 @@ describe("email templates", () => {
     expect(r.html).not.toContain("<script>");
   });
 });
+
+describe("templateText", () => {
+  it("skutečné hodnoty přebijí ukázkové (upomínky nesmí ukazovat vzorových 7 dní)", async () => {
+    const { templateText } = await import("./email-templates");
+    const t = templateText("payment_reminder_7", { cislo: "2026-001", castka: "5 900 Kč", splatnost: "1. 10. 2026", po_splatnosti: "9" });
+    expect(t.body).toContain("Je po splatnosti 9 dní");
+    expect(t.subject).toContain("2026-001");
+  });
+  it("žádné šablony nemají v pozdravu jméno v 1. pádě ani „(a)“", () => {
+    for (const t of EMAIL_TEMPLATES) {
+      const text = [t.subject(TEMPLATE_SAMPLE), ...t.paragraphs(TEMPLATE_SAMPLE)].join(" ");
+      expect(text, t.key).not.toMatch(/\(a\)|\(la\)|mu\/jí/);
+      expect(text, t.key).not.toMatch(/^Dobrý den \S+,/);
+    }
+  });
+});

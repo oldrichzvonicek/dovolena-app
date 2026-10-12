@@ -84,3 +84,12 @@ describe("odesílání", () => {
     expect(r.every((x) => !x.ok && !x.rejected)).toBe(true);
   });
 });
+
+describe("renderHtml", () => {
+  it("tlačítko vede podle druhu e-mailu, jinak na nástěnku", async () => {
+    const { renderHtml } = await import("./email");
+    expect(renderHtml("P", "Text", "weekly_digest")).toContain("/calendar");
+    expect(renderHtml("P", "Text", "billing")).toContain("sekce=billing");
+    expect(renderHtml("P", "Text", "neznama")).toContain("/dashboard");
+  });
+});

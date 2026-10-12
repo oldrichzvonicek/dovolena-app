@@ -21,16 +21,16 @@ export const EMAIL_CATEGORIES: EmailCategory[] = [
   {
     key: "approver_requests",
     label: "Žádosti ke schválení",
-    description: "Schvalovatel dostane e-mail o nové žádosti (s tlačítky Schválit a Zamítnout), o žádosti v blokovaném termínu, o žádosti o zrušení absence a když se za něj žádost přeposílá zástupci.",
+    description: "Schvalovatel dostane e-mail o nové žádosti (s tlačítky Schválit a Zamítnout), o žádosti v blokovaném termínu, o žádosti o zrušení absence, o stažené žádosti, připomínku, když žádost čeká dlouho, a když se za něj žádost přeposílá zástupci.",
     hrCanChange: false,
-    templates: ["request_created", "request_blackout", "cancellation_requested", "escalation"],
+    templates: ["request_created", "request_blackout", "cancellation_requested", "request_withdrawn", "approval_waiting", "escalation"],
   },
   {
     key: "requester_decisions",
     label: "Vyřízení žádosti",
-    description: "Zaměstnanec dostane e-mail, že jeho žádost byla schválena nebo zamítnuta (i že byla vyřízena žádost o zrušení absence).",
+    description: "Zaměstnanec dostane e-mail, že jeho žádost byla schválena nebo zamítnuta (i že byla vyřízena žádost o zrušení absence nebo že mu manažer zapsal absenci).",
     hrCanChange: false,
-    templates: ["request_approved", "request_rejected", "cancellation_resolved"],
+    templates: ["request_approved", "request_rejected", "cancellation_resolved", "leave_booked"],
   },
   {
     key: "weekly_digest",
@@ -49,9 +49,9 @@ export const EMAIL_CATEGORIES: EmailCategory[] = [
   {
     key: "reminders",
     label: "Připomínky dovolené",
-    description: "Připomínky zaměstnancům: nevyčerpaná dovolená, blížící se propadnutí převedené dovolené a nabídka naplánovat si delší volno.",
+    description: "Připomínky zaměstnancům: nevyčerpaná dovolená, blížící se propadnutí převedené dovolené, den před začátkem dovolené a nabídka naplánovat si delší volno.",
     hrCanChange: true,
-    templates: ["vacation_reminder", "carryover_expiring", "wellbeing_reminder"],
+    templates: ["vacation_reminder", "carryover_expiring", "leave_starting", "wellbeing_reminder"],
   },
   {
     key: "help_questions",

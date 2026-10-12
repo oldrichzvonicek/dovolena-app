@@ -31,12 +31,26 @@ export function appUrl(): string {
   return (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
 
+// Tlačítko v e-mailu podle druhu e-mailu (kategorie z email_outbox, u provozních typ upozornění); jinak nástěnka.
+const CTA_BY_CATEGORY: Record<string, { label: string; path: string }> = {
+  approver_requests: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
+  requester_decisions: { label: "Zobrazit moje žádosti", path: "/requests" },
+  weekly_digest: { label: "Otevřít kalendář", path: "/calendar" },
+  hr_digest: { label: "Otevřít Analytiku", path: "/admin/overview" },
+  reminders: { label: "Naplánovat dovolenou", path: "/calendar" },
+  join_pending: { label: "Schválit nebo odmítnout", path: "/admin/settings?sekce=users" },
+  billing: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
+  account_approved: { label: "Přihlásit se", path: "/login" },
+  welcome: { label: "Otevřít Dodio", path: "/dashboard" },
+};
+
 /** Plain-text body -> branded HTML (paragraphs by blank line); shared layout with the templates in email-templates.ts. */
-export function renderHtml(subject: string, body: string): string {
+export function renderHtml(subject: string, body: string, category?: string | null): string {
+  const cta = (category && CTA_BY_CATEGORY[category]) || { label: "Otevřít Dodio", path: "/dashboard" };
   return emailLayout({
     title: subject,
     paragraphs: body.split(/\n{2,}/),
-    cta: { label: "Otevřít Dodio", url: `${appUrl()}/dashboard` },
+    cta: { label: cta.label, url: `${appUrl()}${cta.path}` },
     footer: FOOTER_NOTIFICATION,
     baseUrl: appUrl(),
   });
@@ -63,8 +77,8 @@ function payload(to: string, subject: string, body: string, html: string | undef
     to: [to],
     subject,
     // "## " je značka nadpisu skupiny v HTML (renderParagraph); v textové verzi je zbytečná.
-    text: `${body.replace(/^## /gm, "")}\n\n${appUrl()}/dashboard`,
-    html: html ?? renderHtml(subject, body),
+    text: `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
+    html: html ?? renderHtml(subject, body, category),
     ...(replyTo ? { reply_to: replyTo } : {}),
   };
 }

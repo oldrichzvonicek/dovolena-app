@@ -27,14 +27,15 @@ export interface EmailTemplate {
   sample?: Vars;
 }
 
-const hello = (v: Vars) => `Dobrý den${v.jmeno ? ` ${v.jmeno}` : ""},`;
+// Pozdrav bez jména: oslovení by muselo být ve 4. pádě ("Dobrý den Jano", "Petře"), což bez skloňování jmen nejde správně.
+const hello = (_v: Vars) => "Dobrý den,";
 
 // Typ absence (leave_types.label) je volný text, který si firma může přejmenovat nebo přidat vlastní, takže ho
 // obecně nejde skloňovat. Výchozí "Dovolená" (drtivá většina žádostí) má proto vlastní tvar "o dovolenou"; u
-// všeho ostatního je typ jen nálepka v pomlčkách. Stejná logika je v SQL triggerech (schema.sql) a v
-// api/cron/daily/route.ts — tahle šablona jen zrcadlí, co se doopravdy posílá.
-const typPhrase = (v: Vars, withTermin: boolean) =>
-  v.typ === "Dovolená" ? `o dovolenou${withTermin ? ` (${v.termin})` : ""}` : `— ${v.typ}${withTermin ? `, ${v.termin}` : ""} —`;
+// všeho ostatního je typ v uvozovkách. Stejná logika je v SQL triggerech (schema.sql) a v api/cron/daily/route.ts —
+// tahle šablona jen zrcadlí, co se doopravdy posílá.
+const zadostO = (v: Vars) => (v.typ === "Dovolená" ? "o dovolenou" : `o absenci typu „${v.typ}“`);
+const zadostTypu = (v: Vars) => (v.typ === "Dovolená" ? "o dovolenou" : `typu „${v.typ}“`);
 
 export const EMAIL_TEMPLATES: EmailTemplate[] = [
   // ------------------------------------------------------------------ žádosti o absenci
@@ -46,7 +47,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["zadatel", "typ", "termin"],
     subject: (v) => (v.typ === "Dovolená" ? "Nová žádost o dovolenou" : "Nová žádost o absenci"),
-    paragraphs: (v) => [`${v.zadatel} vám poslal(a) žádost ${typPhrase(v, true)} — mrkněte se na ni, až budete mít chvíli.`],
+    paragraphs: (v) => [`${v.zadatel} žádá ${zadostO(v)}: ${v.termin}.`],
     cta: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
     optOut: true,
   },
@@ -58,7 +59,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["zadatel", "typ", "termin", "blokace"],
     subject: () => "⚠️ Žádost v blokovaném termínu",
-    paragraphs: (v) => [`${v.zadatel} přesto podal(a) žádost ${typPhrase(v, true)} v blokovaném termínu „${v.blokace}“. Rozhodněte prosím, zda ji schválíte.`],
+    paragraphs: (v) => [`${v.zadatel} žádá ${zadostO(v)} (${v.termin}) v blokovaném termínu „${v.blokace}“. Rozhodněte prosím, zda ji schválíte.`],
     cta: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
     optOut: true,
   },
@@ -70,7 +71,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["typ", "termin"],
     subject: () => "Žádost schválena",
-    paragraphs: (v) => [`Vaše žádost ${typPhrase(v, true)} byla schválena.`],
+    paragraphs: (v) => [`Vaše žádost ${zadostTypu(v)} (${v.termin}) byla schválena.`],
     cta: { label: "Zobrazit moje žádosti", path: "/requests" },
     optOut: true,
   },
@@ -82,8 +83,32 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["typ", "termin", "duvod"],
     subject: () => "Žádost zamítnuta",
-    paragraphs: (v) => [`Vaše žádost ${typPhrase(v, true)} byla zamítnuta.`, `Důvod: ${v.duvod}`],
+    paragraphs: (v) => [`Vaše žádost ${zadostTypu(v)} (${v.termin}) byla zamítnuta. Důvod: ${v.duvod}`],
     cta: { label: "Upravit a poslat znovu", path: "/requests" },
+    optOut: true,
+  },
+  {
+    key: "request_withdrawn",
+    name: "Žádost byla stažena",
+    when: "Žadatel stáhne žádost, která ještě čekala na rozhodnutí.",
+    to: "Schvalovatelé, kterým žádost přišla",
+    live: true,
+    vars: ["zadatel", "typ", "termin"],
+    subject: () => "Žádost byla stažena",
+    paragraphs: (v) => [`Žádost od ${v.zadatel} (${v.typ}, ${v.termin}) byla stažena, už ji není potřeba řešit.`],
+    cta: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
+    optOut: true,
+  },
+  {
+    key: "leave_booked",
+    name: "Absence zapsána za zaměstnance",
+    when: "Manažer nebo admin zapíše zaměstnanci schválenou absenci.",
+    to: "Zaměstnanec",
+    live: true,
+    vars: ["typ", "termin", "zapsal"],
+    subject: () => "Absence zapsána do kalendáře",
+    paragraphs: (v) => [`Do kalendáře vám byla zapsána absence typu „${v.typ}“ (${v.termin}). Zapsáno uživatelem ${v.zapsal}.`],
+    cta: { label: "Zobrazit moje žádosti", path: "/requests" },
     optOut: true,
   },
   {
@@ -94,7 +119,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["zadatel", "typ", "termin"],
     subject: () => "Žádost o zrušení absence",
-    paragraphs: (v) => [`${v.zadatel} by rád(a) zrušil(a) už schválenou absenci (${v.typ}, ${v.termin}) — stačí mrknout a rozhodnout.`],
+    paragraphs: (v) => [`${v.zadatel} žádá o zrušení schválené absence (${v.typ}, ${v.termin}).`],
     cta: { label: "Rozhodnout o zrušení", path: "/dashboard" },
     optOut: true,
   },
@@ -104,10 +129,26 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     when: "Schvalovatel schválí nebo zamítne zrušení.",
     to: "Žadatel",
     live: true,
-    vars: ["vysledek"],
+    vars: ["vysledek", "typ", "termin"],
     subject: (v) => (v.vysledek === "schváleno" ? "Zrušení schváleno" : "Zrušení zamítnuto"),
-    paragraphs: (v) => [v.vysledek === "schváleno" ? "Zrušení prošlo, absence je pryč z kalendáře." : "Zrušení jsme nepotvrdili, absence platí dál beze změny."],
+    paragraphs: (v) => [
+      v.vysledek === "schváleno"
+        ? `Zrušení absence (${v.typ}, ${v.termin}) bylo schváleno, absence je odstraněna z kalendáře.`
+        : `Zrušení absence (${v.typ}, ${v.termin}) nebylo schváleno, absence platí beze změny.`,
+    ],
     cta: { label: "Zobrazit moje žádosti", path: "/requests" },
+    optOut: true,
+  },
+  {
+    key: "approval_waiting",
+    name: "Žádost čeká na vaše rozhodnutí",
+    when: "Žádost čeká na schválení déle než nastavená doba (denní kontrola, jednou na žádost).",
+    to: "Schvalovatel",
+    live: true,
+    vars: ["zadatel", "typ", "hodiny"],
+    subject: () => "Žádost čeká na vaše rozhodnutí",
+    paragraphs: (v) => [`Žádost od ${v.zadatel} (${v.typ}) čeká na vaše rozhodnutí už ${v.hodiny} h.`],
+    cta: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
     optOut: true,
   },
   {
@@ -118,7 +159,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["zadatel", "typ", "duvod"],
     subject: () => "Žádost čeká na schválení",
-    paragraphs: (v) => [`${v.zadatel} čeká na rozhodnutí o žádosti ${typPhrase(v, false)} — zaskakujete za schvalovatele (${v.duvod}), tak to prosím vyřiďte.`],
+    paragraphs: (v) => [`Žádost od ${v.zadatel} (${v.typ}) čeká na rozhodnutí. Zaskakujete za schvalovatele, důvod: ${v.duvod}.`],
     cta: { label: "Otevřít žádosti ke schválení", path: "/approvals" },
     optOut: true,
   },
@@ -133,7 +174,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     subject: (v) => `Týdenní přehled absencí · ${v.obdobi}`,
     // v.seznam je už rozdělený po typech absence ("## nadpis", prázdný řádek, odrážky) — rozdělíme ho zpátky
     // na jednotlivé odstavce, ať se každá skupina vykreslí jako vlastní krátký seznam (viz lib/weekly-digest).
-    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, weeklyDigestIntro(Number(v.pocet), Number(v.cekajici)), ...v.seznam.split("\n\n").filter(Boolean)],
+    paragraphs: (v) => ["Dobré ráno,", weeklyDigestIntro(Number(v.pocet), Number(v.cekajici)), ...v.seznam.split("\n\n").filter(Boolean)],
     cta: { label: "Otevřít kalendář", path: "/calendar" },
     optOut: true,
   },
@@ -145,7 +186,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["cekajici", "seznam"],
     subject: () => "Týdenní přehled pro HR — Dodio",
-    paragraphs: (v) => ["Dobré ráno,", "tady je váš týdenní přehled pro HR — pár věcí, na které stojí za to mrknout.", "Riziko podkapacity v nejbližších týdnech:", v.seznam, `Řešení trvalo déle než obvykle u ${v.cekajici} čekajících žádostí.`],
+    paragraphs: (v) => ["Dobré ráno,", "tady je váš týdenní přehled pro HR — pár věcí, na které stojí za to se podívat.", "Riziko podkapacity v nejbližších týdnech:", v.seznam, `Řešení trvalo déle než obvykle u ${v.cekajici} čekajících žádostí.`],
     cta: { label: "Otevřít Analytiku", path: "/admin/overview" },
     optOut: true,
   },
@@ -157,7 +198,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: [],
     subject: () => "Nevyčerpaná dovolená",
-    paragraphs: () => ["Než skončí rok, zbývá vám ještě nevyčerpaná dovolená — naplánujte si ji včas, ať vám nepropadne."],
+    paragraphs: () => ["Do konce roku vám zbývá nevyčerpaná dovolená. Naplánujte si ji včas, ať vám nepropadne."],
     cta: { label: "Naplánovat dovolenou", path: "/calendar" },
     optOut: true,
   },
@@ -174,6 +215,18 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     optOut: true,
   },
   {
+    key: "leave_starting",
+    name: "Zítra začíná dovolená",
+    when: "Den před začátkem schválené dovolené (před víkendem i v pátek, když začíná o víkendu nebo v pondělí).",
+    to: "Zaměstnanec",
+    live: true,
+    vars: ["termin"],
+    subject: () => "Zítra začíná vaše dovolená",
+    paragraphs: (v) => [`Zítra začíná vaše dovolená (${v.termin}). Nezapomeňte předat rozdělanou práci a nastavit automatickou odpověď.`],
+    cta: { label: "Otevřít kalendář", path: "/calendar" },
+    optOut: true,
+  },
+  {
     key: "wellbeing_reminder",
     name: "Připomínka delší dovolené",
     when: "Manažer klikne na „Připomenout“ u člověka, který dlouho nečerpal delší dovolenou.",
@@ -181,7 +234,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: [],
     subject: () => "Čas na pořádný odpočinek",
-    paragraphs: () => ["Všimli jsme si, že už dlouho nemáte v plánu žádné volno.", "Naplánujte si pořádný odpočinek — zasloužíte si ho."],
+    paragraphs: () => ["Delší dobu nemáte naplánované žádné volno. Naplánujte si pár dní odpočinku, zasloužíte si ho."],
     cta: { label: "Naplánovat dovolenou", path: "/calendar" },
     optOut: true,
   },
@@ -191,13 +244,11 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     name: "Vítejte v Dodio (zakladatel firmy)",
     when: "Po založení firmy.",
     to: "Nový admin",
-    live: false,
-    vars: ["jmeno", "firma"],
+    live: true,
+    vars: ["firma"],
     subject: () => "Vítejte v Dodio",
     paragraphs: (v) => [
-      hello(v),
-      `firma ${v.firma} je na světě a můžete rovnou začít. Na nástěnce najdete průvodce „Začínáme“: doplňte údaje o firmě, vytvořte oddělení, pozvěte kolegy a zkontrolujte pravidla absencí.`,
-      "Kdyby něco nešlo najít, v Centru nápovědy máme postupy krok za krokem.",
+      `Firma ${v.firma} je založená a můžete začít. Na nástěnce najdete průvodce „Začínáme“: doplňte údaje o firmě, vytvořte oddělení, pozvěte kolegy a zkontrolujte pravidla absencí.`,
     ],
     cta: { label: "Pokračovat v nastavení", path: "/dashboard" },
     optOut: false,
@@ -205,12 +256,12 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     key: "welcome_employee",
     name: "Vítejte v Dodio (zaměstnanec)",
-    when: "Po připojení k firmě (pozvánkou nebo odkazem) a schválení účtu.",
+    when: "Po připojení k firmě pozvánkou nebo registračním odkazem bez schvalování.",
     to: "Nový zaměstnanec",
-    live: false,
-    vars: ["jmeno", "firma"],
-    subject: (v) => `Vítejte v ${v.firma} na Dodiu`,
-    paragraphs: (v) => [hello(v), `váš účet ve firmě ${v.firma} je hotový a připravený k použití. V Dodiu si zažádáte o dovolenou, uvidíte, kdo z týmu je pryč, a máte přehled o svém zůstatku.`, "Stačí kliknout na „Nová žádost“ a je to."],
+    live: true,
+    vars: ["firma"],
+    subject: () => "Vítejte v Dodio",
+    paragraphs: (v) => [`Váš účet ve firmě ${v.firma} je připravený. Žádost o dovolenou podáte tlačítkem „Nová žádost“, v kalendáři uvidíte, kdo z týmu je pryč.`],
     cta: { label: "Otevřít Dodio", path: "/dashboard" },
     optOut: false,
   },
@@ -224,8 +275,8 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     subject: (v) => `${v.pozvatel} vás zve do Dodia (${v.firma})`,
     paragraphs: (v) => [
       hello(v),
-      `${v.pozvatel} vás zve do Dodia — appky, kterou ${v.firma} používá na dovolené a další absence.`,
-      "Stačí kliknout níže, zvolit si heslo a jste v týmu. E-mail máte už předvyplněný.",
+      `${v.pozvatel} vás zve do Dodia, aplikace, kterou ${v.firma} používá pro evidenci dovolené a dalších absencí.`,
+      "Stačí kliknout na tlačítko níže, zvolit si heslo a můžete začít. E-mail máte předvyplněný.",
     ],
     cta: { label: "Dokončit registraci", path: "/login" },
     optOut: false,
@@ -238,7 +289,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: true,
     vars: ["jmeno", "email"],
     subject: () => "Nový uživatel čeká na schválení",
-    paragraphs: (v) => [`${v.jmeno} (${v.email}) se přihlásil(a) přes registrační odkaz a čeká, až mu/jí dáte zelenou. Do té doby se do firmy nedostane.`],
+    paragraphs: (v) => [`Nová registrace přes registrační odkaz: ${v.jmeno} (${v.email}). Do schválení se do firmy nedostane.`],
     cta: { label: "Schválit nebo odmítnout", path: "/admin/settings?sekce=users" },
     optOut: true,
   },
@@ -247,10 +298,10 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     name: "Váš účet byl schválen",
     when: "Admin schválí registraci z odkazu.",
     to: "Nový zaměstnanec",
-    live: false,
-    vars: ["jmeno", "firma"],
-    subject: (v) => `Váš účet ve firmě ${v.firma} byl schválen`,
-    paragraphs: (v) => [hello(v), `správce firmy ${v.firma} vás pustil dovnitř — registrace je potvrzená a můžete se rovnou přihlásit.`],
+    live: true,
+    vars: ["firma"],
+    subject: () => "Váš účet byl schválen",
+    paragraphs: (v) => [`Správce firmy ${v.firma} schválil vaši registraci. Můžete se přihlásit a začít Dodio používat.`],
     cta: { label: "Přihlásit se", path: "/login" },
     optOut: false,
   },
@@ -261,7 +312,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     to: "Manažeři a admini firmy",
     live: true,
     vars: ["jmeno", "dotaz"],
-    subject: (v) => `Dotaz od ${v.jmeno}`,
+    subject: (v) => `Dotaz na podporu od ${v.jmeno}`,
     paragraphs: (v) => [`${v.jmeno} se ptá:`, v.dotaz],
     optOut: true,
   },
@@ -277,7 +328,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     paragraphs: (v) => [
       hello(v),
       `ve firmě už máte ${v.pocet} z ${v.limit} lidí, kolik jich pokrývá tarif ${v.tarif}.`,
-      `Jakmile se limit naplní, nepůjde přidat další lidi — mrkněte se na tarif ${v.dalsi_tarif}, ať vás to nezaskočí.`,
+      `Jakmile se limit naplní, nepůjde přidat další lidi. Podívejte se na tarif ${v.dalsi_tarif}, ať vás to nezaskočí.`,
     ],
     cta: { label: "Porovnat tarify", path: "/admin/settings?sekce=billing" },
     optOut: false,
@@ -302,53 +353,93 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     key: "invoice_issued",
     name: "Faktura vystavena",
-    when: "Po vystavení faktury.",
-    to: "E-mail pro faktury (Fakturace → Fakturační údaje)",
-    live: false,
+    when: "Po vystavení faktury v super-adminu.",
+    to: "E-mail pro faktury a admini firmy",
+    live: true,
     vars: ["cislo", "castka", "splatnost"],
     subject: (v) => `Faktura ${v.cislo} — Dodio`,
-    paragraphs: (v) => [`Dobrý den,`, `právě jsme vystavili fakturu ${v.cislo} na ${v.castka}, splatnou do ${v.splatnost}.`, "Najdete ji v archivu faktur v appce, kdybyste ji potřebovali znovu."],
+    paragraphs: (v) => ["Dobrý den,", `vystavili jsme fakturu č. ${v.cislo} na ${v.castka}, splatnou do ${v.splatnost}.`, "Najdete ji v archivu faktur v aplikaci."],
     cta: { label: "Otevřít archiv faktur", path: "/admin/settings?sekce=billing" },
+    optOut: false,
+  },
+  {
+    key: "payment_received",
+    name: "Platba přijata",
+    when: "Super-admin označí fakturu jako zaplacenou.",
+    to: "E-mail pro faktury a admini firmy",
+    live: true,
+    vars: ["cislo", "castka"],
+    subject: (v) => `Platba za fakturu ${v.cislo} přijata`,
+    paragraphs: (v) => ["Dobrý den,", `děkujeme, platbu ${v.castka} za fakturu č. ${v.cislo} jsme přijali. Žádná další akce není potřeba.`],
+    cta: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
     optOut: false,
   },
   {
     key: "payment_reminder_3",
     name: "Upomínka k platbě (+3 dny po splatnosti)",
     when: "3 dny po splatnosti nezaplacené faktury.",
-    to: "E-mail pro faktury",
-    live: false,
+    to: "E-mail pro faktury a admini firmy",
+    live: true,
     vars: ["cislo", "castka", "splatnost"],
-    subject: (v) => `Připomínka platby faktury ${v.cislo}`,
-    paragraphs: (v) => ["Dobrý den,", `faktura ${v.cislo} na ${v.castka} měla být uhrazená k ${v.splatnost} a zatím ji u sebe nevidíme.`, "Pokud jste už platili, berte to jako křížení se s tímto e-mailem — a díky."],
-    cta: { label: "Zobrazit fakturu", path: "/admin/settings?sekce=billing" },
+    subject: (v) => `Připomenutí platby faktury ${v.cislo}`,
+    paragraphs: (v) => ["Dobrý den,", `u vaší firmy evidujeme neuhrazenou fakturu: faktura č. ${v.cislo} na ${v.castka} měla být uhrazena do ${v.splatnost}. Pokud jste už zaplatili, tento e-mail prosím ignorujte.`],
+    cta: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
     optOut: false,
   },
   {
     key: "payment_reminder_7",
     name: "Upomínka k platbě (+7 dní po splatnosti)",
     when: "7 dní po splatnosti.",
-    to: "E-mail pro faktury",
-    live: false,
-    vars: ["cislo", "castka", "splatnost"],
-    subject: (v) => `Faktura ${v.cislo} je po splatnosti`,
-    paragraphs: (v) => ["Dobrý den,", `faktura ${v.cislo} na ${v.castka} je teď už týden po splatnosti (${v.splatnost}).`, "Uhraďte ji prosím co nejdřív, ať vám nezačneme omezovat službu. A kdyby s platbou byl nějaký zádrhel, stačí odpovědět na tenhle e-mail."],
-    cta: { label: "Zobrazit fakturu", path: "/admin/settings?sekce=billing" },
+    to: "E-mail pro faktury a admini firmy",
+    live: true,
+    vars: ["cislo", "castka", "splatnost", "po_splatnosti"],
+    subject: (v) => `Druhá upomínka: faktura ${v.cislo} po splatnosti`,
+    paragraphs: (v) => ["Dobrý den,", `faktura č. ${v.cislo} na ${v.castka} měla být uhrazena do ${v.splatnost}. Je po splatnosti ${v.po_splatnosti} dní. Prosíme o úhradu, případně nás kontaktujte.`],
+    cta: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
     optOut: false,
+    sample: { po_splatnosti: "7" },
   },
   {
     key: "payment_reminder_14",
     name: "Upomínka k platbě (+14 dní po splatnosti)",
     when: "14 dní po splatnosti.",
-    to: "E-mail pro faktury a admini",
-    live: false,
-    vars: ["cislo", "castka", "splatnost", "datum_omezeni"],
+    to: "E-mail pro faktury a admini firmy",
+    live: true,
+    vars: ["cislo", "castka", "splatnost", "po_splatnosti"],
     subject: (v) => `Poslední upomínka: faktura ${v.cislo}`,
     paragraphs: (v) => [
       "Dobrý den,",
-      `faktura ${v.cislo} na ${v.castka} je bohužel už 14 dní po splatnosti (${v.splatnost}).`,
-      `Když ji neuhradíte do ${v.datum_omezeni}, přepneme firmu na tarif Free a nadlimitní funkce se zamknou — data ale zůstanou v pořádku, o nic nepřijdete.`,
+      `faktura č. ${v.cislo} na ${v.castka} měla být uhrazena do ${v.splatnost}. Je po splatnosti ${v.po_splatnosti} dní. Pokud nebude uhrazena do 7 dní, účet vaší firmy přepneme do režimu jen pro čtení.`,
     ],
-    cta: { label: "Zobrazit fakturu", path: "/admin/settings?sekce=billing" },
+    cta: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
+    optOut: false,
+    sample: { po_splatnosti: "14" },
+  },
+  {
+    key: "account_suspended",
+    name: "Účet pozastaven",
+    when: "21 dní po splatnosti nezaplacené faktury (nebo ručně v super-adminu).",
+    to: "E-mail pro faktury a admini firmy",
+    live: true,
+    vars: ["cislo", "castka", "splatnost"],
+    subject: (v) => `Účet Dodio je pozastaven (faktura ${v.cislo})`,
+    paragraphs: (v) => [
+      "Dobrý den,",
+      `kvůli neuhrazené faktuře č. ${v.cislo} (${v.castka}, splatnost ${v.splatnost}) je účet vaší firmy v režimu jen pro čtení. Po uhrazení ho ihned obnovíme. Data zůstávají zachována.`,
+    ],
+    cta: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
+    optOut: false,
+  },
+  {
+    key: "account_restored",
+    name: "Účet opět v plném provozu",
+    when: "Po přijetí platby, když byl účet pozastavený pro neuhrazenou fakturu.",
+    to: "E-mail pro faktury a admini firmy",
+    live: true,
+    vars: [],
+    subject: () => "Účet Dodio je opět v plném provozu",
+    paragraphs: () => ["Dobrý den,", "po přijetí platby jsme obnovili plný provoz účtu vaší firmy. Můžete pracovat jako dřív, data zůstala beze změny."],
+    cta: { label: "Otevřít Dodio", path: "/dashboard" },
     optOut: false,
   },
   // ------------------------------------------------------------------ právní a provozní
@@ -378,8 +469,8 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     subject: () => "Smazání dat bylo naplánováno",
     paragraphs: (v) => [
       hello(v),
-      `máme vaši žádost o smazání dat firmy ${v.firma} — provedeme to ${v.datum} a pak už to nepůjde vzít zpět.`,
-      "Do té doby žádost můžete v appce zrušit. A kdybyste si ještě chtěli něco stáhnout, exporty najdete v Exporty → CSV / XLSX.",
+      `máme vaši žádost o smazání dat firmy ${v.firma}. Smazání proběhne ${v.datum} a pak už nepůjde vzít zpět.`,
+      "Do té doby můžete žádost v aplikaci zrušit. Kdybyste si ještě chtěli něco stáhnout, exporty najdete v Exporty → CSV / XLSX.",
     ],
     cta: { label: "Zrušit smazání", path: "/admin/settings?sekce=billing" },
     optOut: false,
@@ -394,8 +485,8 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     subject: () => "Data byla smazána",
     paragraphs: (v) => [
       hello(v),
-      `data firmy ${v.firma} jsme ${v.datum} smazali — účty, absence i nastavení, všechno je pryč a nejde to vrátit.`,
-      "Zálohy doběhnou svým vlastním cyklem do 30 dnů. Díky, že jste s námi Dodio zkusili.",
+      `data firmy ${v.firma} jsme ${v.datum} smazali: účty, absence i nastavení. Nejde to vrátit.`,
+      "Zálohy doběhnou svým vlastním cyklem do 30 dnů. Děkujeme, že jste Dodio zkusili.",
     ],
     optOut: false,
   },
@@ -407,7 +498,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     live: false,
     vars: ["jmeno", "integrace", "chyba"],
     subject: (v) => `Integrace „${v.integrace}“ nefunguje`,
-    paragraphs: (v) => [hello(v), `zprávy do „${v.integrace}“ nám teď nejdou odeslat (${v.chyba}).`, "Nejčastěji za tím bývá smazaný nebo vypnutý webhook — stačí vytvořit nový a vložit jeho adresu zpátky do integrace."],
+    paragraphs: (v) => [hello(v), `zprávy do „${v.integrace}“ nám teď nejdou odeslat (${v.chyba}).`, "Nejčastěji za tím bývá smazaný nebo vypnutý webhook. Stačí vytvořit nový a vložit jeho adresu zpátky do integrace."],
     cta: { label: "Otevřít integrace", path: "/admin/settings?sekce=integrations" },
     optOut: false,
   },
@@ -422,6 +513,9 @@ export const TEMPLATE_SAMPLE: Vars = {
   duvod: "V tomto týdnu je v týmu jen jeden člověk.",
   vysledek: "schváleno",
   cekajici: "2",
+  hodiny: "48",
+  zapsal: "Jana Nováková",
+  po_splatnosti: "7",
   pocet: "3",
   obdobi: "12.–18. 10.",
   seznam: "## Dovolená\n\n• Petr Novák — po 12. 10. – pá 16. 10.\n• Karel Beneš — st 14. 10. – čt 15. 10.\n\n## Nepřítomen\n\n• Jana Malá — út 13. 10.\n\n## Home Office (1)\n\n• Eva Svobodová — pá 16. 10.",
@@ -520,6 +614,14 @@ export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: {
 
 export const FOOTER_NOTIFICATION = "Tato upozornění můžete vypnout v aplikaci u zvonečku notifikací.";
 export const FOOTER_TRANSACTIONAL = "Tento e-mail je provozní a nelze ho vypnout. Dodio — správa firemních absencí na pár kliknutí.";
+
+/** Jen předmět a text odstavců (bez tlačítka a patičky) — pro e-maily, které se řadí do fronty jako prostý text (super-admin). */
+export function templateText(key: string, vars: Vars): { subject: string; body: string } {
+  const t = templateByKey(key);
+  if (!t) throw new Error(`Neznámá šablona: ${key}`);
+  const safe = new Proxy({ ...t.sample, ...vars }, { get: (o, k: string) => o[k] ?? `[${k}]` }) as Vars;
+  return { subject: t.subject(safe), body: t.paragraphs(safe).join("\n\n") };
+}
 
 /** Vykreslí šablonu s proměnnými: předmět, prostý text a HTML. Chybějící proměnná se vypíše jako „[název]“. */
 export function renderTemplate(key: string, vars: Vars, baseUrl: string) {

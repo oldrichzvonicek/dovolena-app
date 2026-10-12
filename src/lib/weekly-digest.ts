@@ -33,7 +33,7 @@ function period(from: string, to: string): string {
   return fm === tm ? `${fd}.–${td}. ${fm}.` : `${fd}. ${fm}. – ${td}. ${tm}.`;
 }
 
-export function buildWeeklyDigest(opts: { rows: DigestRow[]; pending: number; firstName: string; from: string; to: string }) {
+export function buildWeeklyDigest(opts: { rows: DigestRow[]; pending: number; from: string; to: string }) {
   const groups = new Map<string, { label: string; present: boolean; rows: DigestRow[] }>();
   for (const r of opts.rows) {
     const label = r.hidden ? "Nepřítomen" : r.label;
@@ -49,7 +49,7 @@ export function buildWeeklyDigest(opts: { rows: DigestRow[]; pending: number; fi
   );
   const missing = new Set(opts.rows.filter((r) => !r.present).map((r) => r.profileId)).size;
 
-  const parts = [`Dobré ráno ${opts.firstName},`, weeklyDigestIntro(missing, opts.pending)];
+  const parts = ["Dobré ráno,", weeklyDigestIntro(missing, opts.pending)];
   for (const g of sorted) {
     parts.push(`## ${g.present ? `${g.label} (${g.count})` : g.label}`);
     const rows = [...g.rows].sort((a, b) => a.start_date.localeCompare(b.start_date) || a.name.localeCompare(b.name, "cs"));

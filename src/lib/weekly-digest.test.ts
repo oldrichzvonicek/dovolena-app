@@ -11,7 +11,7 @@ const row = (over: Partial<DigestRow>): DigestRow => ({
   present: false,
   ...over,
 });
-const base = { pending: 0, firstName: "Oldřich", from: "2026-10-12", to: "2026-10-18" };
+const base = { pending: 0, from: "2026-10-12", to: "2026-10-18" };
 
 describe("buildWeeklyDigest", () => {
   it("předmět nese rozsah týdne", () => {
@@ -22,7 +22,7 @@ describe("buildWeeklyDigest", () => {
   it("prázdný týden je jen pozdrav a jedna věta", () => {
     const { body, missing } = buildWeeklyDigest({ ...base, rows: [] });
     expect(missing).toBe(0);
-    expect(body).toBe("Dobré ráno Oldřich,\n\ntady je váš týdenní přehled — tento týden nikdo nechybí.");
+    expect(body).toBe("Dobré ráno,\n\ntady je váš týdenní přehled — tento týden nikdo nechybí.");
   });
 
   it("Home Office se nepočítá mezi chybějící a je až dole", () => {

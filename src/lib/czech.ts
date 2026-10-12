@@ -24,8 +24,8 @@ export const czDays = (n: number) => `${n} ${czForm(n, "den", "dny", "dní")}`;
  * i ukázka v Nastavení → E-maily (email-templates.ts), aby se texty nerozešly.
  */
 export function carryoverExpiryWarning(days: number, datum: string): string {
-  const verb = czForm(days, "propadne", "propadnou", "propadne");
-  return `Z loňska vám ještě zbývá ${czDays(days)} dovolené a ${datum} ${verb}. Naplánujte si je radši teď, ať o ně nepřijdete.`;
+  const verb = czForm(days, "zbývá", "zbývají", "zbývá");
+  return `Z minulého roku vám ${verb} ${czDays(days)} dovolené, která ${datum} propadne. Naplánujte si ji radši teď, ať o ni nepřijdete.`;
 }
 
 /**

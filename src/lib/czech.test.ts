@@ -30,9 +30,9 @@ describe("czDays", () => {
 
 describe("carryoverExpiryWarning", () => {
   it("sloveso se shoduje s počtem dní", () => {
-    expect(carryoverExpiryWarning(1, "31. 3. 2027")).toBe("Z loňska vám ještě zbývá 1 den dovolené a 31. 3. 2027 propadne. Naplánujte si je radši teď, ať o ně nepřijdete.");
-    expect(carryoverExpiryWarning(3, "31. 3. 2027")).toBe("Z loňska vám ještě zbývá 3 dny dovolené a 31. 3. 2027 propadnou. Naplánujte si je radši teď, ať o ně nepřijdete.");
-    expect(carryoverExpiryWarning(5, "31. 3. 2027")).toBe("Z loňska vám ještě zbývá 5 dní dovolené a 31. 3. 2027 propadne. Naplánujte si je radši teď, ať o ně nepřijdete.");
+    expect(carryoverExpiryWarning(1, "31. 3. 2027")).toBe("Z minulého roku vám zbývá 1 den dovolené, která 31. 3. 2027 propadne. Naplánujte si ji radši teď, ať o ni nepřijdete.");
+    expect(carryoverExpiryWarning(3, "31. 3. 2027")).toBe("Z minulého roku vám zbývají 3 dny dovolené, která 31. 3. 2027 propadne. Naplánujte si ji radši teď, ať o ni nepřijdete.");
+    expect(carryoverExpiryWarning(5, "31. 3. 2027")).toBe("Z minulého roku vám zbývá 5 dní dovolené, která 31. 3. 2027 propadne. Naplánujte si ji radši teď, ať o ni nepřijdete.");
   });
 });
 
