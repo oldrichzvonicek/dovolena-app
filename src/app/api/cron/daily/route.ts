@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { addDays, format } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCron } from "@/lib/email";
-import { carryoverExpiryWarning, weeklyDigestIntro } from "@/lib/czech";
+import { carryoverExpiryWarning } from "@/lib/czech";
+import { buildWeeklyDigest, type DigestRow } from "@/lib/weekly-digest";
 import { computeBalance, dayAfterExpiry, type EntRow, type ReqRow } from "@/lib/balances";
 import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
-import { DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
+import { DEFAULT_WORK_DAYS } from "@/lib/working-days";
 import { hasFeature } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
@@ -151,40 +152,32 @@ export async function GET(req: Request) {
       const weekEnd = iso(addDays(now, 6));
       const { data: week } = await supabase
         .from("leave_requests")
-        .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(id, name, company_id), leave_type:leave_types(label, key, hide_from_colleagues)")
+        .select("start_date, end_date, profile:profiles!leave_requests_profile_id_fkey(id, name, company_id), leave_type:leave_types(label, key, hide_from_colleagues, counts_as_present)")
         .eq("status", "approved")
         .lte("start_date", weekEnd)
         .gte("end_date", today);
-      type W = { start_date: string; end_date: string; profile: { id: string; name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean } | null };
-      const weekRows = ((week as unknown as W[]) ?? []).filter((w) => w.profile?.company_id === company.id);
-      // Seskupené podle typu absence (Dovolená, Home Office, …), ať je hned vidět, čeho je nejvíc — ne jen
-      // chronologický výpis. Skupiny seřazené podle počtu lidí sestupně.
-      const byType = new Map<string, W[]>();
-      for (const w of weekRows) {
-        const label = w.leave_type?.hide_from_colleagues ? "Nepřítomen" : (w.leave_type?.label ?? "Absence");
-        (byType.get(label) ?? byType.set(label, []).get(label)!).push(w);
-      }
-      const whoText =
-        [...byType.entries()]
-          .sort((a, b) => b[1].length - a[1].length)
-          .map(([label, items]) => `${label}\n\n${items.slice(0, 12).map((w) => `• ${w.profile!.name} — ${formatRange(w.start_date, w.end_date)}`).join("\n")}`)
-          .join("\n\n") || "Tento týden nikdo nechybí.";
+      type W = { start_date: string; end_date: string; profile: { id: string; name: string; company_id: string } | null; leave_type: { label: string; key: string; hide_from_colleagues: boolean; counts_as_present: boolean } | null };
+      const weekRows: DigestRow[] = ((week as unknown as W[]) ?? [])
+        .filter((w) => w.profile?.company_id === company.id)
+        .map((w) => ({
+          start_date: w.start_date,
+          end_date: w.end_date,
+          profileId: w.profile!.id,
+          name: w.profile!.name,
+          label: w.leave_type?.label ?? "Absence",
+          hidden: !!w.leave_type?.hide_from_colleagues,
+          present: !!w.leave_type?.counts_as_present,
+        }));
       const pendingCount = ((pending as unknown as Pending[]) ?? []).filter((x) => x.profile?.company_id === company.id).length;
-      // Skloňování (chybí 1 člověk / chybějí 3 lidé / chybí 5 lidí; čeká 1 žádost / čekají 2 žádosti) řeší sdílená funkce,
-      // kterou používá i ukázka v Nastavení → E-maily, aby se text e-mailu a jeho náhled nerozešly.
-      const introLine = weeklyDigestIntro(weekRows.length, pendingCount);
 
       // Firma může jednotlivé druhy e-mailů vypnout (Nastavení → E-maily); chybějící hodnota = zapnuto.
       const emailSettings = ((company as { email_settings?: Record<string, boolean> | null }).email_settings ?? {}) as Record<string, boolean>;
       const rows = people
         .filter((p) => emailSettings.weekly_digest !== false && (p.role === "manager" || p.role === "admin") && p.email && p.email_notifications)
-        .map((p) => ({
-          company_id: company.id,
-          category: "weekly_digest",
-          to_email: p.email!,
-          subject: "Týdenní přehled absencí — Dodio",
-          body: `Dobré ráno ${p.name.split(" ")[0]},\n\n${introLine}\n\n${whoText}`,
-        }));
+        .map((p) => {
+          const d = buildWeeklyDigest({ rows: weekRows, pending: pendingCount, firstName: p.name.split(" ")[0], from: today, to: weekEnd });
+          return { company_id: company.id, category: "weekly_digest", to_email: p.email!, subject: d.subject, body: d.body };
+        });
       if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
 
       // HR digest (admins and people with the HR role): capacity risks, slow requests — only sent when there is something to act on.

@@ -129,11 +129,11 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     when: "Každé pondělí ráno.",
     to: "Manažeři a admini",
     live: true,
-    vars: ["jmeno", "cekajici", "pocet", "seznam"],
-    subject: () => "Týdenní přehled absencí — Dodio",
-    // v.seznam je už rozdělený po typech absence (nadpis typu, prázdný řádek, odrážky) — rozdělíme ho zpátky
-    // na jednotlivé odstavce, ať se každá skupina vykreslí jako vlastní krátký seznam (viz api/cron/daily).
-    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, weeklyDigestIntro(Number(v.pocet), Number(v.cekajici)), ...v.seznam.split("\n\n")],
+    vars: ["jmeno", "cekajici", "pocet", "seznam", "obdobi"],
+    subject: (v) => `Týdenní přehled absencí · ${v.obdobi}`,
+    // v.seznam je už rozdělený po typech absence ("## nadpis", prázdný řádek, odrážky) — rozdělíme ho zpátky
+    // na jednotlivé odstavce, ať se každá skupina vykreslí jako vlastní krátký seznam (viz lib/weekly-digest).
+    paragraphs: (v) => [`Dobré ráno ${v.jmeno},`, weeklyDigestIntro(Number(v.pocet), Number(v.cekajici)), ...v.seznam.split("\n\n").filter(Boolean)],
     cta: { label: "Otevřít kalendář", path: "/calendar" },
     optOut: true,
   },
@@ -422,8 +422,9 @@ export const TEMPLATE_SAMPLE: Vars = {
   duvod: "V tomto týdnu je v týmu jen jeden člověk.",
   vysledek: "schváleno",
   cekajici: "2",
-  pocet: "5",
-  seznam: "Dovolená\n\n• Petr Novák — 12. 10. – 16. 10. 2026\n• Karel Beneš — 14. 10. – 15. 10. 2026\n\nSick Day\n\n• Jana Malá — 13. 10. 2026",
+  pocet: "3",
+  obdobi: "12.–18. 10.",
+  seznam: "## Dovolená\n\n• Petr Novák — po 12. 10. – pá 16. 10.\n• Karel Beneš — st 14. 10. – čt 15. 10.\n\n## Nepřítomen\n\n• Jana Malá — út 13. 10.\n\n## Home Office (1)\n\n• Eva Svobodová — pá 16. 10.",
   firma: "NaturaMed s.r.o.",
   pozvatel: "Oldřich Zvoníček",
   odkaz: "https://app.dodio.cz/login",
@@ -476,9 +477,13 @@ const emailLogoHtml = (baseUrl: string) => `<table role="presentation" cellpaddi
 
 // A paragraph made only of "• " lines (e.g. the weekly digest's list of who's out) renders as a real list —
 // bordered rows, the part before " — " in bold — instead of one <br>-joined wall of text.
+// A paragraph "## Název" is a small group heading above such a list.
 function renderParagraph(p: string): string {
+  if (p.startsWith("## ")) {
+    return `<p style="margin:20px 0 4px;font-size:12px;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#5F5E5A">${esc(p.slice(3))}</p>`;
+  }
   const rawLines = p.split("\n");
-  if (rawLines.length < 2 || !rawLines.every((l) => l.startsWith("• "))) {
+  if (!rawLines.every((l) => l.startsWith("• "))) {
     return `<p style="margin:0 0 14px;line-height:1.55">${esc(p).replace(/\n/g, "<br>")}</p>`;
   }
   const items = rawLines
@@ -527,7 +532,7 @@ export function renderTemplate(key: string, vars: Vars, baseUrl: string) {
   const footer = t.optOut ? FOOTER_NOTIFICATION : FOOTER_TRANSACTIONAL;
   return {
     subject,
-    text: `${paragraphs.join("\n\n")}${cta ? `\n\n${cta.label}: ${cta.url}` : ""}\n\n${footer}`,
+    text: `${paragraphs.join("\n\n").replace(/^## /gm, "")}${cta ? `\n\n${cta.label}: ${cta.url}` : ""}\n\n${footer}`,
     html: emailLayout({ title: subject, paragraphs, cta, footer, baseUrl: baseUrl.replace(/\/$/, "") }),
   };
 }
