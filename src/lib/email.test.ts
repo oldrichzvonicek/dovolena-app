@@ -103,3 +103,14 @@ describe("renderHtml – připomínka registrace", () => {
     expect(html).not.toContain("/dashboard");
   });
 });
+
+describe("renderHtml – tipy po registraci", () => {
+  it("tlačítko se bere z řádku @@cta a patička nabízí vypnutí", async () => {
+    const { renderHtml } = await import("./email");
+    const html = renderHtml("Tip", "Text tipu.\n\n@@cta Pozvat kolegy | https://app.dodio.cz/admin/settings?sekce=users", "onboarding_tips");
+    expect(html).toContain('href="https://app.dodio.cz/admin/settings?sekce=users"');
+    expect(html).toContain("Pozvat kolegy");
+    expect(html).not.toContain("@@cta");
+    expect(html).toContain("Notifikace");
+  });
+});

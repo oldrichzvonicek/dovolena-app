@@ -425,7 +425,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Jak vypnu nebo zkontroluji e-maily, které Dodio posílá?",
     section: "Nastavení firmy (admin)",
-    a: "V Nastavení firmy → E-maily uvidíte všechny e-maily, které Dodio posílá, komu a kdy. Sedm skupin (žádosti ke schválení, vyřízení žádosti, týdenní přehled pro manažery, přehled pro HR, připomínky dovolené, dotazy z Nápovědy a noví uživatelé čekající na schválení) můžete pro celou firmu vypnout přepínačem; upozornění v aplikaci (zvoneček) zůstávají. HR smí přepínat jen přehled pro HR a připomínky. Záložka „Odeslané e-maily“ (jen admin) ukazuje posledních 200 e-mailů firmy: komu, kdy, jaký druh a zda se odeslal. Když se e-mail nepodařilo doručit, můžete ho poslat znovu. V přehledu není text e-mailů, jen jejich stav. Provozní e-maily (pozvánky, fakturace, právní změny) vypnout nejdou.",
+    a: "V Nastavení firmy → E-maily uvidíte všechny e-maily, které Dodio posílá, komu a kdy. Osm skupin (žádosti ke schválení, vyřízení žádosti, týdenní přehled pro manažery, přehled pro HR, připomínky dovolené, dotazy z Nápovědy, noví uživatelé čekající na schválení a tipy po registraci) můžete pro celou firmu vypnout přepínačem; upozornění v aplikaci (zvoneček) zůstávají. HR smí přepínat jen přehled pro HR a připomínky. Záložka „Odeslané e-maily“ (jen admin) ukazuje posledních 200 e-mailů firmy: komu, kdy, jaký druh a zda se odeslal. Když se e-mail nepodařilo doručit, můžete ho poslat znovu. V přehledu není text e-mailů, jen jejich stav. Provozní e-maily (pozvánky, fakturace, právní změny) vypnout nejdou.",
     roles: ["admin"],
   },
   {

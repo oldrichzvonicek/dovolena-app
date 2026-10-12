@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { addDays, format } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isAuthorizedCron } from "@/lib/email";
+import { appUrl, isAuthorizedCron } from "@/lib/email";
 import { carryoverExpiryWarning } from "@/lib/czech";
 import { buildWeeklyDigest, type DigestRow } from "@/lib/weekly-digest";
 import { computeBalance, dayAfterExpiry, type EntRow, type ReqRow } from "@/lib/balances";
 import { approvalSpeed, capacityHeatmap, hrDigest, vacationLiability, type InRequest } from "@/lib/insights";
 import { DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
-import { templateText } from "@/lib/email-templates";
+import { templateByKey, templateText } from "@/lib/email-templates";
+import { ONBOARDING_START, planOnboarding, shouldSend, type OnboardingFacts } from "@/lib/onboarding";
 import { signupAction } from "@/lib/signup-reminders";
 import { hasFeature } from "@/lib/plans";
 
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
   const { data: companies } = await supabase
     .from("companies")
     .select(
-      "id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, plan, addons, pending_plan, pending_plan_from, pending_plan_notified, max_carryover_days, carryover_expiry_md"
+      "id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, default_vacation_days, plan, addons, pending_plan, pending_plan_from, pending_plan_notified, max_carryover_days, carryover_expiry_md"
     );
 
   // Naplánované změny tarifu: provést ty, kterým nastal den účinnosti (databázová funkce; chyba se ignoruje, dokud není nasazená).
@@ -95,7 +96,7 @@ export async function GET(req: Request) {
 
   for (const company of companies ?? []) {
     const [{ data: profiles }, { data: depts }, { data: pending }, { data: away }] = await Promise.all([
-      supabase.from("profiles").select("id, name, email, role, staff_role, department_id, manager_id, email_notifications, join_pending").eq("company_id", company.id).eq("active", true),
+      supabase.from("profiles").select("id, name, email, role, staff_role, department_id, manager_id, email_notifications, join_pending, created_at, is_demo, is_external").eq("company_id", company.id).eq("active", true),
       supabase.from("departments").select("id, head_profile_id, deputy_head_profile_id").eq("company_id", company.id),
       supabase
         .from("leave_requests")
@@ -184,6 +185,54 @@ export async function GET(req: Request) {
           })
         );
         await supabase.from("leave_requests").update({ start_reminded_at: now.toISOString() }).in("id", due.map((x) => x.id));
+      }
+    }
+
+    // 1a2) tipy „Co Dodio umí“: admin 5 e-mailů za 14 dní, zaměstnanec 2; jen účty od ONBOARDING_START, firma je může vypnout.
+    // Bez nasazené migrace (tabulka onboarding_emails) se krok přeskočí.
+    if (((company as { email_settings?: Record<string, boolean> | null }).email_settings ?? {}).onboarding_tips !== false) {
+      type Person = (typeof people)[number] & { created_at?: string; is_demo?: boolean; is_external?: boolean };
+      const candidates = (people as Person[]).filter(
+        (p) => p.email && p.email_notifications && !p.join_pending && !p.is_demo && !p.is_external && p.created_at && p.created_at.slice(0, 10) >= ONBOARDING_START
+      );
+      if (candidates.length > 0) {
+        const { data: doneRows, error: doneErr } = await supabase.from("onboarding_emails").select("profile_id, step").in("profile_id", candidates.map((c) => c.id));
+        if (!doneErr) {
+          const doneBy = new Map<string, Set<string>>();
+          for (const r of doneRows ?? []) doneBy.set(r.profile_id as string, (doneBy.get(r.profile_id as string) ?? new Set()).add(r.step as string));
+          let facts: OnboardingFacts | null = null;
+          for (const p of candidates) {
+            const ageDays = Math.floor((now.getTime() - new Date(p.created_at!).getTime()) / 86_400_000);
+            const plan = planOnboarding(ageDays, p.role === "admin" ? "admin" : "employee", doneBy.get(p.id) ?? new Set());
+            const records: { profile_id: string; step: string; skipped: boolean }[] = plan.skip.map((s) => ({ profile_id: p.id, step: s.key, skipped: true }));
+            if (plan.send) {
+              if (!facts) {
+                const [bl, ig] = await Promise.all([
+                  supabase.from("blackout_periods").select("id", { count: "exact", head: true }).eq("company_id", company.id),
+                  supabase.from("webhook_integrations").select("id", { count: "exact", head: true }).eq("company_id", company.id).eq("active", true),
+                ]);
+                facts = {
+                  activePeople: (people as Person[]).filter((x) => !x.join_pending && !x.is_demo).length,
+                  hasBlackout: (bl.count ?? 0) > 0,
+                  customVacationDays: Number((company as { default_vacation_days?: number }).default_vacation_days ?? 20) !== 20,
+                  hasIntegration: (ig.count ?? 0) > 0,
+                };
+              }
+              if (shouldSend(plan.send, facts)) {
+                const tpl = templateByKey(plan.send.template);
+                if (tpl) {
+                  const t = templateText(tpl.key, {});
+                  const cta = tpl.cta ? `\n\n@@cta ${tpl.cta.label} | ${appUrl()}${tpl.cta.path}` : "";
+                  await supabase.from("email_outbox").insert({ company_id: company.id, category: "onboarding_tips", to_email: p.email!, subject: t.subject, body: `${t.body}${cta}` });
+                  records.push({ profile_id: p.id, step: plan.send.key, skipped: false });
+                }
+              } else {
+                records.push({ profile_id: p.id, step: plan.send.key, skipped: true });
+              }
+            }
+            if (records.length > 0) await supabase.from("onboarding_emails").upsert(records, { onConflict: "profile_id,step" });
+          }
+        }
       }
     }
 

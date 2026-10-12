@@ -5,7 +5,7 @@ import { EMAIL_TEMPLATES } from "@/lib/email-templates";
  * dává sedm srozumitelných voleb. Upozornění v aplikaci (zvonek) zůstávají vždy; vypíná se jen e-mail.
  * Klíče musí odpovídat SQL (email_category_for_notification, set_email_setting) a cronu /api/cron/daily.
  */
-export type EmailCategoryKey = "approver_requests" | "requester_decisions" | "weekly_digest" | "hr_digest" | "reminders" | "help_questions" | "join_pending";
+export type EmailCategoryKey = "approver_requests" | "requester_decisions" | "weekly_digest" | "hr_digest" | "reminders" | "help_questions" | "join_pending" | "onboarding_tips";
 
 export interface EmailCategory {
   key: EmailCategoryKey;
@@ -59,6 +59,13 @@ export const EMAIL_CATEGORIES: EmailCategory[] = [
     description: "Manažeři a admini dostanou e-mail, když jim zaměstnanec pošle dotaz z Nápovědy.",
     hrCanChange: false,
     templates: ["help_question"],
+  },
+  {
+    key: "onboarding_tips",
+    label: "Tipy a nápověda",
+    description: "Krátké tipy po registraci: jak pozvat kolegy, nastavit pravidla, schvalovat z e-mailu a číst přehledy. Posílají se jen prvních 14 dní nového účtu, adminům pět a zaměstnancům dva.",
+    hrCanChange: false,
+    templates: ["onboarding_invite", "onboarding_rules", "onboarding_approval", "onboarding_calendar", "onboarding_export", "onboarding_employee_1", "onboarding_employee_2"],
   },
   {
     key: "join_pending",

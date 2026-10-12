@@ -47,7 +47,21 @@ const CTA_BY_CATEGORY: Record<string, { label: string; path: string }> = {
 /** Plain-text body -> branded HTML (paragraphs by blank line); shared layout with the templates in email-templates.ts. */
 const FOOTER_SIGNUP = "Pokud jste se neregistrovali, tento e-mail ignorujte, účet nebude aktivován. Potřebujete poradit? Odpovězte na tento e-mail.";
 
+const FOOTER_TIPS = "Tipy po registraci můžete vypnout v Nastavení firmy → Notifikace, nebo nám stačí odpovědět na tento e-mail.";
+const CTA_TRAILER = /\n\n@@cta (.+?) \| (\S+)\s*$/;
+
 export function renderHtml(subject: string, body: string, category?: string | null): string {
+  if (category === "onboarding_tips") {
+    // Poslední řádek těla nese tlačítko: "@@cta Popisek | https://…" (cron/daily).
+    const cta = body.match(CTA_TRAILER);
+    return emailLayout({
+      title: subject,
+      paragraphs: (cta ? body.slice(0, cta.index) : body).split(/\n{2,}/),
+      cta: cta ? { label: cta[1], url: cta[2] } : undefined,
+      footer: FOOTER_TIPS,
+      baseUrl: appUrl(),
+    });
+  }
   if (category === "signup_reminder") {
     // Poslední řádek těla je jednorázový potvrzovací odkaz (cron/daily) — z něj se stane tlačítko.
     const link = body.match(/\n\n(https?:\/\/\S+)\s*$/);
@@ -90,7 +104,7 @@ function payload(to: string, subject: string, body: string, html: string | undef
     to: [to],
     subject,
     // "## " je značka nadpisu skupiny v HTML (renderParagraph); v textové verzi je zbytečná.
-    text: category === "signup_reminder" ? `${body}\n\n${FOOTER_SIGNUP}` : `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
+    text: category === "onboarding_tips" ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${FOOTER_TIPS}` : category === "signup_reminder" ? `${body}\n\n${FOOTER_SIGNUP}` : `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
     html: html ?? renderHtml(subject, body, category),
     ...(replyTo ? { reply_to: replyTo } : {}),
   };
