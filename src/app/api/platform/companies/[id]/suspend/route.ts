@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, authorize } from "@/server/platform/auth";
 import { queueCompanyEmail, SIGNATURE } from "@/server/platform/email";
+import { templateText } from "@/lib/email-templates";
 import { setCompanyStatus } from "@/server/platform/status";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const r = await setCompanyStatus(a.ctx, id, "suspended", { action: "company.suspend", details: { reason }, allowFrom: ["active"] });
   if (!r.ok) return apiError(r.code, r.message, r.code === "not_found" ? 404 : 409);
   if (body.notify === true) {
-    await queueCompanyEmail(id, "Účet Dodio je pozastaven", `Dobrý den,\n\núčet vaší firmy je dočasně v režimu jen pro čtení. Data zůstávají zachována a po vyřešení ho ihned obnovíme. Kontaktujte nás prosím.${SIGNATURE}`);
+    const mail = templateText("account_suspended_manual", {});
+    await queueCompanyEmail(id, mail.subject, `${mail.body}${SIGNATURE}`);
   }
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { STEP_UP_HEADER, apiError, authorize, consumeStepUp, platformDb, writeAudit } from "@/server/platform/auth";
 import { queueCompanyEmail, SIGNATURE, czDate } from "@/server/platform/email";
+import { templateText } from "@/lib/email-templates";
 import { cancelCompanyJobs, enqueueJob } from "@/server/platform/jobs";
 import { isCompanyStatus, setCompanyStatus } from "@/server/platform/status";
 
@@ -49,11 +50,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await enqueueJob("company.deletion.execute", id, {}, scheduledAt, a.ctx.userId);
   let emailed = 0;
   if (notify) {
-    emailed = await queueCompanyEmail(
-      id,
-      "Účet vaší firmy v Dodio bude smazán",
-      `Dobrý den,\n\núčet vaší firmy je naplánovaný ke smazání dne ${czDate(scheduledAt)}. Do té doby se do aplikace nelze přihlásit. Export všech vašich dat (ZIP s tabulkami pro Excel) vám pošleme v samostatném e-mailu. Pokud smazání nechcete, napište nám a účet obnovíme.${SIGNATURE}`
-    );
+    const mail = templateText("data_deletion_scheduled", { datum: czDate(scheduledAt) });
+    emailed = await queueCompanyEmail(id, mail.subject, `${mail.body}${SIGNATURE}`);
   }
   return NextResponse.json({ ok: true, scheduledAt: scheduledAt.toISOString(), sessionsRevoked: revoked ?? 0, emailed });
 }
@@ -75,6 +73,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   });
   if (!r.ok) return apiError(r.code, r.code === "bad_transition" ? "Firmu lze obnovit jen v ochranné lhůtě." : r.message, r.code === "not_found" ? 404 : 409);
   await cancelCompanyJobs(id, ["company.deletion.remind", "company.deletion.execute"]);
-  await queueCompanyEmail(id, "Účet vaší firmy v Dodio byl obnoven", `Dobrý den,\n\núčet vaší firmy jsme obnovili, smazání je zrušeno. Můžete se znovu přihlásit.${SIGNATURE}`);
+  const restoredMail = templateText("account_deletion_cancelled", {});
+  await queueCompanyEmail(id, restoredMail.subject, `${restoredMail.body}${SIGNATURE}`);
   return NextResponse.json({ ok: true, status: back });
 }

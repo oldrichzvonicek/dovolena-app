@@ -1,5 +1,6 @@
 import { platformDb, writeAudit, type PlatformContext } from "./auth";
 import { SIGNATURE, queueCompanyEmail } from "./email";
+import { templateText } from "@/lib/email-templates";
 import { companyLabel } from "./companies";
 
 /**
@@ -42,11 +43,8 @@ export async function startImpersonation(ctx: PlatformContext, companyId: string
   if (error || !session) return { ok: false, code: "insert_failed", message: "Relaci se nepodařilo založit." };
 
   await writeAudit(ctx, { action: "impersonation.start", companyId, companyLabel: companyLabel(company), details: { reason, note: note ?? undefined, minutes } });
-  await queueCompanyEmail(
-    companyId,
-    "Podpora Dodio si prohlíží váš účet (jen pro čtení)",
-    `Dobrý den,\n\npracovník podpory Dodio si na ${minutes} minut zobrazil váš účet v režimu jen pro čtení. Nic nemůže měnit a typ nemoci u lidí nevidí.\nDůvod: ${reason}\n\nPokud o tom nevíte, napište nám.${SIGNATURE}`
-  );
+  const mail = templateText("support_access_notice", { minuty: String(minutes), duvod: reason });
+  await queueCompanyEmail(companyId, mail.subject, `${mail.body}${SIGNATURE}`);
   return { ok: true, id: session.id };
 }
 

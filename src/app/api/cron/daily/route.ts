@@ -45,14 +45,15 @@ export async function GET(req: Request) {
   const inThreeDays = iso(addDays(now, 3));
   for (const co of (companies ?? []).filter((x) => x.pending_plan && x.pending_plan_from && !x.pending_plan_notified && x.pending_plan_from <= inThreeDays)) {
     const { data: admins } = await supabase.from("profiles").select("email, name").eq("company_id", co.id).eq("role", "admin").eq("active", true);
+    const planMail = templateText("plan_change_notice", { plan: String(co.pending_plan), datum: String(co.pending_plan_from) });
     const rows = (admins ?? [])
       .filter((a) => a.email)
       .map((a) => ({
         company_id: co.id,
         category: "billing",
         to_email: a.email as string,
-        subject: "Změna tarifu Dodio od " + co.pending_plan_from,
-        body: `Dobrý den ${String(a.name).split(" ")[0]},\n\npřipomínáme, že ${co.pending_plan_from} se vaše firma přepne na tarif ${co.pending_plan}, přesně jak jste si naplánovali v Nastavení firmy → Fakturace & tarify. Funkce, co nový tarif nemá, se tím zamknou, ale data zůstanou beze změny. A kdybyste měli víc lidí, než nový tarif dovoluje, nepůjde přidávat další, dokud se počet nesníží. Do tohoto data můžete změnu ještě zrušit.`,
+        subject: planMail.subject,
+        body: planMail.body,
       }));
     if (rows.length > 0) await supabase.from("email_outbox").insert(rows);
     await supabase.from("companies").update({ pending_plan_notified: true }).eq("id", co.id);

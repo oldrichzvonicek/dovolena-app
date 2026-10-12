@@ -2,6 +2,7 @@ import { addDaysIso } from "@/lib/plan-change";
 import { platformDb, writeAudit, type PlatformContext } from "./auth";
 import { companyLabel } from "./companies";
 import { SIGNATURE, czDate, queueCompanyEmail } from "./email";
+import { templateText } from "@/lib/email-templates";
 import { todayIso } from "./billing";
 
 /**
@@ -79,11 +80,8 @@ export async function forwardDsr(ctx: PlatformContext, id: string): Promise<{ ok
   if (!r) return { ok: false, code: "not_found", message: "Žádost nebyla nalezena." };
   if (r.status !== "received") return { ok: false, code: "bad_state", message: "Žádost už byla předána nebo vyřízena." };
   const { data: company } = await db.from("companies").select("id, name, seq_id").eq("id", r.company_id).maybeSingle();
-  const sent = await queueCompanyEmail(
-    r.company_id,
-    "Žádost subjektu údajů k vyřízení",
-    `Dobrý den,\n\nDodio jako zpracovatel obdrželo žádost jedné z osob, jejichž údaje vaše firma v Dodio spravuje (${DSR_TYPE_LABELS[r.type as DsrType].toLowerCase()}). Správcem těchto údajů je vaše firma, proto ji předáváme vám. Prosíme o vyřízení do ${czDate(r.due_at)}. Výmaz uživatele, opravu i export údajů zvládnete v Nastavení firmy → Uživatelé. V případě potíží nám napište.${SIGNATURE}`
-  );
+  const mail = templateText("dsr_forward", { typ_zadosti: DSR_TYPE_LABELS[r.type as DsrType].toLowerCase(), lhuta: czDate(r.due_at) });
+  const sent = await queueCompanyEmail(r.company_id, mail.subject, `${mail.body}${SIGNATURE}`);
   const { error } = await db.from("data_subject_requests").update({ status: "forwarded", forwarded_at: new Date().toISOString() }).eq("id", id).eq("status", "received");
   if (error) return { ok: false, code: "update_failed", message: "Stav se nepodařilo uložit." };
   await writeAudit(ctx, { action: "dsr.forward", companyId: r.company_id, companyLabel: company ? companyLabel(company) : null, details: { type: r.type, sent } });

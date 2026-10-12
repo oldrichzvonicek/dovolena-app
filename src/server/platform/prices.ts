@@ -3,6 +3,7 @@ import { PLAN_ORDER, planByKey, type Plan, type PlanKey } from "@/lib/plans";
 import { monthlyRevenue, todayIso } from "./billing";
 import { platformDb, writeAudit, type PlatformContext } from "./auth";
 import { czDate, queueCompanyEmail, SIGNATURE } from "./email";
+import { templateText } from "@/lib/email-templates";
 
 /**
  * Ceník v databázi (tabulka plans). Změna ceny = nový řádek s valid_from, starý zůstává. Firmy na daném tarifu dostanou
@@ -150,11 +151,15 @@ export async function applyPriceChange(ctx: PlatformContext, code: PlanKey, next
     if (oldRow.price_monthly > 0 || next.price_monthly > 0) {
       const { data: paying } = await db.from("companies").select("id").in("plan", codes).eq("is_test", false).in("status", ["active", "suspended"]);
       for (const c of (paying ?? []) as { id: string }[]) {
-        notified += await queueCompanyEmail(
-          c.id,
-          `Změna ceny tarifu ${oldRow.name} od ${czDate(effectiveFrom)}`,
-          `Dobrý den,\n\nod ${czDate(effectiveFrom)} se mění cena tarifu ${oldRow.name}: z ${oldRow.price_monthly.toLocaleString("cs-CZ")} Kč na ${next.price_monthly.toLocaleString("cs-CZ")} Kč měsíčně (roční platba z ${oldRow.price_yearly.toLocaleString("cs-CZ")} Kč na ${next.price_yearly.toLocaleString("cs-CZ")} Kč). Do tohoto data platí vaše dosavadní cena.${SIGNATURE}`
-        );
+        const mail = templateText("plan_price_change", {
+          plan: oldRow.name,
+          datum: czDate(effectiveFrom),
+          cena_mesicne_stara: `${oldRow.price_monthly.toLocaleString("cs-CZ")} Kč`,
+          cena_mesicne_nova: `${next.price_monthly.toLocaleString("cs-CZ")} Kč`,
+          cena_rocne_stara: `${oldRow.price_yearly.toLocaleString("cs-CZ")} Kč`,
+          cena_rocne_nova: `${next.price_yearly.toLocaleString("cs-CZ")} Kč`,
+        });
+        notified += await queueCompanyEmail(c.id, mail.subject, `${mail.body}${SIGNATURE}`);
       }
     }
   }

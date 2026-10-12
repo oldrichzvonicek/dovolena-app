@@ -2,6 +2,7 @@ import { platformDb, writeAudit } from "./auth";
 import { loadOverview, refreshActivity } from "./companies";
 import { runDunning, type DunningSummary } from "./dunning";
 import { SIGNATURE, czDate, queueCompanyEmail } from "./email";
+import { templateText } from "@/lib/email-templates";
 import { buildCompanyExport, latestExportPath, signedExportUrl, storeCompanyExport } from "./export";
 import { purgeCompanyStep } from "./purge";
 
@@ -64,11 +65,8 @@ async function handle(job: JobRow): Promise<{ result: Record<string, unknown>; a
         const days = Number(job.payload.linkDays) || 30;
         const url = await signedExportUrl(path, days * 86_400);
         if (url) {
-          emailed = await queueCompanyEmail(
-            companyId,
-            "Export dat vaší firmy z Dodio je připravený",
-            `Dobrý den,\n\npřipravili jsme export dat vaší firmy (ZIP s tabulkami pro Excel a nastavením). Stáhnete ho zde:\n\n${url}\n\nOdkaz platí ${days} dní. Soubor obsahuje osobní údaje zaměstnanců, uchovávejte ho zabezpečeně.${SIGNATURE}`
-          );
+          const mail = templateText("data_export_ready", { odkaz: url, dny: String(days) });
+          emailed = await queueCompanyEmail(companyId, mail.subject, `${mail.body}${SIGNATURE}`);
         }
       }
       return { result: { path, bytes: zip.byteLength, counts, emailed } };
@@ -80,11 +78,8 @@ async function handle(job: JobRow): Promise<{ result: Record<string, unknown>; a
       const path = await latestExportPath(companyId);
       const days = Math.max(1, Math.ceil((new Date(c.deletion_scheduled_at).getTime() - Date.now()) / 86_400_000));
       const url = path ? await signedExportUrl(path, 7 * 86_400) : null;
-      const sent = await queueCompanyEmail(
-        companyId,
-        `Vaše data v Dodio budou za ${days} dní smazána`,
-        `Dobrý den,\n\nÚčet vaší firmy je naplánovaný ke smazání dne ${czDate(c.deletion_scheduled_at)}. Po tomto dni už nepůjdou data obnovit.${url ? `\n\nExport dat si můžete stáhnout zde (odkaz platí 7 dní):\n${url}` : ""}\n\nPokud smazání nechcete, napište nám a účet obnovíme.${SIGNATURE}`
-      );
+      const mail = templateText("data_deletion_reminder", { dny: String(days), datum: czDate(c.deletion_scheduled_at), odkaz: url ?? "" });
+      const sent = await queueCompanyEmail(companyId, mail.subject, `${mail.body}${SIGNATURE}`);
       return { result: { sent } };
     }
     case "company.deletion.execute": {
