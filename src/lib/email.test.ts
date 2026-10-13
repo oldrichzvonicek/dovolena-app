@@ -114,3 +114,13 @@ describe("renderHtml – tipy po registraci", () => {
     expect(html).toContain("Notifikace");
   });
 });
+
+describe("rezervované domény", () => {
+  it("na .invalid a .test se neposílá", async () => {
+    const { sendEmail } = await import("./email");
+    process.env.RESEND_API_KEY = "re_test";
+    for (const to of ["a@firma.invalid", "admin@dilna-novak.test", "X@FIRMA.TEST"]) {
+      expect(await sendEmail(to, "P", "T")).toEqual({ ok: false, skipped: true });
+    }
+  });
+});

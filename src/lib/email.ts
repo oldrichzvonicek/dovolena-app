@@ -94,8 +94,8 @@ export function senderFor(category?: string | null): string {
   return general;
 }
 
-// Ukázkové účty mají adresy v doméně .invalid — nikdy se na ně nic neposílá.
-const isSkippedAddress = (to: string) => to.toLowerCase().endsWith(".invalid");
+// Ukázkové a testovací účty mají adresy v rezervovaných doménách .invalid a .test — nikdy se na ně nic neposílá (jinak by se odrážely a kazily pověst domény).
+const isSkippedAddress = (to: string) => /.(invalid|test)$/i.test(to.trim());
 
 function payload(to: string, subject: string, body: string, html: string | undefined, category?: string | null) {
   const replyTo = process.env.EMAIL_REPLY_TO ?? DEFAULT_REPLY_TO;
