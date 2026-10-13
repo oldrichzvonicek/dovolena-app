@@ -57,10 +57,14 @@ export function renderHtml(subject: string, body: string, category?: string | nu
   if (category === "billing") {
     // Podpis "S pozdravem, tým Dodio" patří do patičky, ne mezi odstavce nad tlačítkem.
     const cta = CTA_BY_CATEGORY.billing;
+    // Poslední řádek těla může nést odkaz na PDF faktury: "@@cta Popisek | https://…" (server/platform/email.ts).
+    const pdf = body.match(CTA_TRAILER);
+    const clean = (pdf ? body.slice(0, pdf.index) : body).replace(BILLING_SIGNATURE, "");
     return emailLayout({
       title: subject,
-      paragraphs: body.replace(BILLING_SIGNATURE, "").split(/\n{2,}/),
-      cta: { label: cta.label, url: `${appUrl()}${cta.path}` },
+      paragraphs: clean.split(/\n{2,}/),
+      cta: pdf ? { label: pdf[1], url: pdf[2] } : { label: cta.label, url: `${appUrl()}${cta.path}` },
+      actions: pdf ? [{ label: cta.label, url: `${appUrl()}${cta.path}`, kind: "link" as const }] : undefined,
       footer: FOOTER_BILLING,
       baseUrl: appUrl(),
     });
@@ -118,7 +122,7 @@ function payload(to: string, subject: string, body: string, html: string | undef
     to: [to],
     subject,
     // "## " je značka nadpisu skupiny v HTML (renderParagraph); v textové verzi je zbytečná.
-    text: category === "onboarding_tips" ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${FOOTER_TIPS}` : category === "signup_reminder" ? `${body}\n\n${FOOTER_SIGNUP}` : `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
+    text: category === "billing" ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${appUrl()}${CTA_BY_CATEGORY.billing.path}` : category === "onboarding_tips" ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${FOOTER_TIPS}` : category === "signup_reminder" ? `${body}\n\n${FOOTER_SIGNUP}` : `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
     html: html ?? renderHtml(subject, body, category),
     ...(replyTo ? { reply_to: replyTo } : {}),
   };

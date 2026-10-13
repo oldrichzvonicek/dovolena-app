@@ -149,3 +149,16 @@ describe("renderHtml – fakturace", () => {
     expect(html.split("tým Dodio").length - 1).toBe(1);
   });
 });
+
+describe("renderHtml – fakturace s PDF", () => {
+  it("odkaz na PDF je hlavní tlačítko a odkaz na fakturaci vedlejší; v textu je odkaz s popiskem", async () => {
+    const { renderHtml } = await import("./email");
+    const body = "Dobrý den,\n\nText.\n\nS pozdravem\ntým Dodio\n\n@@cta Stáhnout fakturu (PDF) | https://x.supabase.co/storage/v1/object/sign/f.pdf?token=1";
+    const html = renderHtml("Faktura 1", body, "billing");
+    expect(html).toContain("Stáhnout fakturu (PDF)");
+    expect(html).toContain('href="https://x.supabase.co/storage/v1/object/sign/f.pdf?token=1"');
+    expect(html).toContain("Otevřít fakturaci");
+    expect(html).not.toContain("@@cta");
+    expect(html).not.toContain("S pozdravem\ntým");
+  });
+});

@@ -29,3 +29,19 @@ export async function queueCompanyEmail(companyId: string, subject: string, body
 
 export const SIGNATURE = "\n\nS pozdravem\ntým Dodio";
 export const czDate = (iso: string | Date) => new Date(iso).toLocaleDateString("cs-CZ", { timeZone: "Europe/Prague" });
+
+/** Účet, na který zákazníci platí faktury (přepsat jde proměnnou BILLING_BANK_ACCOUNT). */
+export const BANK_ACCOUNT = process.env.BILLING_BANK_ACCOUNT ?? "8180385003/5500 (Raiffeisenbank)";
+
+/** Variabilní symbol = číslo faktury jen z číslic (např. 2026-014 → 2026014). */
+export const variableSymbol = (invoiceNumber: string) => invoiceNumber.replace(/\D/g, "");
+
+/** Podepsaný odkaz ke stažení PDF faktury (14 dní), nebo null, když soubor není nahraný. */
+export async function invoicePdfLink(filePath: string | null | undefined): Promise<string | null> {
+  if (!filePath) return null;
+  const { data } = await platformDb().storage.from("company-invoices").createSignedUrl(filePath, 14 * 86_400);
+  return data?.signedUrl ?? null;
+}
+
+/** Řádek na konci těla e-mailu, ze kterého renderHtml (kategorie billing) udělá druhé tlačítko. */
+export const pdfTrailer = (url: string | null) => (url ? `\n\n@@cta Stáhnout fakturu (PDF) | ${url}` : "");

@@ -3,7 +3,7 @@ import { addDaysIso } from "@/lib/plan-change";
 import { apiError, authorize, platformDb, writeAudit } from "@/server/platform/auth";
 import { nextInvoiceNumber, todayIso } from "@/server/platform/billing";
 import { companyLabel } from "@/server/platform/companies";
-import { SIGNATURE, czDate, queueCompanyEmail } from "@/server/platform/email";
+import { BANK_ACCOUNT, SIGNATURE, czDate, invoicePdfLink, pdfTrailer, queueCompanyEmail, variableSymbol } from "@/server/platform/email";
 import { templateText } from "@/lib/email-templates";
 
 export const dynamic = "force-dynamic";
@@ -81,7 +81,8 @@ export async function POST(req: Request) {
   }
   await writeAudit(a.ctx, { action: "invoice.create", companyId, companyLabel: companyLabel(company), details: { number, amount, vat, due_at: due, withFile: !!filePath } });
   // Zákazník se o faktuře dozví e-mailem (fakturační adresa a admini firmy); chyba odeslání fakturu nezruší.
-  const mail = templateText("invoice_issued", { cislo: invoice.number, castka: `${Math.round(amount).toLocaleString("cs-CZ")} Kč`, splatnost: czDate(due) });
-  await queueCompanyEmail(companyId, mail.subject, `${mail.body}${SIGNATURE}`);
+  const mail = templateText("invoice_issued", { cislo: invoice.number, castka: `${Math.round(amount).toLocaleString("cs-CZ")} Kč`, splatnost: czDate(due), ucet: BANK_ACCOUNT, vs: variableSymbol(invoice.number) });
+  const pdfUrl = await invoicePdfLink(filePath);
+  await queueCompanyEmail(companyId, mail.subject, `${mail.body}${SIGNATURE}${pdfTrailer(pdfUrl)}`);
   return NextResponse.json({ ok: true, id: invoice.id, number: invoice.number });
 }
