@@ -795,12 +795,9 @@ const ACTION_STYLE: Record<EmailAction["kind"], string> = {
 // CSS position:absolute — Gmail i Outlook takové věci z HTML e-mailu vystřihnou (proto se dřív ukazoval jen
 // text "Dodio" bez značky). Jde tedy o obyčejný <img> na PNG v public/brand/logo-mark.png (viz scripts/gen-email-logo.mjs),
 // což zvládne spolehlivě úplně každý klient.
-const emailLogoHtml = (baseUrl: string) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:16px"><tr>
-  <td style="width:32px;padding-right:9px" valign="middle">
-    <img src="${esc(baseUrl)}/brand/logo-mark.png" width="32" height="32" alt="" style="display:block;border-radius:7px" />
-  </td>
-  <td valign="middle" style="font-size:20px;font-weight:bold;color:#085041">Dodio</td>
-</tr></table>`;
+// Lockup značky (znak + wordmark "dodio" v Manrope, jako na webu) jako PNG public/brand/logo-lockup.png.
+const emailLogoHtml = (baseUrl: string) =>
+  `<img src="${esc(baseUrl)}/brand/logo-lockup.png" width="100" height="40" alt="Dodio" style="display:block;margin-bottom:16px;border:0" />`;
 
 // A paragraph made only of "• " lines (e.g. the weekly digest's list of who's out) renders as a real list —
 // bordered rows, the part before " — " in bold — instead of one <br>-joined wall of text.
