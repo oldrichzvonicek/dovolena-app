@@ -50,7 +50,21 @@ const FOOTER_SIGNUP = "Pokud jste se neregistrovali, tento e-mail ignorujte, ú�
 const FOOTER_TIPS = "Tipy po registraci můžete vypnout v Nastavení firmy → Notifikace, nebo nám stačí odpovědět na tento e-mail.";
 const CTA_TRAILER = /\n\n@@cta (.+?) \| (\S+)\s*$/;
 
+const FOOTER_BILLING = "S pozdravem, tým Dodio. Dotazy k fakturaci nebo platbě: odpovězte na tento e-mail nebo napište na podpora@dodio.cz. Tento e-mail je provozní a nelze ho vypnout.";
+const BILLING_SIGNATURE = /\n\nS pozdravem\ntým Dodio\s*$/;
+
 export function renderHtml(subject: string, body: string, category?: string | null): string {
+  if (category === "billing") {
+    // Podpis "S pozdravem, tým Dodio" patří do patičky, ne mezi odstavce nad tlačítkem.
+    const cta = CTA_BY_CATEGORY.billing;
+    return emailLayout({
+      title: subject,
+      paragraphs: body.replace(BILLING_SIGNATURE, "").split(/\n{2,}/),
+      cta: { label: cta.label, url: `${appUrl()}${cta.path}` },
+      footer: FOOTER_BILLING,
+      baseUrl: appUrl(),
+    });
+  }
   if (category === "onboarding_tips") {
     // Poslední řádek těla nese tlačítko: "@@cta Popisek | https://…" (cron/daily).
     const cta = body.match(CTA_TRAILER);

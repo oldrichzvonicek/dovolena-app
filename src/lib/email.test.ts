@@ -137,3 +137,15 @@ describe("rezervované domény – falešné shody", () => {
     expect(r2.ok).toBe(true);
   });
 });
+
+describe("renderHtml – fakturace", () => {
+  it("podpis jde do patičky, e-mail o fakturách má vlastní patičku a tlačítko na fakturaci", async () => {
+    const { renderHtml } = await import("./email");
+    const html = renderHtml("Faktura 1", "Dobrý den,\n\nText.\n\nS pozdravem\ntým Dodio", "billing");
+    expect(html).not.toContain("zvonečku");
+    expect(html).toContain("podpora@dodio.cz");
+    expect(html).toContain("sekce=billing");
+    expect(html.indexOf("S pozdravem, tým Dodio")).toBeGreaterThan(html.indexOf("Otevřít fakturaci"));
+    expect(html.split("tým Dodio").length - 1).toBe(1);
+  });
+});
