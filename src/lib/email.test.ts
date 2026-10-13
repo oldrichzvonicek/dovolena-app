@@ -124,3 +124,16 @@ describe("rezervované domény", () => {
     }
   });
 });
+
+describe("rezervované domény – falešné shody", () => {
+  it("adresa končící na „test“ bez tečky se neblokuje", async () => {
+    const { sendEmail } = await import("./email");
+    process.env.RESEND_API_KEY = "re_test";
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ id: "x" }), { status: 200 }));
+    const r = await sendEmail("jana@latest.cz", "P", "T");
+    const r2 = await sendEmail("jana@mytest.test.cz", "P", "T");
+    vi.unstubAllGlobals();
+    expect(r.ok).toBe(true);
+    expect(r2.ok).toBe(true);
+  });
+});
