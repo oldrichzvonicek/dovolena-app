@@ -5129,3 +5129,8 @@ begin
   update companies set email_settings = jsonb_set(coalesce(email_settings, '{}'::jsonb), array[p_key], to_jsonb(p_enabled)) where id = cid;
 end;
 $$;
+
+-- Triggerové funkce nemají být volatelné přes RPC (migrace 20261015010000_revoke_new_trigger_fns.sql)
+-- Trigger se spouští i bez EXECUTE pro volajícího.
+revoke execute on function public.notify_on_account_approved() from public, anon, authenticated;
+revoke execute on function public.notify_on_request_withdrawn() from public, anon, authenticated;
