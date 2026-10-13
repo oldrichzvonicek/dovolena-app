@@ -55,7 +55,7 @@ async function main() {
 
   console.log(`Heslo pro ${email} bylo nastaveno.`);
   console.log(`Nové heslo (zobrazí se jen teď, uložte si ho do správce hesel): ${password}`);
-  console.log("Přihlášení: http://admin.localhost:3000 (TOTP zůstává jako dřív).");
+  console.log("Přihlášení: https://admin.dodio.cz (lokálně http://admin.localhost:3000); TOTP zůstává jako dřív.");
 }
 
 main().catch((e) => {

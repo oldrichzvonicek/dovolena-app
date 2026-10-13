@@ -75,7 +75,7 @@ async function main() {
   }
   console.log(`Hotovo: ${email} je ${role}.`);
   if (generated) console.log(`Heslo (zobrazí se jen teď, uložte si ho do správce hesel): ${generated}`);
-  console.log("Přihlášení: http://admin.localhost:3000  (při prvním přihlášení se nastaví TOTP)");
+  console.log("Přihlášení: https://admin.dodio.cz (lokálně http://admin.localhost:3000); při prvním přihlášení se nastaví TOTP.");
 }
 
 main().catch((e) => {
