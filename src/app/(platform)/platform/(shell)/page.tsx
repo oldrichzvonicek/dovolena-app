@@ -22,9 +22,10 @@ export default async function DashboardPage() {
     <>
       <PageHeader title="Přehled" subtitle="Stav všech firem na jednom místě. Testovací firmy se do čísel nezapočítávají." />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="MRR (měsíční příjem)" value={formatKc(s.mrr)} hint="Jen firmy s vystavenou fakturou, roční platby přepočtené na měsíc" href="/invoices?status=issued" linkLabel="Vystavené faktury" />
-        <Stat label="ARR (roční příjem)" value={formatKc(s.arr)} hint="MRR × 12" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div className="col-span-2 lg:col-span-1">
+          <Stat label="MRR (měsíční příjem)" value={formatKc(s.mrr)} hint={`ARR ${formatKc(s.arr)} · jen firmy s vystavenou fakturou, roční platby přepočtené na měsíc`} href="/invoices?status=issued" linkLabel="Vystavené faktury" />
+        </div>
         <Stat label="Firmy" value={s.companies} hint={`${s.paying} ${czForm(s.paying, "platící", "platící", "platících")}, ${s.free} na Free · ${s.newLast30Days} ${czForm(s.newLast30Days, "nová", "nové", "nových")} za 30 dní`} href="/companies" linkLabel="Seznam firem" />
         <Stat label="Aktivní uživatelé" value={s.users} hint="Bez ukázkových účtů" href="/companies?sort=users&dir=desc" linkLabel="Firmy podle počtu uživatelů" />
       </div>
@@ -48,7 +49,7 @@ export default async function DashboardPage() {
                     <th className={thClass}>Firma</th>
                     <th className={thClass}>Tarif</th>
                     <th className={thClass}>Důvod</th>
-                    <th className={`${thClass} text-right`}>MRR</th>
+                    <th className={`${thClass} hidden text-right sm:table-cell`}>MRR</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -66,7 +67,7 @@ export default async function DashboardPage() {
                           ))}
                         </div>
                       </td>
-                      <td className={`${tdClass} text-right tabular-nums`}>{formatKc(c.mrr)}</td>
+                      <td className={`${tdClass} hidden text-right tabular-nums sm:table-cell`}>{formatKc(c.mrr)}</td>
                     </tr>
                   ))}
                 </tbody>

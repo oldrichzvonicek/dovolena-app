@@ -59,106 +59,171 @@ export default async function CompaniesPage({ searchParams }: { searchParams: SP
     </Link>
   );
 
+  type Row = (typeof shown)[number];
+  const rowInfo = (c: Row) => ({
+    limit: userLimitOf(c.plan),
+    st: COMPANY_STATUS[c.status] ?? COMPANY_STATUS.active,
+    inactive: c.attention.length === 0 && (!c.last_activity_at || Date.now() - new Date(c.last_activity_at).getTime() > 30 * 86_400_000),
+  });
+  const attentionPills = (c: Row) =>
+    c.attention
+      .filter((a) => a !== "pending_plan")
+      .map((a) => (
+        <Pill key={a} className={a === "overdue" || a === "expired" || a === "over_limit" ? "bg-danger-light text-danger-dark" : "bg-warning-light text-warning-dark"}>{ATTENTION_LABELS[a]}</Pill>
+      ));
+  const rowActions = (c: Row) => {
+    const active = c.status !== "pending_deletion" && c.status !== "deleted";
+    if (!active || !(canImpersonate || canChangePlan)) return null;
+    return (
+      <div className="flex justify-end">
+        <RowActionsMenu label={`Akce k firmě ${c.name}`}>
+          {canImpersonate && <ImpersonateButton companyId={c.id} variant="menuItem" />}
+          {canChangePlan && (
+            <SubscriptionDialog
+              variant="menuItem"
+              company={{ id: c.id, plan: c.plan, addons: c.addons ?? [], billing_period: c.billing_period, plan_paid_until: c.plan_paid_until, discount_pct: c.discount_pct, pending_plan: c.pending_plan, pending_plan_from: c.pending_plan_from, users: c.users }}
+            />
+          )}
+        </RowActionsMenu>
+      </div>
+    );
+  };
+
   return (
     <>
-      <PageHeader title="Firmy" subtitle={`${rows.length} z ${all.length} firem`} />
+      <PageHeader title="Firmy" subtitle={`${rows.length} z ${all.length} firem (z toho ${counts.test} testovacích, v Přehledu se nepočítají)`} />
 
-      <form action="/companies" className="mb-4 flex flex-wrap items-center gap-2" role="search">
+      <form action="/companies" className="mb-3 flex items-center gap-2" role="search">
         {filter !== "all" && <input type="hidden" name="filter" value={filter} />}
-        <div className="relative w-full max-w-xs">
+        <div className="relative min-w-0 flex-1 sm:max-w-xs sm:flex-none sm:basis-80">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input name="q" defaultValue={q} placeholder="Název nebo číslo firmy (#12)" aria-label="Hledat firmu" className={`${inputClass} pl-9`} />
         </div>
         <Button type="submit" variant="secondary">Hledat</Button>
-        {q && <Link href={href({ q: undefined })} className="text-sm text-teal-dark hover:underline">Zrušit hledání</Link>}
+        {q && <Link href={href({ q: undefined })} className="whitespace-nowrap text-sm text-teal-dark hover:underline">Zrušit</Link>}
       </form>
 
-      <div className="mb-4 flex flex-wrap gap-1.5">
+      {/* Na mobilu jeden vodorovně posuvný řádek, ať filtry nezabírají půl obrazovky. */}
+      <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible md:pb-0">
         {FILTERS.map((f) => (
-          <Link key={f} href={href({ filter: f === "all" ? undefined : f, page: undefined })} aria-current={f === filter ? "true" : undefined} className={cn("rounded-full border px-3 py-1 text-sm transition-colors", f === filter ? f === "test" ? "border-ink border-dashed bg-transparent text-ink" : "border-teal-dark bg-teal-light text-teal-dark" : "border-line bg-surface text-ink hover:bg-paper")}>
+          <Link key={f} href={href({ filter: f === "all" ? undefined : f, page: undefined })} aria-current={f === filter ? "true" : undefined} className={cn("shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-sm transition-colors", f === filter ? f === "test" ? "border-ink border-dashed bg-transparent text-ink" : "border-teal-dark bg-teal-light text-teal-dark" : "border-line bg-surface text-ink hover:bg-paper")}>
             {FILTER_LABELS[f]}
             <span className="ml-1.5 text-caption text-muted tabular-nums">{counts[f]}</span>
           </Link>
         ))}
       </div>
 
+      <div className="mb-3 flex items-center gap-3 text-sm text-muted md:hidden">
+        <span>Řadit:</span>
+        {sortLink("name", "Název")}
+        {sortLink("users", "Uživatelé")}
+        {sortLink("paid_until", "Platí do")}
+        {sortLink("mrr", "MRR")}
+      </div>
+
       {shown.length === 0 ? (
         <Empty>Žádná firma neodpovídá výběru.</Empty>
       ) : (
-        <div className="overflow-x-auto rounded border border-line bg-surface">
-          <table className={tableClass}>
-            <thead>
-              <tr>
-                <th className={thClass}>Č.</th>
-                <th className={thClass}>{sortLink("name", "Firma")}</th>
-                <th className={thClass}>Tarif</th>
-                <th className={thClass}>Stav</th>
-                <th className={`${thClass} text-right`}>{sortLink("users", "Uživatelé", true)}</th>
-                <th className={thClass} title="Poslední přihlášení člena firmy nebo práce se žádostmi o absenci (za 90 dní)">Aktivita</th>
-                <th className={thClass}>{sortLink("paid_until", "Platí do")}</th>
-                <th className={`${thClass} text-right`}>{sortLink("mrr", "MRR", true)}</th>
-                <th className={thClass}>Upozornění</th>
-                {showActions && <th className={thClass}><span className="sr-only">Akce</span></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((c) => {
-                const limit = userLimitOf(c.plan);
-                const st = COMPANY_STATUS[c.status] ?? COMPANY_STATUS.active;
-                const inactive = c.attention.length === 0 && (!c.last_activity_at || Date.now() - new Date(c.last_activity_at).getTime() > 30 * 86_400_000);
-                return (
-                  <tr key={c.id} className="hover:bg-paper/60">
-                    <td className={`${tdClass} text-muted tabular-nums`}>{c.seq_id}</td>
-                    <td className={tdClass}>
-                      <Link href={`/companies/${c.id}`} className="font-medium text-teal-dark hover:underline">{c.name}</Link>
+        <>
+          {/* Mobil: kartičky (celá karta je odkaz na detail, menu akcí leží nad ní). */}
+          <ul className="space-y-2 md:hidden">
+            {shown.map((c) => {
+              const { limit, st, inactive } = rowInfo(c);
+              const actions = rowActions(c);
+              const pills = attentionPills(c);
+              return (
+                <li key={c.id} className="relative rounded border border-line bg-surface p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <Link href={`/companies/${c.id}`} className="font-medium text-teal-dark after:absolute after:inset-0">{c.name}</Link>
                       {c.is_test && <span className="ml-2 rounded-sm border border-line px-1.5 py-0.5 text-[11px] text-muted">test</span>}
-                    </td>
-                    <td className={tdClass}>
-                      {planName(c.plan)}
-                      {c.pending_plan && <div className="text-caption text-muted">→ {planName(c.pending_plan)} od {formatDate(c.pending_plan_from)}</div>}
-                    </td>
-                    <td className={tdClass}><Pill className={st.className}>{st.label}</Pill></td>
-                    <td className={`${tdClass} text-right tabular-nums ${limit !== null && c.users > limit ? "font-semibold text-danger-dark" : ""}`}>
-                      {c.users}
-                      {limit !== null && <span className="text-muted"> / {limit}</span>}
-                    </td>
-                    <td className={`${tdClass} whitespace-nowrap ${inactive ? "font-medium text-warning-dark" : "text-muted"}`} title={c.last_activity_at ? formatDate(c.last_activity_at) : undefined}>{formatRelative(c.last_activity_at)}</td>
-                    <td className={`${tdClass} whitespace-nowrap ${c.attention.includes("expired") ? "text-danger-dark" : ""}`}>{c.plan_paid_until ? formatDate(c.plan_paid_until) : "–"}</td>
-                    <td className={`${tdClass} text-right tabular-nums`}>{c.mrr > 0 ? formatKc(c.mrr) : "–"}</td>
-                    <td className={tdClass}>
-                      <div className="flex flex-wrap gap-1">
-                        {c.attention.filter((a) => a !== "pending_plan").map((a) => (
-                          <Pill key={a} className={a === "overdue" || a === "expired" || a === "over_limit" ? "bg-danger-light text-danger-dark" : "bg-warning-light text-warning-dark"}>{ATTENTION_LABELS[a]}</Pill>
-                        ))}
+                      <div className="text-caption text-muted">
+                        #{c.seq_id} · {planName(c.plan)}
+                        {c.pending_plan && ` → ${planName(c.pending_plan)} od ${formatDate(c.pending_plan_from)}`}
                       </div>
-                    </td>
-                    {showActions && (
+                    </div>
+                    <div className="relative z-10 flex shrink-0 items-center gap-1">
+                      <Pill className={st.className}>{st.label}</Pill>
+                      {actions}
+                    </div>
+                  </div>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted">Uživatelé</dt>
+                      <dd className={`tabular-nums ${limit !== null && c.users > limit ? "font-semibold text-danger-dark" : ""}`}>
+                        {c.users}
+                        {limit !== null && <span className="text-muted"> / {limit}</span>}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted">MRR</dt>
+                      <dd className="tabular-nums">{c.mrr > 0 ? formatKc(c.mrr) : "–"}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted">Aktivita</dt>
+                      <dd className={inactive ? "font-medium text-warning-dark" : ""}>{formatRelative(c.last_activity_at)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted">Platí do</dt>
+                      <dd className={c.attention.includes("expired") ? "text-danger-dark" : ""}>{c.plan_paid_until ? formatDate(c.plan_paid_until) : "–"}</dd>
+                    </div>
+                  </dl>
+                  {pills.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{pills}</div>}
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Od tabletu: tabulka. */}
+          <div className="hidden overflow-x-auto rounded border border-line bg-surface md:block">
+            <table className={tableClass}>
+              <thead>
+                <tr>
+                  <th className={thClass}>Č.</th>
+                  <th className={thClass}>{sortLink("name", "Firma")}</th>
+                  <th className={thClass}>Tarif</th>
+                  <th className={thClass}>Stav</th>
+                  <th className={`${thClass} text-right`}>{sortLink("users", "Uživatelé", true)}</th>
+                  <th className={thClass} title="Poslední přihlášení člena firmy nebo práce se žádostmi o absenci (za 90 dní)">Aktivita</th>
+                  <th className={thClass}>{sortLink("paid_until", "Platí do")}</th>
+                  <th className={`${thClass} text-right`}>{sortLink("mrr", "MRR", true)}</th>
+                  <th className={thClass}>Upozornění</th>
+                  {showActions && <th className={thClass}><span className="sr-only">Akce</span></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((c) => {
+                  const { limit, st, inactive } = rowInfo(c);
+                  return (
+                    <tr key={c.id} className="hover:bg-paper/60">
+                      <td className={`${tdClass} text-muted tabular-nums`}>{c.seq_id}</td>
                       <td className={tdClass}>
-                        {(() => {
-                          const active = c.status !== "pending_deletion" && c.status !== "deleted";
-                          if (!active || !(canImpersonate || canChangePlan)) return null;
-                          return (
-                            <div className="flex justify-end">
-                              <RowActionsMenu label={`Akce k firmě ${c.name}`}>
-                                {canImpersonate && <ImpersonateButton companyId={c.id} variant="menuItem" />}
-                                {canChangePlan && (
-                                  <SubscriptionDialog
-                                    variant="menuItem"
-                                    company={{ id: c.id, plan: c.plan, addons: c.addons ?? [], billing_period: c.billing_period, plan_paid_until: c.plan_paid_until, discount_pct: c.discount_pct, pending_plan: c.pending_plan, pending_plan_from: c.pending_plan_from, users: c.users }}
-                                  />
-                                )}
-                              </RowActionsMenu>
-                            </div>
-                          );
-                        })()}
+                        <Link href={`/companies/${c.id}`} className="font-medium text-teal-dark hover:underline">{c.name}</Link>
+                        {c.is_test && <span className="ml-2 rounded-sm border border-line px-1.5 py-0.5 text-[11px] text-muted">test</span>}
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td className={tdClass}>
+                        {planName(c.plan)}
+                        {c.pending_plan && <div className="text-caption text-muted">→ {planName(c.pending_plan)} od {formatDate(c.pending_plan_from)}</div>}
+                      </td>
+                      <td className={tdClass}><Pill className={st.className}>{st.label}</Pill></td>
+                      <td className={`${tdClass} text-right tabular-nums ${limit !== null && c.users > limit ? "font-semibold text-danger-dark" : ""}`}>
+                        {c.users}
+                        {limit !== null && <span className="text-muted"> / {limit}</span>}
+                      </td>
+                      <td className={`${tdClass} whitespace-nowrap ${inactive ? "font-medium text-warning-dark" : "text-muted"}`} title={c.last_activity_at ? formatDate(c.last_activity_at) : undefined}>{formatRelative(c.last_activity_at)}</td>
+                      <td className={`${tdClass} whitespace-nowrap ${c.attention.includes("expired") ? "text-danger-dark" : ""}`}>{c.plan_paid_until ? formatDate(c.plan_paid_until) : "–"}</td>
+                      <td className={`${tdClass} text-right tabular-nums`}>{c.mrr > 0 ? formatKc(c.mrr) : "–"}</td>
+                      <td className={tdClass}>
+                        <div className="flex flex-wrap gap-1">{attentionPills(c)}</div>
+                      </td>
+                      {showActions && <td className={tdClass}>{rowActions(c)}</td>}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {pages > 1 && (

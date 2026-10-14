@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { CheckCircle2, ChevronRight } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-6">
       <div>
-        <h1 className="font-display text-h1">{title}</h1>
+        <h1 className="font-display text-[24px] leading-[30px] sm:text-h1">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -28,7 +28,7 @@ export function Card({ title, children, className, actions }: { title?: string; 
   );
 }
 
-/** `href` dělá z karty odkaz (se šipkou); `linkLabel` říká, kam vede — zobrazí se pod číslem i jako tooltip. */
+/** `href` dělá z celé karty odkaz; `linkLabel` („Seznam firem →“) říká, kam vede, a je zároveň jediná afordance. */
 export function Stat({ label, value, hint, href, linkLabel }: { label: string; value: React.ReactNode; hint?: React.ReactNode; href?: string; linkLabel?: string }) {
   const body = (
     <>
@@ -39,11 +39,10 @@ export function Stat({ label, value, hint, href, linkLabel }: { label: string; v
     </>
   );
   if (href) {
+    // Hover jen na zařízeních, která ho mají: na telefonu jinak po klepnutí zůstane karta „vybraná“ (zelený rámeček).
     return (
-      <Link href={href} title={linkLabel} className="group relative block rounded border border-line bg-surface p-4 pr-8 transition-colors hover:border-teal-dark hover:bg-paper">
+      <Link href={href} title={linkLabel} className="block rounded border border-line bg-surface p-4 transition-colors [@media(hover:hover)]:hover:border-teal-dark [@media(hover:hover)]:hover:bg-paper">
         {body}
-        {/* Trvalá afordance, ne jen na hover — jinak vypadá stejně jako karta bez odkazu vedle sebe. */}
-        <ChevronRight size={16} className="absolute right-3 top-4 text-muted transition-colors group-hover:text-teal-dark" aria-hidden />
       </Link>
     );
   }
