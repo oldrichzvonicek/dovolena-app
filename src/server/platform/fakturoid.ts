@@ -5,23 +5,30 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * PDF a webhook invoice_paid. Bez proměnných FAKTUROID_* se nic nevolá (fakturoidConfig() vrací null).
  */
 const BASE = "https://app.fakturoid.cz/api/v3";
-const USER_AGENT = "Dodio (podpora@dodio.cz)";
+const userAgent = (cfg: FakturoidConfig) => `Dodio (${cfg.contactEmail ?? "podpora@dodio.cz"})`;
 
 export interface FakturoidConfig {
   slug: string;
   clientId: string;
   clientSecret: string;
+  /** E-mail do User-Agentu (Fakturoid ho vyžaduje); výchozí podpora@dodio.cz. */
+  contactEmail?: string;
+  /** Token z FAKTUROID_WEBHOOK_TOKEN; bez něj se odvodí z client secretu. */
+  webhookToken?: string;
 }
 
 export function fakturoidConfig(env: Record<string, string | undefined> = process.env): FakturoidConfig | null {
-  const slug = env.FAKTUROID_ACCOUNT?.trim();
+  // Název proměnné se slugem: FAKTUROID_ACCOUNT, případně FAKTUROID_SLUG.
+  const slug = (env.FAKTUROID_ACCOUNT ?? env.FAKTUROID_SLUG)?.trim();
   const clientId = env.FAKTUROID_CLIENT_ID?.trim();
   const clientSecret = env.FAKTUROID_CLIENT_SECRET?.trim();
-  return slug && clientId && clientSecret ? { slug, clientId, clientSecret } : null;
+  if (!slug || !clientId || !clientSecret) return null;
+  return { slug, clientId, clientSecret, contactEmail: env.FAKTUROID_CONTACT_EMAIL?.trim() || undefined, webhookToken: env.FAKTUROID_WEBHOOK_TOKEN?.trim() || undefined };
 }
 
-/** Tajný token webhooku se odvozuje z client secretu, ať ho není potřeba nastavovat zvlášť. */
+/** Tajný token webhooku: FAKTUROID_WEBHOOK_TOKEN, jinak se odvodí z client secretu. */
 export function webhookToken(cfg: FakturoidConfig): string {
+  if (cfg.webhookToken) return cfg.webhookToken;
   return createHmac("sha256", cfg.clientSecret).update("dodio-fakturoid-webhook").digest("hex");
 }
 
@@ -42,7 +49,7 @@ async function accessToken(cfg: FakturoidConfig): Promise<string> {
       Authorization: `Basic ${Buffer.from(`${cfg.clientId}:${cfg.clientSecret}`).toString("base64")}`,
       "Content-Type": "application/json",
       Accept: "application/json",
-      "User-Agent": USER_AGENT,
+      "User-Agent": userAgent(cfg),
     },
     body: JSON.stringify({ grant_type: "client_credentials" }),
   });
@@ -56,7 +63,7 @@ async function api(cfg: FakturoidConfig, path: string, init: RequestInit = {}): 
   const token = await accessToken(cfg);
   return fetch(`${BASE}/accounts/${cfg.slug}${path}`, {
     ...init,
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json", "User-Agent": USER_AGENT, ...(init.headers ?? {}) },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json", "User-Agent": userAgent(cfg), ...(init.headers ?? {}) },
   });
 }
 

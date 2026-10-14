@@ -8,7 +8,11 @@ describe("fakturoidConfig", () => {
   it("bez všech tří proměnných je integrace vypnutá", () => {
     expect(fakturoidConfig({})).toBeNull();
     expect(fakturoidConfig({ FAKTUROID_ACCOUNT: "dodio", FAKTUROID_CLIENT_ID: "x" })).toBeNull();
-    expect(fakturoidConfig({ FAKTUROID_ACCOUNT: " dodio ", FAKTUROID_CLIENT_ID: "id", FAKTUROID_CLIENT_SECRET: "s" })).toEqual({ slug: "dodio", clientId: "id", clientSecret: "s" });
+    expect(fakturoidConfig({ FAKTUROID_ACCOUNT: " dodio ", FAKTUROID_CLIENT_ID: "id", FAKTUROID_CLIENT_SECRET: "s" })).toMatchObject({ slug: "dodio", clientId: "id", clientSecret: "s" });
+    // alternativní název proměnné se slugem + volitelný kontakt a vlastní token webhooku
+    const c = fakturoidConfig({ FAKTUROID_SLUG: "vinylgarden", FAKTUROID_CLIENT_ID: "id", FAKTUROID_CLIENT_SECRET: "s", FAKTUROID_CONTACT_EMAIL: "a@b.cz", FAKTUROID_WEBHOOK_TOKEN: "tok" });
+    expect(c).toEqual({ slug: "vinylgarden", clientId: "id", clientSecret: "s", contactEmail: "a@b.cz", webhookToken: "tok" });
+    expect(webhookToken(c!)).toBe("tok");
   });
 });
 
