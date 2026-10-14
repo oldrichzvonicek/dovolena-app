@@ -16,10 +16,24 @@ export interface RevenueInput {
   priceOverride?: Partial<Plan>;
 }
 
+/** Cena za jedno fakturační období (měsíc nebo rok) v Kč: tarif podle počtu lidí + doplňky mimo tarif, po slevě. */
 /**
  * Měsíční příjem z firmy v Kč (MRR): cena tarifu pro daný počet uživatelů + doplňky, které tarif nemá v ceně; roční platba
  * se dělí dvanácti; sleva se počítá z celku. Ceny bere ze src/lib/plans.ts, tedy stejné jako aplikace.
  */
+export function periodAmount(input: RevenueInput): number {
+  const plan: Plan = { ...planByKey(input.plan), ...(input.priceOverride ?? {}) };
+  const period: BillingPeriod = input.billingPeriod === "yearly" ? "yearly" : "monthly";
+  let total = planPrice(plan, input.users, period);
+  for (const addon of ADDONS) {
+    if (!(input.addons ?? []).includes(addon.key as AddonKey)) continue;
+    if (addon.includedIn.includes(plan.key)) continue;
+    total += period === "yearly" ? addon.yearly : addon.monthly;
+  }
+  const discount = Math.min(100, Math.max(0, input.discountPct ?? 0));
+  return Math.round(total * (1 - discount / 100));
+}
+
 export function monthlyRevenue(input: RevenueInput): number {
   const plan: Plan = { ...planByKey(input.plan), ...(input.priceOverride ?? {}) };
   const period: BillingPeriod = input.billingPeriod === "yearly" ? "yearly" : "monthly";

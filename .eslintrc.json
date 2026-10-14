@@ -18,7 +18,7 @@
       }
     },
     {
-      "files": ["src/server/platform/**", "src/components/platform/**", "src/app/(platform)/**", "src/app/api/platform/**", "src/app/api/cron/platform-jobs/**", "src/middleware.ts"],
+      "files": ["src/server/platform/**", "src/components/platform/**", "src/app/(platform)/**", "src/app/api/platform/**", "src/app/api/cron/platform-jobs/**", "src/app/api/webhooks/fakturoid/**", "src/middleware.ts"],
       "rules": { "no-restricted-imports": "off" }
     }
   ]

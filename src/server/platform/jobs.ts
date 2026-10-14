@@ -2,6 +2,7 @@ import { platformDb, writeAudit } from "./auth";
 import { loadOverview, refreshActivity } from "./companies";
 import { runDunning, type DunningSummary } from "./dunning";
 import { SIGNATURE, czDate, queueCompanyEmail } from "./email";
+import { runAutoBilling, type AutoBillingSummary } from "./autobilling";
 import { templateText } from "@/lib/email-templates";
 import { buildCompanyExport, latestExportPath, signedExportUrl, storeCompanyExport } from "./export";
 import { purgeCompanyStep } from "./purge";
@@ -136,11 +137,16 @@ export async function runDueJobs(limit = 5): Promise<JobsSummary> {
 }
 
 /** Celý běh plánovače: úlohy z fronty + upomínky po splatnosti + přepočet poslední aktivity firem (zápisy jen tady, nikdy z běžného čtení stránky Firmy). */
-export async function runMaintenance(): Promise<{ jobs: JobsSummary; dunning: DunningSummary; activityUpdated: number }> {
+export async function runMaintenance(): Promise<{ jobs: JobsSummary; dunning: DunningSummary; activityUpdated: number; billing: AutoBillingSummary }> {
   const jobs = await runDueJobs(5);
+  // Nejdřív nové faktury, potom upomínky (čerstvě vystavená faktura ještě není po splatnosti).
+  const billing = await runAutoBilling().catch((e) => {
+    console.error("autobilling:", e instanceof Error ? e.message : e);
+    return { configured: true, issued: 0, skipped: 0, failed: 1, webhookRegistered: false } as AutoBillingSummary;
+  });
   const dunning = await runDunning();
   const activityUpdated = await refreshActivity(await loadOverview());
-  return { jobs, dunning, activityUpdated };
+  return { jobs, dunning, activityUpdated, billing };
 }
 
 export type MaintenanceSummary = Awaited<ReturnType<typeof runMaintenance>>;
@@ -150,7 +156,7 @@ export type MaintenanceSummary = Awaited<ReturnType<typeof runMaintenance>>;
  * ať se frontou nezahltí prázdné záznamy každých pár minut.
  */
 export async function recordMaintenance(summary: MaintenanceSummary, createdBy: string | null, force: boolean): Promise<void> {
-  const didSomething = summary.jobs.ran > 0 || summary.dunning.reminders > 0 || summary.dunning.suspended > 0 || summary.activityUpdated > 0;
+  const didSomething = summary.jobs.ran > 0 || summary.dunning.reminders > 0 || summary.dunning.suspended > 0 || summary.activityUpdated > 0 || summary.billing.issued > 0 || summary.billing.failed > 0;
   if (!force && !didSomething) return;
   const now = new Date().toISOString();
   const { error } = await platformDb().from("platform_jobs").insert({

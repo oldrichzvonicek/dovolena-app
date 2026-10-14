@@ -391,3 +391,17 @@ export async function loadCompany(id: string, opts: { full: boolean }): Promise<
 }
 
 export const companyLabel = (c: { name: string; seq_id: number }) => `${c.name} (#${c.seq_id})`;
+
+/** Firmy, počty aktivních lidí a ceny (zamčené i aktuální) pro automatické fakturování. */
+export async function loadBillingBasis() {
+  const today = todayIso();
+  const [{ data: companies, error }, users, priceRows] = await Promise.all([
+    fetchAll<CompanyRow>((from, to) => platformDb().from("companies").select(COMPANY_COLUMNS).order("id").range(from, to)),
+    activeUserCounts(),
+    loadPriceRows().catch(() => []),
+  ]);
+  if (error) throw new Error(error.message);
+  const current = currentRows(priceRows, today);
+  const byId = new Map(priceRows.map((r) => [r.id, r]));
+  return { today, companies, users, priceFor: (c: CompanyRow) => priceOf(c, byId, current) };
+}
