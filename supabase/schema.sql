@@ -2539,18 +2539,21 @@ $$;
 -- být (nic nezapisuje) — použije ji tlačítko „Přepočítat" u pole Dovolená / rok v Upravit uživatele, ať admin
 -- vidí číslo a potvrdí ho stejným Uložit jako u ruční úpravy. Bez zapnutého „Krátit dovolenou podle data
 -- nástupu" (Nastavení → Typy absencí) vrátí prorate_from() nezkrácenou hodnotu, takže je bezpečné volat vždy.
-create or replace function preview_prorated_vacation(target_profile_id uuid, target_year int)
+-- override_hire_date: Upravit uživatele volá tohle, zatímco má v poli Datum nástupu rozepsanou (ještě
+-- neuloženou) hodnotu — bez parametru by přepočet počítal se starým datem z profile_hr, ne s tím, co
+-- admin právě napsal (viz migrace 20261016010000_preview_vacation_override_hire_date.sql).
+create or replace function preview_prorated_vacation(target_profile_id uuid, target_year int, override_hire_date date default null)
 returns numeric
 language sql
 stable
 as $$
   select case
-    when h.hire_date is not null and extract(year from h.hire_date) < target_year
-      then c.default_vacation_days + seniority_bonus_days(h.hire_date, c.id, target_year)
+    when coalesce(override_hire_date, h.hire_date) is not null and extract(year from coalesce(override_hire_date, h.hire_date)) < target_year
+      then c.default_vacation_days + seniority_bonus_days(coalesce(override_hire_date, h.hire_date), c.id, target_year)
     else prorate_from(
-           c.default_vacation_days + seniority_bonus_days(h.hire_date, c.id, target_year),
+           c.default_vacation_days + seniority_bonus_days(coalesce(override_hire_date, h.hire_date), c.id, target_year),
            c.id,
-           coalesce(h.hire_date, make_date(target_year, 1, 1))
+           coalesce(override_hire_date, h.hire_date, make_date(target_year, 1, 1))
          )
   end
   from profiles p

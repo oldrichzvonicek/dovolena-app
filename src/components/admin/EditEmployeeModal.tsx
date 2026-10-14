@@ -79,7 +79,7 @@ export function EditEmployeeModal({
     setRecalcState("loading");
     setError(null);
     try {
-      const days = await previewProratedVacation(employee.id, year);
+      const days = await previewProratedVacation(employee.id, year, hireDate || null);
       if (days !== null) setVacationDays(String(days));
       setRecalcState("done");
       setTimeout(() => setRecalcState("idle"), 2500);
