@@ -51,6 +51,7 @@ const FOOTER_TIPS = "Tipy po registraci můžete vypnout v Nastavení firmy → 
 const CTA_TRAILER = /\n\n@@cta (.+?) \| (\S+)\s*$/;
 
 const FOOTER_BILLING = "S pozdravem, tým Dodio. Dotazy k fakturaci nebo platbě: odpovězte na tento e-mail nebo napište na podpora@dodio.cz. Tento e-mail je provozní a nelze ho vypnout.";
+const QR_LINE = /(?:^|\n\n)@@qr (\d+(?:\.\d+)?)\|(\d{1,10})(?=\n\n|$)/;
 const BILLING_SIGNATURE = /\n\nS pozdravem\ntým Dodio\s*$/;
 
 export function renderHtml(subject: string, body: string, category?: string | null): string {
@@ -59,9 +60,16 @@ export function renderHtml(subject: string, body: string, category?: string | nu
     const cta = CTA_BY_CATEGORY.billing;
     // Poslední řádek těla může nést odkaz na PDF faktury: "@@cta Popisek | https://…" (server/platform/email.ts).
     const pdf = body.match(CTA_TRAILER);
-    const clean = (pdf ? body.slice(0, pdf.index) : body).replace(BILLING_SIGNATURE, "");
+    const withoutPdf = (pdf ? body.slice(0, pdf.index) : body).replace(BILLING_SIGNATURE, "");
+    // Řádek "@@qr částka|VS" → obrázek QR platby (endpoint /api/qr) pod textem.
+    const qr = withoutPdf.match(QR_LINE);
+    const clean = withoutPdf.replace(QR_LINE, "");
+    const qrHtml = qr
+      ? `<div style="margin:14px 0 6px"><img src="${appUrl()}/api/qr?am=${qr[1]}&vs=${qr[2]}" width="160" height="160" alt="QR platba" style="display:block;border:1px solid #D3D1C7;border-radius:6px" /><div style="font-size:12px;color:#5F5E5A;margin-top:6px">Naskenujte v bankovní aplikaci (QR platba).</div></div>`
+      : undefined;
     return emailLayout({
       title: subject,
+      afterBody: qrHtml,
       paragraphs: clean.split(/\n{2,}/),
       cta: pdf ? { label: pdf[1], url: pdf[2] } : { label: cta.label, url: `${appUrl()}${cta.path}` },
       actions: pdf ? [{ label: cta.label, url: `${appUrl()}${cta.path}`, kind: "link" as const }] : undefined,
@@ -122,7 +130,7 @@ function payload(to: string, subject: string, body: string, html: string | undef
     to: [to],
     subject,
     // "## " je značka nadpisu skupiny v HTML (renderParagraph); v textové verzi je zbytečná.
-    text: category === "billing" ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${appUrl()}${CTA_BY_CATEGORY.billing.path}` : category === "onboarding_tips" ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${FOOTER_TIPS}` : category === "signup_reminder" ? `${body}\n\n${FOOTER_SIGNUP}` : `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
+    text: category === "billing" ? `${body.replace(QR_LINE, "").replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${appUrl()}${CTA_BY_CATEGORY.billing.path}` : category === "onboarding_tips" ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${FOOTER_TIPS}` : category === "signup_reminder" ? `${body}\n\n${FOOTER_SIGNUP}` : `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
     html: html ?? renderHtml(subject, body, category),
     ...(replyTo ? { reply_to: replyTo } : {}),
   };

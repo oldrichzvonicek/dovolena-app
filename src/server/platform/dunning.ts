@@ -29,7 +29,7 @@ export const MANUAL_REMINDER_COOLDOWN_MS = 24 * 3_600_000;
 
 function reminderText(step: DunningStep | "manual", number: string, amount: number, dueAt: string, days: number, pdfUrl: string | null = null): { subject: string; body: string } {
   const key = { manual: "payment_reminder_3", reminder_1: "payment_reminder_3", reminder_2: "payment_reminder_7", reminder_3: "payment_reminder_14", suspend: "account_suspended" }[step];
-  const t = templateText(key, { cislo: number, castka: `${Math.round(amount).toLocaleString("cs-CZ")} Kč`, splatnost: czDate(dueAt), po_splatnosti: String(days), ucet: BANK_ACCOUNT, vs: variableSymbol(number) });
+  const t = templateText(key, { cislo: number, castka: `${Math.round(amount).toLocaleString("cs-CZ")} Kč`, splatnost: czDate(dueAt), po_splatnosti: String(days), ucet: BANK_ACCOUNT, vs: variableSymbol(number), qr: `${Math.round(amount)}|${variableSymbol(number)}` });
   return { subject: t.subject, body: `${t.body}${SIGNATURE}${pdfTrailer(pdfUrl)}` };
 }
 

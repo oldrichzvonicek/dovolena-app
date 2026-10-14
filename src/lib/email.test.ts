@@ -162,3 +162,13 @@ describe("renderHtml – fakturace s PDF", () => {
     expect(html).not.toContain("S pozdravem\ntým");
   });
 });
+
+describe("renderHtml – QR platba", () => {
+  it("řádek @@qr se stane obrázkem z /api/qr a nezůstane v textu", async () => {
+    const { renderHtml } = await import("./email");
+    const html = renderHtml("Faktura 1", "Dobrý den,\n\n• Číslo účtu — 123/0100\n• Variabilní symbol — 1260001\n\n@@qr 1346|1260001\n\nS pozdravem\ntým Dodio", "billing");
+    expect(html).toContain("/api/qr?am=1346&vs=1260001");
+    expect(html).toContain("QR platba");
+    expect(html).not.toContain("@@qr");
+  });
+});

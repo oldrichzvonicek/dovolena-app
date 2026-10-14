@@ -467,13 +467,13 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     when: "Po vystavení faktury v super-adminu.",
     to: "E-mail pro faktury a admini firmy",
     live: true,
-    vars: ["cislo", "castka", "splatnost", "ucet", "vs", "pdf"],
+    vars: ["cislo", "castka", "splatnost", "ucet", "vs", "qr", "pdf"],
     subject: (v) => `Faktura ${v.cislo} na ${v.castka}, splatná ${v.splatnost}`,
     paragraphs: (v) => [
       "Dobrý den,",
       "vystavili jsme vám fakturu za službu Dodio.",
       `• Číslo faktury — ${v.cislo}\n• Částka k úhradě (vč. DPH) — ${v.castka}\n• Splatnost — ${v.splatnost}`,
-      "K úhradě převodem na účet:", `• Číslo účtu — ${v.ucet}\n• Variabilní symbol — ${v.vs}`,
+      "K úhradě převodem na účet:", `• Číslo účtu — ${v.ucet}\n• Variabilní symbol — ${v.vs}`, v.qr ? `@@qr ${v.qr}` : "",
       v.pdf === "ano" ? "Fakturu ve formátu PDF si můžete stáhnout tlačítkem níže." : "Přehled faktur najdete v aplikaci v části Tarif a fakturace.",
     ],
     cta: { label: "Otevřít archiv faktur", path: "/admin/settings?sekce=billing" },
@@ -502,9 +502,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     when: "3 dny po splatnosti nezaplacené faktury.",
     to: "E-mail pro faktury a admini firmy",
     live: true,
-    vars: ["cislo", "castka", "splatnost", "ucet", "vs"],
+    vars: ["cislo", "castka", "splatnost", "ucet", "vs", "qr"],
     subject: (v) => `Připomenutí platby faktury ${v.cislo}`,
-    paragraphs: (v) => ["Dobrý den,", `u vaší firmy evidujeme neuhrazenou fakturu: faktura č. ${v.cislo} na ${v.castka} měla být uhrazena do ${v.splatnost}. Pokud jste už zaplatili, tento e-mail prosím ignorujte.`, "K úhradě převodem na účet:", `• Číslo účtu — ${v.ucet}\n• Variabilní symbol — ${v.vs}`],
+    paragraphs: (v) => ["Dobrý den,", `u vaší firmy evidujeme neuhrazenou fakturu: faktura č. ${v.cislo} na ${v.castka} měla být uhrazena do ${v.splatnost}. Pokud jste už zaplatili, tento e-mail prosím ignorujte.`, "K úhradě převodem na účet:", `• Číslo účtu — ${v.ucet}\n• Variabilní symbol — ${v.vs}`, v.qr ? `@@qr ${v.qr}` : ""],
     cta: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
     optOut: false,
   },
@@ -514,9 +514,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     when: "7 dní po splatnosti.",
     to: "E-mail pro faktury a admini firmy",
     live: true,
-    vars: ["cislo", "castka", "splatnost", "po_splatnosti", "ucet", "vs"],
+    vars: ["cislo", "castka", "splatnost", "po_splatnosti", "ucet", "vs", "qr"],
     subject: (v) => `Druhá upomínka: faktura ${v.cislo} po splatnosti`,
-    paragraphs: (v) => ["Dobrý den,", `faktura č. ${v.cislo} na ${v.castka} měla být uhrazena do ${v.splatnost}. Je po splatnosti ${v.po_splatnosti} dní. Prosíme o úhradu, případně nás kontaktujte.`, "K úhradě převodem na účet:", `• Číslo účtu — ${v.ucet}\n• Variabilní symbol — ${v.vs}`],
+    paragraphs: (v) => ["Dobrý den,", `faktura č. ${v.cislo} na ${v.castka} měla být uhrazena do ${v.splatnost}. Je po splatnosti ${v.po_splatnosti} dní. Prosíme o úhradu, případně nás kontaktujte.`, "K úhradě převodem na účet:", `• Číslo účtu — ${v.ucet}\n• Variabilní symbol — ${v.vs}`, v.qr ? `@@qr ${v.qr}` : ""],
     cta: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
     optOut: false,
     sample: { po_splatnosti: "7" },
@@ -527,12 +527,12 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     when: "14 dní po splatnosti.",
     to: "E-mail pro faktury a admini firmy",
     live: true,
-    vars: ["cislo", "castka", "splatnost", "po_splatnosti", "ucet", "vs"],
+    vars: ["cislo", "castka", "splatnost", "po_splatnosti", "ucet", "vs", "qr"],
     subject: (v) => `Poslední upomínka: faktura ${v.cislo}`,
     paragraphs: (v) => [
       "Dobrý den,",
       `faktura č. ${v.cislo} na ${v.castka} měla být uhrazena do ${v.splatnost}. Je po splatnosti ${v.po_splatnosti} dní. Pokud nebude uhrazena do 7 dní, účet vaší firmy přepneme do režimu jen pro čtení.`,
-      "K úhradě převodem na účet:", `• Číslo účtu — ${v.ucet}\n• Variabilní symbol — ${v.vs}`,
+      "K úhradě převodem na účet:", `• Číslo účtu — ${v.ucet}\n• Variabilní symbol — ${v.vs}`, v.qr ? `@@qr ${v.qr}` : "",
     ],
     cta: { label: "Otevřít fakturaci", path: "/admin/settings?sekce=billing" },
     optOut: false,
@@ -757,6 +757,7 @@ export const TEMPLATE_SAMPLE: Vars = {
   obdobi: "12.–18. 10.",
   ucet: "8180385003/5500 (Raiffeisenbank)",
   vs: "2026014",
+  qr: "1346|2026014",
   pdf: "ano",
   plan: "Pro",
   cena_mesicne_stara: "990 Kč",
@@ -837,7 +838,7 @@ function renderParagraph(p: string): string {
   return `<ul style="margin:0 0 14px;padding:0;list-style:none">${items}</ul>`;
 }
 
-export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: { label: string; url: string }; actions?: EmailAction[]; footer: string; baseUrl: string }): string {
+export function emailLayout(opts: { title: string; paragraphs: string[]; afterBody?: string; cta?: { label: string; url: string }; actions?: EmailAction[]; footer: string; baseUrl: string }): string {
   const body = opts.paragraphs.map(renderParagraph).join("");
   const actions = (opts.actions ?? [])
     .map((a) => `<a href="${esc(a.url)}" style="display:inline-block;margin:6px 8px 0 0;${ACTION_STYLE[a.kind]};text-decoration:none;padding:11px 20px;border-radius:6px;font-size:14px;font-weight:bold">${esc(a.label)}</a>`)
@@ -851,6 +852,7 @@ export function emailLayout(opts: { title: string; paragraphs: string[]; cta?: {
   <div style="background:#fff;border:1px solid #D3D1C7;border-radius:8px;padding:24px">
     <h1 style="font-size:18px;margin:0 0 14px">${esc(opts.title)}</h1>
     ${body}
+    ${opts.afterBody ?? ""}
     ${button}${actions}
   </div>
   <div style="font-size:12px;color:#5F5E5A;margin-top:14px;line-height:1.5">${esc(opts.footer)}</div>
@@ -865,7 +867,7 @@ export function templateText(key: string, vars: Vars): { subject: string; body: 
   const t = templateByKey(key);
   if (!t) throw new Error(`Neznámá šablona: ${key}`);
   const safe = new Proxy({ ...t.sample, ...vars }, { get: (o, k: string) => o[k] ?? `[${k}]` }) as Vars;
-  return { subject: t.subject(safe), body: t.paragraphs(safe).join("\n\n") };
+  return { subject: t.subject(safe), body: t.paragraphs(safe).filter(Boolean).join("\n\n") };
 }
 
 /** Vykreslí šablonu s proměnnými: předmět, prostý text a HTML. Chybějící proměnná se vypíše jako „[název]“. */
@@ -874,7 +876,7 @@ export function renderTemplate(key: string, vars: Vars, baseUrl: string) {
   if (!t) throw new Error(`Neznámá šablona: ${key}`);
   const safe = new Proxy({ ...vars, ...t.sample }, { get: (o, k: string) => o[k] ?? `[${k}]` }) as Vars;
   const subject = t.subject(safe);
-  const paragraphs = t.paragraphs(safe);
+  const paragraphs = t.paragraphs(safe).filter(Boolean);
   const cta = t.cta ? { label: t.cta.label, url: vars.odkaz && t.key === "invite" ? vars.odkaz : `${baseUrl.replace(/\/$/, "")}${t.cta.path}` } : undefined;
   const footer = t.optOut ? FOOTER_NOTIFICATION : FOOTER_TRANSACTIONAL;
   return {

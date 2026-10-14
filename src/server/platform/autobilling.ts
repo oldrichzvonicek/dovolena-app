@@ -163,6 +163,7 @@ export async function runAutoBilling(): Promise<AutoBillingSummary> {
         ucet: BANK_ACCOUNT,
         vs: inv.variableSymbol || variableSymbol(inv.number),
         pdf: "ano",
+        qr: `${inv.total || amount}|${(inv.variableSymbol || variableSymbol(inv.number)).replace(/\D/g, "")}`,
       });
       await queueCompanyEmail(c.id, mail.subject, `${mail.body}${SIGNATURE}${pdfTrailer(await invoicePdfLink(path))}`);
       await writeAudit(null, { action: "invoice.create", companyId: c.id, companyLabel: c.name, details: { number: inv.number, amount: inv.total || amount, source: "fakturoid", period_from: periodFrom, period_to: periodTo } });
