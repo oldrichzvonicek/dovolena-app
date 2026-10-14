@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildInvoicePayload, fakturoidConfig, isValidWebhookAuth, parseInvoice, webhookToken } from "./fakturoid";
 import { monthlyRevenue, periodAmount } from "./billing";
+import { isDailySlot } from "./autobilling";
 
 const cfg = { slug: "dodio", clientId: "id", clientSecret: "tajne" };
 
@@ -60,5 +61,14 @@ describe("periodAmount", () => {
     const b = periodAmount({ plan: "starter", addons: [], billingPeriod: "monthly", users: 5, discountPct: 50 });
     expect(Number.isInteger(b)).toBe(true);
     expect(b).toBe(Math.round(a * 0.5));
+  });
+});
+
+describe("isDailySlot", () => {
+  it("jednou denně v 9:00 pražského času (první pětiminutovka)", () => {
+    expect(isDailySlot(new Date("2026-10-14T07:02:00Z"))).toBe(true); // 9:02 CEST
+    expect(isDailySlot(new Date("2026-10-14T07:05:00Z"))).toBe(false);
+    expect(isDailySlot(new Date("2026-10-14T06:58:00Z"))).toBe(false);
+    expect(isDailySlot(new Date("2026-12-14T08:01:00Z"))).toBe(true); // 9:01 CET
   });
 });

@@ -2,10 +2,11 @@ import { planByKey } from "@/lib/plans";
 import { templateText } from "@/lib/email-templates";
 import { appUrl } from "@/lib/email";
 import { platformDb, writeAudit } from "./auth";
-import { extendPaidUntil, formatCzDate, periodAmount } from "./billing";
+import { extendPaidUntil, formatCzDate, periodAmount, todayIso } from "./billing";
 import { loadBillingBasis } from "./companies";
 import { BANK_ACCOUNT, SIGNATURE, invoicePdfLink, pdfTrailer, queueCompanyEmail, variableSymbol } from "./email";
-import { createInvoice, downloadPdf, ensureSubject, ensureWebhook, fakturoidConfig, findInvoiceByCustomId, isVatPayer } from "./fakturoid";
+import { createInvoice, downloadPdf, ensureSubject, ensureWebhook, fakturoidConfig, findInvoiceByCustomId, getInvoice, isVatPayer } from "./fakturoid";
+import { settleInvoicePaid } from "./settle";
 import { addDaysIso } from "@/lib/plan-change";
 
 export interface AutoBillingSummary {
@@ -14,6 +15,19 @@ export interface AutoBillingSummary {
   skipped: number;
   failed: number;
   webhookRegistered: boolean;
+  /** Faktury, které se při denní kontrole ukázaly jako zaplacené ve Fakturoidu. */
+  paid: number;
+}
+
+/**
+ * Denní okno (cron běží každých 5 minut): jednou denně v 9:00 pražského času. Volání API Fakturoidu se kvůli limitu
+ * 1 500 požadavků měsíčně (bezplatný tarif) dělají jen tady, ne při každém běhu.
+ */
+export function isDailySlot(now: Date = new Date()): boolean {
+  const p = new Intl.DateTimeFormat("cs-CZ", { timeZone: "Europe/Prague", hour: "numeric", minute: "numeric", hour12: false }).formatToParts(now);
+  const hour = Number(p.find((x) => x.type === "hour")?.value);
+  const minute = Number(p.find((x) => x.type === "minute")?.value);
+  return hour === 9 && minute < 5;
 }
 
 const WINDOW_DAYS = 7; // fakturuje se týden před koncem zaplaceného období
@@ -25,16 +39,31 @@ const MAX_PER_RUN = 25; // pojistka: jeden běh nevystaví víc než tolik faktu
  * Bez FAKTUROID_* proměnných nedělá nic.
  */
 export async function runAutoBilling(): Promise<AutoBillingSummary> {
-  const summary: AutoBillingSummary = { configured: false, issued: 0, skipped: 0, failed: 0, webhookRegistered: false };
+  const summary: AutoBillingSummary = { configured: false, issued: 0, skipped: 0, failed: 0, webhookRegistered: false, paid: 0 };
   const cfg = fakturoidConfig();
   if (!cfg) return summary;
   summary.configured = true;
   const db = platformDb();
 
-  try {
-    summary.webhookRegistered = await ensureWebhook(cfg, `${appUrl()}/api/webhooks/fakturoid`);
-  } catch (e) {
-    console.error("fakturoid webhook:", e instanceof Error ? e.message : e);
+  if (isDailySlot()) {
+    // Webhook (placené tarify Fakturoidu) a kontrola plateb dotazem: na bezplatném tarifu webhooky nejsou, takže se
+    // zaplacení zjišťuje jednou denně přímo z API.
+    try {
+      summary.webhookRegistered = await ensureWebhook(cfg, `${appUrl()}/api/webhooks/fakturoid`);
+    } catch (e) {
+      console.error("fakturoid webhook:", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { data: openInvoices } = await db.from("company_invoices").select("id, fakturoid_id").eq("source", "fakturoid").eq("status", "issued").not("fakturoid_id", "is", null).limit(50);
+      for (const row of openInvoices ?? []) {
+        const remote = await getInvoice(cfg, Number(row.fakturoid_id));
+        if (remote.status !== "paid") continue;
+        const r = await settleInvoicePaid({ invoiceId: row.id as string, receivedAt: remote.paidOn ?? todayIso(), source: "gateway", providerRef: `fakturoid:${remote.id}`, actor: null });
+        if (r.ok) summary.paid++;
+      }
+    } catch (e) {
+      console.error("fakturoid platby:", e instanceof Error ? e.message : e);
+    }
   }
 
   const { today, companies, users, priceFor } = await loadBillingBasis();

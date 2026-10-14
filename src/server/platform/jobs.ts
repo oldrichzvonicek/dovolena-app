@@ -142,7 +142,7 @@ export async function runMaintenance(): Promise<{ jobs: JobsSummary; dunning: Du
   // Nejdřív nové faktury, potom upomínky (čerstvě vystavená faktura ještě není po splatnosti).
   const billing = await runAutoBilling().catch((e) => {
     console.error("autobilling:", e instanceof Error ? e.message : e);
-    return { configured: true, issued: 0, skipped: 0, failed: 1, webhookRegistered: false } as AutoBillingSummary;
+    return { configured: true, issued: 0, skipped: 0, failed: 1, webhookRegistered: false, paid: 0 } as AutoBillingSummary;
   });
   const dunning = await runDunning();
   const activityUpdated = await refreshActivity(await loadOverview());
@@ -156,7 +156,7 @@ export type MaintenanceSummary = Awaited<ReturnType<typeof runMaintenance>>;
  * ať se frontou nezahltí prázdné záznamy každých pár minut.
  */
 export async function recordMaintenance(summary: MaintenanceSummary, createdBy: string | null, force: boolean): Promise<void> {
-  const didSomething = summary.jobs.ran > 0 || summary.dunning.reminders > 0 || summary.dunning.suspended > 0 || summary.activityUpdated > 0 || summary.billing.issued > 0 || summary.billing.failed > 0;
+  const didSomething = summary.jobs.ran > 0 || summary.dunning.reminders > 0 || summary.dunning.suspended > 0 || summary.activityUpdated > 0 || summary.billing.issued > 0 || summary.billing.failed > 0 || summary.billing.paid > 0;
   if (!force && !didSomething) return;
   const now = new Date().toISOString();
   const { error } = await platformDb().from("platform_jobs").insert({

@@ -138,6 +138,8 @@ export interface FakturoidInvoice {
   vat: number;
   status: string;
   customId: string | null;
+  /** Datum zaplacení (YYYY-MM-DD), když je faktura zaplacená. */
+  paidOn: string | null;
 }
 
 export function parseInvoice(j: Record<string, unknown>): FakturoidInvoice {
@@ -153,6 +155,7 @@ export function parseInvoice(j: Record<string, unknown>): FakturoidInvoice {
     vat: Math.max(0, Math.round((total - subtotal) * 100) / 100),
     status: String(j.status ?? ""),
     customId: j.custom_id ? String(j.custom_id) : null,
+    paidOn: j.paid_at ? String(j.paid_at).slice(0, 10) : j.paid_on ? String(j.paid_on).slice(0, 10) : null,
   };
 }
 
@@ -160,6 +163,10 @@ export function parseInvoice(j: Record<string, unknown>): FakturoidInvoice {
 export async function findInvoiceByCustomId(cfg: FakturoidConfig, customId: string): Promise<FakturoidInvoice | null> {
   const list = await json<Record<string, unknown>[]>(await api(cfg, `/invoices.json?custom_id=${encodeURIComponent(customId)}`), "hledání faktury");
   return list[0] ? parseInvoice(list[0]) : null;
+}
+
+export async function getInvoice(cfg: FakturoidConfig, id: number): Promise<FakturoidInvoice> {
+  return parseInvoice(await json<Record<string, unknown>>(await api(cfg, `/invoices/${id}.json`), "načtení faktury"));
 }
 
 export async function createInvoice(cfg: FakturoidConfig, input: InvoiceInput): Promise<FakturoidInvoice> {
