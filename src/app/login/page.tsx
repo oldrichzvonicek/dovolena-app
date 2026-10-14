@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";
+import { PasswordInput } from "@/components/ui/password-input";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -156,7 +157,14 @@ function LoginForm() {
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { terms_accepted_at: new Date().toISOString(), privacy_accepted_at: new Date().toISOString(), legal_version: LEGAL.version } },
+      options: {
+        data: {
+          terms_accepted_at: new Date().toISOString(),
+          privacy_accepted_at: new Date().toISOString(),
+          legal_version: LEGAL.version,
+          onboarding_intent: { kind: "create", name, companyName },
+        },
+      },
     });
     if (signUpError) {
       setLoading(false);
@@ -266,7 +274,11 @@ function LoginForm() {
     setError(null);
     setLoading(true);
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { onboarding_intent: { kind: "join", name, joinCode: inviteCode } } },
+    });
     if (signUpError) {
       setLoading(false);
       setError(czechAuthError(signUpError.message));
@@ -384,9 +396,8 @@ function LoginForm() {
                   </button>
                 )}
               </div>
-              <input
+              <PasswordInput
                 required
-                type="password"
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

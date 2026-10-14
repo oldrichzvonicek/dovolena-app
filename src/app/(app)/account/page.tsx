@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { MfaSetup } from "@/components/account/MfaSetup";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Avatar } from "@/components/ui/avatar";
 import { confirmDialog } from "@/components/shared/ConfirmHost";
 import { useAuth } from "@/lib/auth-context";
@@ -188,9 +189,8 @@ export default function AccountPage() {
               <label htmlFor="current-password" className="mb-1.5 block text-sm font-medium">
                 Současné heslo
               </label>
-              <input
+              <PasswordInput
                 id="current-password"
-                type="password"
                 autoComplete="current-password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -201,13 +201,13 @@ export default function AccountPage() {
               <label htmlFor="new-password" className="mb-1.5 block text-sm font-medium">
                 Nové heslo
               </label>
-              <input id="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border border-line px-3 py-2 text-sm" />
+              <PasswordInput id="new-password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border border-line px-3 py-2 text-sm" />
             </div>
             <div>
               <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-medium">
                 Nové heslo znovu
               </label>
-              <input id="confirm-password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="w-full rounded border border-line px-3 py-2 text-sm" />
+              <PasswordInput id="confirm-password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="w-full rounded border border-line px-3 py-2 text-sm" />
             </div>
             {pwError && <p className="text-sm text-danger">{pwError}</p>}
             <Button type="submit" variant="primary" disabled={pwBusy || !currentPassword || !password}>

@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 import { AppLockup } from "@/components/shared/AppLockup";
 import { platformFetch } from "@/components/platform/api";
 import { inputClass, labelClass } from "@/components/platform/ui";
@@ -85,7 +86,7 @@ function LoginForm() {
               </div>
               <div>
                 <label className={labelClass} htmlFor="password">Heslo</label>
-                <input id="password" name="password" type="password" required autoComplete="current-password" className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <PasswordInput id="password" name="password" required autoComplete="current-password" className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
               {error && <p role="alert" className="rounded bg-danger-light px-3 py-2 text-sm text-danger-dark">{error}</p>}
               <Button type="submit" className="w-full" disabled={busy}>{busy ? "Ověřuji…" : "Pokračovat"}</Button>

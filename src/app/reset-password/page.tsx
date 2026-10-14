@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 import { AppLogo } from "@/components/shared/AppLogo";
 import { errorMessage } from "@/lib/utils";
 import Link from "next/link";
@@ -87,9 +88,8 @@ export default function ResetPasswordPage() {
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Nové heslo</label>
-              <input
+              <PasswordInput
                 required
-                type="password"
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -99,9 +99,8 @@ export default function ResetPasswordPage() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Potvrzení hesla</label>
-              <input
+              <PasswordInput
                 required
-                type="password"
                 minLength={8}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}

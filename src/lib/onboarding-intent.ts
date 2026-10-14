@@ -65,8 +65,10 @@ export async function completeOnboarding(supabase: SupabaseClient): Promise<bool
     if (email) clearOnboardingIntent(email);
     return true;
   }
-  if (!email) return false;
-  const intent = readOnboardingIntent(email);
+  // user_metadata (uložené při signUp, viz login/page.tsx) přežije, i když se potvrzovací odkaz z e-mailu
+  // otevře v jiném prohlížeči nebo zařízení než registrační formulář — na rozdíl od localStorage, který je
+  // jen záloha pro starší případy.
+  const intent = (user?.user_metadata?.onboarding_intent as OnboardingIntent | undefined) ?? (email ? readOnboardingIntent(email) : null);
   if (!intent) return false;
   if (intent.kind === "join" && intent.joinCode) {
     const { error } = await supabase.rpc("join_company_by_code", { p_code: intent.joinCode, p_name: intent.name });
@@ -77,6 +79,6 @@ export async function completeOnboarding(supabase: SupabaseClient): Promise<bool
   } else {
     return false;
   }
-  clearOnboardingIntent(email);
+  if (email) clearOnboardingIntent(email);
   return true;
 }
