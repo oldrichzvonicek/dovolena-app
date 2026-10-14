@@ -92,6 +92,13 @@ describe("renderHtml", () => {
     expect(renderHtml("P", "Text", "billing")).toContain("sekce=billing");
     expect(renderHtml("P", "Text", "neznama")).toContain("/dashboard");
   });
+
+  it("patička fakturačního e-mailu nenabízí vypnutí, protože se vypnout nedá", async () => {
+    const { renderHtml } = await import("./email");
+    expect(renderHtml("Faktura", "Text", "billing")).toContain("nelze ho vypnout");
+    expect(renderHtml("Faktura", "Text", "billing")).not.toContain("zvonečku");
+    expect(renderHtml("P", "Text", "weekly_digest")).toContain("zvonečku");
+  });
 });
 
 describe("renderHtml – připomínka registrace", () => {

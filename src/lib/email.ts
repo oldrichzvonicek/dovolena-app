@@ -1,7 +1,7 @@
 // Server-only e-mail sending (Resend HTTP API). Without RESEND_API_KEY nothing is sent and callers get { skipped: true }.
 
 import { createHash } from "node:crypto";
-import { emailLayout, FOOTER_NOTIFICATION } from "@/lib/email-templates";
+import { emailLayout, FOOTER_NOTIFICATION, FOOTER_TRANSACTIONAL } from "@/lib/email-templates";
 
 export interface SendResult {
   ok: boolean;
@@ -104,7 +104,8 @@ export function renderHtml(subject: string, body: string, category?: string | nu
     title: subject,
     paragraphs: body.split(/\n{2,}/),
     cta: { label: cta.label, url: `${appUrl()}${cta.path}` },
-    footer: FOOTER_NOTIFICATION,
+    // Provozní (fakturační) e-maily se vypnout nedají, proto nesmí lákat k vypnutí v notifikacích.
+    footer: category === "billing" ? FOOTER_TRANSACTIONAL : FOOTER_NOTIFICATION,
     baseUrl: appUrl(),
   });
 }
