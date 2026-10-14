@@ -24,7 +24,7 @@ const typeMeta: Record<NotificationType, { icon: typeof Bell; className: string;
   cancellation_requested: { icon: Undo2, className: "bg-warning-light text-warning-dark", href: "/approvals" },
   cancellation_resolved: { icon: Undo2, className: "bg-teal-light text-teal-dark", href: "/requests" },
   help_question: { icon: MessageCircleQuestion, className: "bg-violet-light text-violet-dark", href: "/help" },
-  join_pending: { icon: UserPlus, className: "bg-warning-light text-warning-dark", href: "/team" },
+  join_pending: { icon: UserPlus, className: "bg-warning-light text-warning-dark", href: "/admin/settings?sekce=users" },
   account_approved: { icon: Check, className: "bg-teal-light text-teal-dark", href: "/dashboard" },
   welcome: { icon: Rocket, className: "bg-teal-light text-teal-dark", href: "/dashboard" },
   leave_booked: { icon: PalmtreeIcon, className: "bg-teal-light text-teal-dark", href: "/requests" },

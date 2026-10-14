@@ -43,7 +43,7 @@ export function OnboardingChecklist() {
   useEffect(() => {
     if (!profile || profile.role !== "admin") return;
     try {
-      setHidden(localStorage.getItem(hiddenKey(profile.company_id)) === "1");
+      setHidden(!!localStorage.getItem(hiddenKey(profile.company_id)));
     } catch {
       setHidden(false);
     }
@@ -156,7 +156,10 @@ export function OnboardingChecklist() {
     const required = steps.filter((s) => !s.optional);
     if (required.length > 0 && required.every((s) => s.done)) {
       try {
-        localStorage.setItem(hiddenKey(profile.company_id), "1");
+        // Jiná hodnota než ruční skrytí ("1") — zvoneček (NotificationBell) podle ní pozná, že není co
+        // dokončovat, a přestane nabízet "Pokračovat v nastavení Dodia" (na rozdíl od ručního skrytí
+        // rozdělané karty, kde se ta nabídka pořád hodí).
+        localStorage.setItem(hiddenKey(profile.company_id), "done");
       } catch {
         /* ignore */
       }
