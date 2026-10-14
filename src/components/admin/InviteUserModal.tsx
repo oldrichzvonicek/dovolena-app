@@ -150,7 +150,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
       <DialogContent title="Pozvat uživatele">
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            Pozvánka je vázaná na e-mail — použít ji může jen ten, kdo se zaregistruje se stejnou adresou. Role, oddělení a nadřízený se nastaví všem pozvaným.
+            Pozvánka je vázaná na e-mail — použít ji může jen ten, kdo se zaregistruje se stejnou adresou. Role, oddělení a nadřízený se nastaví všem pozvaným stejně — u jednotlivých lidí to kdykoli změníte později v Zaměstnancích.
           </p>
 
           <div>

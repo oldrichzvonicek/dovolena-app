@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, CalendarClock, Check, MessageCircleQuestion, PalmtreeIcon, Rocket, Undo2, X } from "lucide-react";
+import { Bell, CalendarClock, Check, MessageCircleQuestion, PalmtreeIcon, Rocket, Undo2, UserPlus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   NotificationRow,
@@ -24,6 +24,12 @@ const typeMeta: Record<NotificationType, { icon: typeof Bell; className: string;
   cancellation_requested: { icon: Undo2, className: "bg-warning-light text-warning-dark", href: "/approvals" },
   cancellation_resolved: { icon: Undo2, className: "bg-teal-light text-teal-dark", href: "/requests" },
   help_question: { icon: MessageCircleQuestion, className: "bg-violet-light text-violet-dark", href: "/help" },
+  join_pending: { icon: UserPlus, className: "bg-warning-light text-warning-dark", href: "/team" },
+  account_approved: { icon: Check, className: "bg-teal-light text-teal-dark", href: "/dashboard" },
+  welcome: { icon: Rocket, className: "bg-teal-light text-teal-dark", href: "/dashboard" },
+  leave_booked: { icon: PalmtreeIcon, className: "bg-teal-light text-teal-dark", href: "/requests" },
+  request_withdrawn: { icon: Undo2, className: "bg-teal-light text-teal-dark", href: "/approvals" },
+  leave_starting: { icon: PalmtreeIcon, className: "bg-teal-light text-teal-dark", href: "/dashboard" },
 };
 
 const onboardingHiddenKey = (companyId: string) => `dodio:onboarding-hidden:${companyId}`;

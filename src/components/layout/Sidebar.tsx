@@ -108,7 +108,7 @@ function LockedNavPopover({ label, feature }: { label: string; feature?: Feature
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between rounded py-2 pl-3 pr-3 text-sm text-ink transition-colors hover:bg-paper"
+        className="flex w-full items-center justify-between rounded py-2 pl-3 pr-3 text-sm text-muted transition-colors hover:bg-paper"
       >
         <span className="flex items-center gap-2.5">
           <Lock size={14} strokeWidth={2} className="text-muted" />

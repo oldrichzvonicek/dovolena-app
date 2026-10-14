@@ -10,7 +10,13 @@ export type NotificationType =
   | "carryover_expiring"
   | "help_question"
   | "cancellation_requested"
-  | "cancellation_resolved";
+  | "cancellation_resolved"
+  | "join_pending"
+  | "account_approved"
+  | "welcome"
+  | "leave_booked"
+  | "request_withdrawn"
+  | "leave_starting";
 
 export interface NotificationRow {
   id: string;
