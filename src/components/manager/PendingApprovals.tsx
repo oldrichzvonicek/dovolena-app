@@ -44,6 +44,21 @@ interface PendingRow {
   };
 }
 
+/** Groups rows by employee, keeping each person's first appearance position (rows arrive already sorted/filtered). */
+function groupByEmployee(rows: PendingRow[]): PendingRow[][] {
+  const order: string[] = [];
+  const byProfile = new Map<string, PendingRow[]>();
+  for (const r of rows) {
+    const list = byProfile.get(r.profile.id);
+    if (list) list.push(r);
+    else {
+      byProfile.set(r.profile.id, [r]);
+      order.push(r.profile.id);
+    }
+  }
+  return order.map((id) => byProfile.get(id)!);
+}
+
 export function PendingApprovals() {
   const { profile } = useAuth();
   // fetchDecisionScope dává HR "all: true" pro SPRÁVU lidí (viz tam) — na schvalování to ale neplatí (HR
@@ -362,102 +377,117 @@ export function PendingApprovals() {
         {visible.length === 0 && <div className="p-8 text-center text-sm text-muted">V tomto filtru nic není.</div>}
 
         <div className="divide-y divide-line">
-          {visible.map((r) => (
-            <div key={r.id} id={`zadost-${r.id}`} className={cn("scroll-mt-24 p-4 transition-colors sm:p-5", focusId === r.id && "bg-teal-light/40 ring-2 ring-inset ring-teal")}>
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(r.id)}
-                    onChange={() => toggleSelected(r.id)}
-                    className="h-4 w-4 shrink-0 rounded border-line accent-teal"
-                    aria-label={`Vybrat žádost od ${r.profile.name}`}
-                  />
-                  <Avatar url={r.profile.avatar_url} initials={r.profile.avatar_initials} name={r.profile.name} className="h-9 w-9 shrink-0 bg-paper text-xs font-medium" />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium">{r.profile.name}</span>
-                      {r.profile.department?.name && <span className="text-xs text-muted">· {r.profile.department.name}</span>}
-                      {isMyTeam(r.profile) && <span className="rounded-sm bg-teal-light px-1.5 py-0.5 text-[11px] font-medium text-teal-dark">Váš tým</span>}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                      <LeaveBadge type={r.leave_type} />
-                      <span>{formatRange(r.start_date, r.end_date)}</span>
-                      <span>
-                        · {formatNumber(Number(r.working_days))} {dayWord(Number(r.working_days))}
-                      </span>
-                    </div>
-                    {fairness[r.id] && <div className="mt-1 text-xs text-muted">🎄 {fairness[r.id]}</div>}
-                    {r.leave_type.counts_against !== "none" && remaining[r.id] !== undefined && (() => {
-                      const after = Number(remaining[r.id]);
-                      const before = after + Number(r.working_days);
-                      const tone = after < 0 ? "bg-danger-light text-danger-dark" : after < 3 ? "bg-warning-light text-warning-dark" : "bg-paper text-ink";
-                      return (
-                        <div className="mt-1.5">
-                          <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", tone)} title="Zůstatek dovolené před a po schválení této žádosti">
-                            {after < 3 && <AlertTriangle size={12} />}
-                            Zůstatek: {formatNumber(before)} → po schválení {formatNumber(after)} {dayWord(after)}
-                            {after < 0 ? " (minus)" : after < 3 ? " (málo)" : ""}
-                          </span>
+          {groupByEmployee(visible).map((group) => {
+            const p = group[0].profile;
+            return (
+              <div key={p.id} className="p-4 sm:p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Avatar url={p.avatar_url} initials={p.avatar_initials} name={p.name} className="h-9 w-9 shrink-0 bg-paper text-xs font-medium" />
+                  <span className="text-sm font-medium">{p.name}</span>
+                  {p.department?.name && <span className="text-xs text-muted">· {p.department.name}</span>}
+                  {isMyTeam(p) && <span className="rounded-sm bg-teal-light px-1.5 py-0.5 text-[11px] font-medium text-teal-dark">Váš tým</span>}
+                  {group.length > 1 && <span className="text-xs text-muted">· {group.length} žádosti čekají</span>}
+                </div>
+
+                <div className={cn("mt-3 sm:pl-12", group.length > 1 && "divide-y divide-line")}>
+                  {group.map((r) => (
+                    <div
+                      key={r.id}
+                      id={`zadost-${r.id}`}
+                      className={cn("scroll-mt-24 rounded transition-colors", group.length > 1 ? "py-3 first:pt-0 last:pb-0" : "", focusId === r.id && "bg-teal-light/40 ring-2 ring-inset ring-teal p-2 -m-2")}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(r.id)}
+                            onChange={() => toggleSelected(r.id)}
+                            className="h-4 w-4 shrink-0 rounded border-line accent-teal"
+                            aria-label={`Vybrat žádost od ${p.name}`}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                              <LeaveBadge type={r.leave_type} />
+                              <span>{formatRange(r.start_date, r.end_date)}</span>
+                              <span>
+                                · {formatNumber(Number(r.working_days))} {dayWord(Number(r.working_days))}
+                              </span>
+                            </div>
+                            {fairness[r.id] && <div className="mt-1 text-xs text-muted">🎄 {fairness[r.id]}</div>}
+                            {r.leave_type.counts_against !== "none" && remaining[r.id] !== undefined && (() => {
+                              const after = Number(remaining[r.id]);
+                              const before = after + Number(r.working_days);
+                              const tone = after < 0 ? "bg-danger-light text-danger-dark" : after < 3 ? "bg-warning-light text-warning-dark" : "bg-paper text-ink";
+                              return (
+                                <div className="mt-1.5">
+                                  <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium", tone)} title="Zůstatek dovolené před a po schválení této žádosti">
+                                    {after < 3 && <AlertTriangle size={12} />}
+                                    Zůstatek: {formatNumber(before)} → po schválení {formatNumber(after)} {dayWord(after)}
+                                    {after < 0 ? " (minus)" : after < 3 ? " (málo)" : ""}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                            <div className="mt-1.5 space-y-0.5 text-xs">
+                              <div className="text-muted">
+                                🔄 Zástup: {r.covering_profile_id ? <span className="font-medium text-ink">{coverNames[r.covering_profile_id] ?? "…"}</span> : "neurčen"}
+                              </div>
+                              {r.note && (
+                                <div className="text-ink">
+                                  <span className="text-muted">💬 Poznámka:</span> {r.note}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      );
-                    })()}
-                    <div className="mt-1.5 space-y-0.5 text-xs">
-                      <div className="text-muted">
-                        🔄 Zástup: {r.covering_profile_id ? <span className="font-medium text-ink">{coverNames[r.covering_profile_id] ?? "…"}</span> : "neurčen"}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => setCalendarOpenId(calendarOpenId === r.id ? null : r.id)}
+                            aria-expanded={calendarOpenId === r.id}
+                            className="flex items-center gap-1.5 rounded px-2 py-1.5 text-sm text-teal-dark hover:bg-teal-light"
+                          >
+                            <Calendar size={14} /> {calendarOpenId === r.id ? "Skrýt kalendář" : "Zobrazit v kalendáři"}
+                          </button>
+                          <RejectDialog onConfirm={(reason) => reject(r.id, reason)} />
+                          <Button variant="primary" onClick={() => approve(r.id)}>
+                            <Check size={16} /> Schválit
+                          </Button>
+                        </div>
                       </div>
-                      {r.note && (
-                        <div className="text-ink">
-                          <span className="text-muted">💬 Poznámka:</span> {r.note}
+
+                      {hasWarning(r) && (
+                        <div className="mt-2.5 flex flex-wrap gap-2 sm:pl-7">
+                          {capacityWarnings[r.id] && (
+                            <span className={cn(pill, "bg-danger-light text-danger-dark")} title="Počet zahrnuje i samotného žadatele, ne jen kolegy, co už mají schváleno.">
+                              <AlertTriangle size={13} /> Vysoké riziko: výpadek {capacityWarnings[r.id].percent} % oddělení ({capacityWarnings[r.id].count} z {capacityWarnings[r.id].size}
+                              {capacityWarnings[r.id].count === 1 ? ", jen žadatel" : ""})
+                            </span>
+                          )}
+                          {conflicts[r.id] && (
+                            <span className={cn(pill, "bg-warning-light text-warning-dark")}>
+                              <AlertTriangle size={13} /> Souběh s {conflicts[r.id]}
+                            </span>
+                          )}
+                          {remaining[r.id] !== undefined && remaining[r.id] < 0 && (
+                            <span className={cn(pill, "bg-danger-light text-danger-dark")}>
+                              <AlertTriangle size={13} /> Po schválení zůstatek {formatNumber(Number(remaining[r.id]))} dní (minus)
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {calendarOpenId === r.id && (
+                        <div className="mt-3 sm:pl-7">
+                          <OverlapPreview request={r} />
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setCalendarOpenId(calendarOpenId === r.id ? null : r.id)}
-                    aria-expanded={calendarOpenId === r.id}
-                    className="flex items-center gap-1.5 rounded px-2 py-1.5 text-sm text-teal-dark hover:bg-teal-light"
-                  >
-                    <Calendar size={14} /> {calendarOpenId === r.id ? "Skrýt kalendář" : "Zobrazit v kalendáři"}
-                  </button>
-                  <RejectDialog onConfirm={(reason) => reject(r.id, reason)} />
-                  <Button variant="primary" onClick={() => approve(r.id)}>
-                    <Check size={16} /> Schválit
-                  </Button>
+                  ))}
                 </div>
               </div>
-
-              {hasWarning(r) && (
-                <div className="mt-2.5 flex flex-wrap gap-2 sm:pl-[3.25rem]">
-                  {capacityWarnings[r.id] && (
-                    <span className={cn(pill, "bg-danger-light text-danger-dark")} title="Počet zahrnuje i samotného žadatele, ne jen kolegy, co už mají schváleno.">
-                      <AlertTriangle size={13} /> Vysoké riziko: výpadek {capacityWarnings[r.id].percent} % oddělení ({capacityWarnings[r.id].count} z {capacityWarnings[r.id].size}
-                      {capacityWarnings[r.id].count === 1 ? ", jen žadatel" : ""})
-                    </span>
-                  )}
-                  {conflicts[r.id] && (
-                    <span className={cn(pill, "bg-warning-light text-warning-dark")}>
-                      <AlertTriangle size={13} /> Souběh s {conflicts[r.id]}
-                    </span>
-                  )}
-                  {remaining[r.id] !== undefined && remaining[r.id] < 0 && (
-                    <span className={cn(pill, "bg-danger-light text-danger-dark")}>
-                      <AlertTriangle size={13} /> Po schválení zůstatek {formatNumber(Number(remaining[r.id]))} dní (minus)
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {calendarOpenId === r.id && (
-                <div className="mt-3 sm:pl-[3.25rem]">
-                  <OverlapPreview request={r} />
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
