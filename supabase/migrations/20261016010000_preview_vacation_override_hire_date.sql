@@ -1,6 +1,10 @@
 -- preview_prorated_vacation vždy četla uložené datum nástupu z profile_hr, i když admin v Upravit uživatele
 -- mezitím napsal nové datum do pole a ještě ho neuložil — tlačítko Přepočítat tak počítalo se starým (nebo
 -- žádným) datem. Nový volitelný parametr dovolí přepočet rovnou podle rozepsané hodnoty ve formuláři.
+-- create or replace s jinou signaturou starou 2parametrovou funkci nenahradí, jen přetíží — nutno dropnout,
+-- jinak PostgREST hlásí "Could not choose the best candidate function" (default třetí parametr je ambiguous).
+drop function if exists preview_prorated_vacation(uuid, int);
+
 create or replace function preview_prorated_vacation(target_profile_id uuid, target_year int, override_hire_date date default null)
 returns numeric
 language sql
