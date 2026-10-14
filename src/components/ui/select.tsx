@@ -12,7 +12,7 @@ export function SelectTrigger({ className, children, "aria-label": ariaLabel }: 
     <SelectPrimitive.Trigger
       aria-label={ariaLabel}
       className={cn(
-        "flex w-full items-center justify-between rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal",
+        "flex w-full items-center justify-between rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal data-[disabled]:cursor-not-allowed data-[disabled]:bg-paper data-[disabled]:text-muted data-[disabled]:opacity-70",
         className
       )}
     >

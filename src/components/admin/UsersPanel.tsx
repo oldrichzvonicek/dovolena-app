@@ -13,6 +13,7 @@ import { ImportEmployeesPanel } from "@/components/admin/ImportEmployeesPanel";
 import { ImportBalancesPanel } from "@/components/admin/ImportBalancesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { InfoTip } from "@/components/ui/info-tip";
 import { JoinLinkCard } from "@/components/admin/JoinLinkCard";
 import { DemoDataCard } from "@/components/admin/DemoDataCard";
 import { copyJoinLink } from "@/lib/join-link";
@@ -571,7 +572,15 @@ export function UsersPanel() {
                 <th className="px-3 py-3 font-medium">E-mail</th>
                 <th className="px-3 py-3 font-medium">Role</th>
                 <th className="px-3 py-3 font-medium">Oddělení</th>
-                <th className="px-3 py-3 font-medium">Schvaluje</th>
+                <th className="px-3 py-3 font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    Schvaluje
+                    <InfoTip
+                      label="Co znamená Schvaluje"
+                      text="Kdo rozhodne o žádosti o absenci tohoto člověka — nadřízený, nebo vedoucí oddělení. „⚠ Admin (záložní)“ neznamená, že je admin — jen že člověk nemá nastaveného ani jednoho, takže jeho žádosti dočasně řeší admin. Přiřaďte mu nadřízeného nebo oddělení s vedoucím a zmizí to."
+                    />
+                  </span>
+                </th>
                 <th className="px-3 py-3 font-medium">Stav</th>
                 <th className="w-10 px-3 py-3" />
               </tr>

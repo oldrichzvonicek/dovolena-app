@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useFeatures } from "@/lib/use-features";
@@ -240,15 +240,18 @@ export function Sidebar() {
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
-  useEffect(() => {
-    if (!profile) return;
+  const companyId = profile?.company_id;
+  const loadLogo = useCallback(() => {
+    if (!companyId) return;
     createClient()
       .from("companies")
       .select("logo_url")
-      .eq("id", profile.company_id)
+      .eq("id", companyId)
       .single()
       .then(({ data }) => setLogoUrl(data?.logo_url ?? null));
-  }, [profile]);
+  }, [companyId]);
+  useEffect(loadLogo, [loadLogo]);
+  useOnDataChanged(loadLogo);
 
   if (!profile) return null;
 

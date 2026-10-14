@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { deleteCompanyLogo, fetchCompany, uploadCompanyLogo } from "@/lib/admin-data";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/utils";
+import { emitDataChanged } from "@/lib/events";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_SIZE = 1_000_000;
@@ -58,6 +59,7 @@ export function LogoCard() {
     try {
       setLogoUrl(await uploadCompanyLogo(profile.company_id, pendingFile));
       cancelPending();
+      emitDataChanged();
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -72,6 +74,7 @@ export function LogoCard() {
     try {
       await deleteCompanyLogo(profile.company_id);
       setLogoUrl(null);
+      emitDataChanged();
     } catch (e) {
       setError(errorMessage(e));
     } finally {

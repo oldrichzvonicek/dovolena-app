@@ -17,6 +17,7 @@ import {
   updateEmployeeHireDate,
   updateEmployeeHrData,
   updateEmployeeManager,
+  updateEmployeeName,
   updateEmployeeRoleAndExternal,
   updateEmployeeStaffRole,
   updateEmployeeSubstitute,
@@ -52,6 +53,7 @@ export function EditEmployeeModal({
 }) {
   const { profile: me } = useAuth();
   const isAdmin = me?.role === "admin";
+  const [name, setName] = useState(employee.name);
   const [role, setRole] = useState<Role>(employee.role);
   const features = useFeatures();
   const [staffRole, setStaffRole] = useState<string>(employee.staff_role ?? "none");
@@ -88,10 +90,15 @@ export function EditEmployeeModal({
   }
 
   async function handleSave() {
+    if (!name.trim()) {
+      setError("Jméno nesmí být prázdné.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       await Promise.all([
+        name.trim() !== employee.name ? updateEmployeeName(employee.id, name) : null,
         role !== employee.role || isExternal !== (employee.is_external ?? false) ? updateEmployeeRoleAndExternal(employee.id, role, isExternal) : null,
         staffRole !== (employee.staff_role ?? "none") ? updateEmployeeStaffRole(employee.id, staffRole === "none" ? null : (staffRole as "hr" | "accountant")) : null,
         !isExternal && departmentId !== (employee.department_id ?? "none")
@@ -138,6 +145,15 @@ export function EditEmployeeModal({
         }
       >
         <div className="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className="mb-1.5 block text-sm font-medium">Jméno</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              aria-label="Jméno"
+              className="w-full rounded border border-line px-3 py-2 text-sm"
+            />
+          </div>
           {employee.email && <p className="text-sm text-muted md:col-span-2">{employee.email}</p>}
 
           <div className="contents">

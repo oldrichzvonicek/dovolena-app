@@ -64,6 +64,22 @@ export function ProductTour() {
     };
   }, []);
 
+  // Prohlídka se dřív dala spustit jen ručně z Nápovědy — nový člověk (hlavně řadový zaměstnanec, co
+  // nemá na rozdíl od admina žádný "Začínáme" checklist) se tak o appce nic nedozvěděl, pokud si tlačítko
+  // sám nenašel. Při úplně prvním přihlášení se teď spustí sama.
+  useEffect(() => {
+    if (!profile) return;
+    const key = `dodio:tour-seen:${profile.id}`;
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+    } catch {
+      return;
+    }
+    setIndex(0);
+    setActive(true);
+  }, [profile]);
+
   useLayoutEffect(() => {
     if (!active || !step) return;
     function measure() {

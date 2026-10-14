@@ -219,6 +219,14 @@ export async function updateEmployeeStaffRole(id: string, staffRole: "hr" | "acc
   if (error) throw error;
 }
 
+/** Jméno a z něj odvozené iniciály na avataru (stejný výpočet jako při založení účtu, viz onboard_new_company). */
+export async function updateEmployeeName(id: string, name: string) {
+  const [first, second] = name.trim().split(/\s+/);
+  const avatarInitials = ((first?.[0] ?? "") + (second?.[0] ?? "")).toUpperCase() || null;
+  const { error } = await supabase.from("profiles").update({ name: name.trim(), avatar_initials: avatarInitials }).eq("id", id);
+  if (error) throw error;
+}
+
 /** Role a Externí se mění vždy spolu v JEDNOM update — DB vynucuje "externí jen jako Zaměstnanec" (viz
  *  guard_profile_update), a dva oddělené requesty by mohly dorazit v pořadí, co tu podmínku na chvíli
  *  poruší (např. ...role=manažer, is_external ještě true...) a request by spadl, i když výsledný stav je v pořádku.
