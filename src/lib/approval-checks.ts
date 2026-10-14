@@ -74,6 +74,26 @@ export async function computeApprovalWarnings(companyId: string, rows: ApprovalC
 }
 
 /**
+ * True when any OTHER active manager or admin exists anywhere in the company — mirrors the DB's own
+ * carve-out in guard_leave_request_insert (schema.sql) for "an admin with nobody positioned to approve
+ * them gets auto-approved". Used (only) to decide auto-approval eligibility for an admin's own request,
+ * so the client's guess always agrees with what the DB will actually allow — a narrower check here (e.g.
+ * hasApproverAbove below) would make the client think it auto-approves while the DB insert trigger raises
+ * "Žádost musí projít schválením.", since the DB's carve-out doesn't care whether that other manager/admin
+ * is specifically positioned over this person, only whether one exists at all.
+ */
+export async function hasOtherApproverInCompany(companyId: string, selfId: string): Promise<boolean> {
+  const { count } = await createClient()
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .in("role", ["manager", "admin"])
+    .eq("active", true)
+    .neq("id", selfId);
+  return !!count && count > 0;
+}
+
+/**
  * True when someone is specifically positioned to decide this person's own requests: their manager, or
  * another head/deputy of their own department. Having other managers/admins elsewhere in the company
  * doesn't count — fetchDecisionScope wouldn't let them decide for this person anyway.
@@ -97,7 +117,7 @@ export async function hasApproverAbove(selfId: string): Promise<boolean> {
  */
 export async function autoApproveOwnPending(profile: { id: string; company_id: string; role: string }): Promise<boolean> {
   if (profile.role !== "admin") return false;
-  if (await hasApproverAbove(profile.id)) return false;
+  if (await hasOtherApproverInCompany(profile.company_id, profile.id)) return false;
   const { data } = await createClient().from("leave_requests").select("id").eq("profile_id", profile.id).eq("status", "pending");
   for (const r of data ?? []) await approveLeaveRequest(r.id as string, profile.id);
   return (data ?? []).length > 0;

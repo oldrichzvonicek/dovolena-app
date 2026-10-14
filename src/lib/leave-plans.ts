@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { DbProfile } from "@/lib/supabase/types";
 import { createLeaveRequest } from "@/lib/data";
-import { hasApproverAbove } from "@/lib/approval-checks";
+import { hasOtherApproverInCompany } from "@/lib/approval-checks";
 import { flushIntegrations } from "@/lib/integrations-client";
 
 /**
@@ -61,7 +61,7 @@ export async function deleteLeavePlan(id: string) {
  * trigger (upozornění schvalovateli); díky novému řádku ho spustí přesně tak, jako by šlo o čerstvě podanou žádost.
  */
 export async function submitLeavePlan(plan: LeavePlan, profile: DbProfile): Promise<"approved" | "pending"> {
-  const topApprover = profile.role === "admin" && !(await hasApproverAbove(profile.id));
+  const topApprover = profile.role === "admin" && !(await hasOtherApproverInCompany(profile.company_id, profile.id));
   const autoApproved =
     topApprover || plan.leave_type.requires_approval === false || (plan.leave_type.auto_approve_max_days != null && plan.working_days <= Number(plan.leave_type.auto_approve_max_days));
 
