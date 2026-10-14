@@ -280,8 +280,11 @@ export function TeamCalendar() {
   const ownRow = filtered.find((e) => e.id === profile?.id);
   const others = filtered.filter((e) => e.id !== profile?.id).sort((a, b) => a.name.localeCompare(b.name, "cs"));
 
+  // Skupina (a její počet/kapacita níž) se počítá z "filtered" (včetně vlastního řádku) — jinak by se vlastní
+  // oddělení tvářilo o jednoho člověka menší a případná vlastní nepřítomnost by se do kapacity nepropsala.
+  // Při vykreslování řádků se pak vlastní profil přeskočí, aby se nezdvojil s pevně připnutým řádkem nahoře.
   const groups = groupByDept
-    ? [...departments.map((d) => ({ id: d.id, name: d.name, color: d.color, members: others.filter((e) => e.department_id === d.id) })), { id: "none", name: "Bez oddělení", color: "slate" as LeaveColor, members: others.filter((e) => !e.department_id || !departments.some((d) => d.id === e.department_id)) }].filter((g) => g.members.length > 0)
+    ? [...departments.map((d) => ({ id: d.id, name: d.name, color: d.color, members: filtered.filter((e) => e.department_id === d.id) })), { id: "none", name: "Bez oddělení", color: "slate" as LeaveColor, members: filtered.filter((e) => !e.department_id || !departments.some((d) => d.id === e.department_id)) }].filter((g) => g.members.length > 0)
     : [];
 
   function toggleGroup(id: string) {
@@ -627,7 +630,7 @@ export function TeamCalendar() {
                         })}
                       </div>
                     </div>
-                    {!isCollapsed && g.members.map((e, i) => renderRow(e, i))}
+                    {!isCollapsed && g.members.filter((e) => e.id !== profile?.id).map((e, i) => renderRow(e, i))}
                   </Fragment>
                 );
               })
