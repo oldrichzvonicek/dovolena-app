@@ -222,7 +222,7 @@ export function InviteUserModal({ onInvited, onCopyLink }: { onInvited?: () => v
             <label className="flex cursor-pointer items-center justify-between gap-2 rounded border border-line px-3 py-2 text-sm">
               <span>
                 Externí
-                <span className="block text-xs font-normal text-muted">Dodavatel, ne zaměstnanec firmy — bez oddělení, nadřízeného a nároku na dovolenou v této firmě. Vždy jen Zaměstnanec.</span>
+                <span className="block text-xs font-normal text-muted">Dodavatel, ne zaměstnanec firmy — bez oddělení, nadřízeného a nároku na dovolenou v této firmě. Role je vždy Zaměstnanec, nemůže řídit vaše lidi.</span>
               </span>
               <Switch
                 checked={isExternal}
