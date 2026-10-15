@@ -197,7 +197,8 @@ export function NotificationBell() {
             {loading && <div className="p-4 text-sm text-muted">Načítám…</div>}
             {!loading && items.length === 0 && <div className="p-4 text-sm text-muted">Zatím žádné notifikace.</div>}
             {items.map((n) => {
-              const meta = typeMeta[n.type];
+              // New DB notification types must not crash the whole page before the UI knows them.
+              const meta = typeMeta[n.type] ?? { icon: Bell, className: "bg-paper text-muted", href: "/dashboard" };
               const Icon = meta.icon;
               return (
                 <Link
