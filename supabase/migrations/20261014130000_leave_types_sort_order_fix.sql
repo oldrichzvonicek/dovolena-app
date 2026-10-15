@@ -26,6 +26,10 @@ as $$
    where company_id = target_company_id and key = 'neplacene_volno' and paid = true;
 $$;
 
+-- create or replace nezachová dřívější "set search_path" (migrace 20261012000000_pin_function_search_path.sql)
+-- — bez tohohle řádku by se pin ztratil a funkce by zůstala zranitelná vůči search_path hijackingu.
+alter function public.seed_default_leave_types(target_company_id uuid) set search_path = public, pg_temp;
+
 -- Přepočítá jen firmy, které typy nikdy ručně nepřerovnaly (všechny na 0) — admin-zvolené pořadí u ostatních
 -- zůstává nedotčené. Bezpečné spustit opakovaně.
 with canonical(key, rnk) as (

@@ -276,14 +276,15 @@ export function TeamCalendar() {
     .filter((e) => e.name.toLowerCase().includes(search.trim().toLowerCase()))
     .filter((e) => leaveTypeFilter === "all" || requests.some((r) => r.profile_id === e.id && r.leave_type.key === leaveTypeFilter));
 
+  const byName = (a: DbProfile, b: DbProfile) => a.name.localeCompare(b.name, "cs");
+
   // The viewer's own row is pinned to the top, separated from the team below.
   const ownRow = filtered.find((e) => e.id === profile?.id);
-  const others = filtered.filter((e) => e.id !== profile?.id).sort((a, b) => a.name.localeCompare(b.name, "cs"));
+  const others = filtered.filter((e) => e.id !== profile?.id).sort(byName);
 
   // Skupina (a její počet/kapacita níž) se počítá z "filtered" (včetně vlastního řádku) — jinak by se vlastní
   // oddělení tvářilo o jednoho člověka menší a případná vlastní nepřítomnost by se do kapacity nepropsala.
   // Při vykreslování řádků se pak vlastní profil přeskočí, aby se nezdvojil s pevně připnutým řádkem nahoře.
-  const byName = (a: DbProfile, b: DbProfile) => a.name.localeCompare(b.name, "cs");
   const groups = groupByDept
     ? [...departments.map((d) => ({ id: d.id, name: d.name, color: d.color, members: filtered.filter((e) => e.department_id === d.id).sort(byName) })), { id: "none", name: "Bez oddělení", color: "slate" as LeaveColor, members: filtered.filter((e) => !e.department_id || !departments.some((d) => d.id === e.department_id)).sort(byName) }].filter((g) => g.members.length > 0)
     : [];

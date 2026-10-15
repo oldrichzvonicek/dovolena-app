@@ -276,8 +276,10 @@ as $$
 $$;
 
 -- Zkontroluje, že firma po přidání p_extra dalších uživatelů nepřekročí limit svého tarifu (ukázkové účty se nepočítají).
--- Při prvním překročení jen zaznamená čas (over_limit_since) a propustí — 14 dní na nápravu (vyšší tarif
--- nebo deaktivaci lidí), než se žádosti začnou tvrdě blokovat.
+-- Při prvním (jednotlivém) překročení jen zaznamená čas (over_limit_since) a propustí — 14 dní na nápravu
+-- (vyšší tarif nebo deaktivace lidí), než se žádosti začnou tvrdě blokovat. Grace period platí jen pro
+-- p_extra <= 1 (běžný signup/pozvánka/join) — hromadné navýšení (import_employees) limit blokuje vždy
+-- tvrdě, i uprostřed běžící lhůty, jinak by jedno drobné překročení otevřelo dveře neomezenému importu.
 create or replace function assert_user_capacity(p_company uuid, p_extra int default 1)
 returns void
 language plpgsql
@@ -290,21 +292,22 @@ declare
   started timestamptz;
 begin
   select plan_user_limit(c.plan) into lim from companies c where c.id = p_company;
-  if lim is null then
-    update companies set over_limit_since = null where id = p_company and over_limit_since is not null;
-    return;
-  end if;
-  select count(*) into used from profiles where company_id = p_company and active and not is_demo;
-  if used + greatest(coalesce(p_extra, 0), 0) > lim then
-    select over_limit_since into started from companies where id = p_company;
-    if started is null then
-      update companies set over_limit_since = now() where id = p_company;
-    elsif now() - started > interval '14 days' then
-      raise exception 'Firma dosáhla limitu uživatelů svého tarifu (nejvýše % uživatelů, nyní %) a 14denní lhůta na úpravu už uplynula. Správce firmy musí přejít na vyšší tarif (Nastavení firmy → Fakturace & tarify).', lim, used;
+  if lim is not null then
+    select count(*) into used from profiles where company_id = p_company and active and not is_demo;
+    if used + greatest(coalesce(p_extra, 0), 0) > lim then
+      if coalesce(p_extra, 0) > 1 then
+        raise exception 'Firma by přidáním % uživatelů překročila limit tarifu (nejvýše % uživatelů, nyní %). Správce firmy musí přejít na vyšší tarif (Nastavení firmy → Fakturace & tarify).', p_extra, lim, used;
+      end if;
+      select over_limit_since into started from companies where id = p_company;
+      if started is null then
+        update companies set over_limit_since = now() where id = p_company;
+      elsif now() - started > interval '14 days' then
+        raise exception 'Firma dosáhla limitu uživatelů svého tarifu (nejvýše % uživatelů, nyní %) a 14denní lhůta na úpravu už uplynula. Správce firmy musí přejít na vyšší tarif (Nastavení firmy → Fakturace & tarify).', lim, used;
+      end if;
+      return;
     end if;
-  else
-    update companies set over_limit_since = null where id = p_company and over_limit_since is not null;
   end if;
+  update companies set over_limit_since = null where id = p_company and over_limit_since is not null;
 end;
 $$;
 
