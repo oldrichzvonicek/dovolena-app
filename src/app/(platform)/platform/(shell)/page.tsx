@@ -47,7 +47,7 @@ export default async function DashboardPage() {
                 <thead>
                   <tr>
                     <th className={thClass}>Firma</th>
-                    <th className={thClass}>Tarif</th>
+                    <th className={`${thClass} hidden sm:table-cell`}>Tarif</th>
                     <th className={thClass}>Důvod</th>
                     <th className={`${thClass} hidden text-right sm:table-cell`}>MRR</th>
                   </tr>
@@ -58,12 +58,14 @@ export default async function DashboardPage() {
                       <td className={tdClass}>
                         <Link href={`/companies/${c.id}`} className="font-medium text-teal-dark hover:underline">{c.name}</Link>
                         <span className="ml-1.5 text-caption text-muted">#{c.seq_id}</span>
+                        {/* Na mobilu sloupec Tarif odpadá (tabulka se jinak nevejde), tarif je pod názvem. */}
+                        <span className="block text-caption text-muted sm:hidden">{planName(c.plan)}</span>
                       </td>
-                      <td className={tdClass}>{planName(c.plan)}</td>
+                      <td className={`${tdClass} hidden sm:table-cell`}>{planName(c.plan)}</td>
                       <td className={tdClass}>
                         <div className="flex flex-wrap gap-1">
                           {c.attention.map((a) => (
-                            <Pill key={a} className={a === "overdue" || a === "expired" || a === "over_limit" ? "bg-danger-light text-danger-dark" : "bg-warning-light text-warning-dark"}>{ATTENTION_LABELS[a]}</Pill>
+                            <Pill key={a} className={`whitespace-normal ${a === "overdue" || a === "expired" || a === "over_limit" ? "bg-danger-light text-danger-dark" : "bg-warning-light text-warning-dark"}`}>{ATTENTION_LABELS[a]}</Pill>
                           ))}
                         </div>
                       </td>
