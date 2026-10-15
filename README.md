@@ -1,52 +1,34 @@
-# Dovolená APP — scaffold
+# Dodio (dovolena-app)
 
-Working prototype of the leave-management portal described in the spec:
-Dashboard, Team Calendar (Gantt-style), Manager Approvals, and Admin/Exports,
-plus stub pages for My Requests, My Team, and Company Settings.
+Česká aplikace pro evidenci dovolených a absencí ve firmách: žádosti a schvalování (i jedním klikem z e-mailu),
+týmový kalendář, nároky a zůstatky, mzdové podklady a exporty, nastavení firmy, historie změn, tarify s fakturací
+přes Fakturoid, iCal a webhooky (Slack). Provozovatel má vlastní super-admin rozhraní (`/platform`, `admin.dodio.cz`).
 
-## Run it
+Stack: Next.js 15 (App Router), React 19, Tailwind, Supabase (Postgres, Auth, Storage, RLS), Resend pro e-maily,
+Sentry pro sledování chyb, nasazení na Vercel.
+
+## Vývoj
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open http://localhost:3000 — it redirects to `/dashboard`.
+Proměnné prostředí (do `.env.local`) jsou popsané v [DEPLOY.md](DEPLOY.md), minimum jsou ty pro Supabase.
 
-## What's real vs. mocked
+- `npm test`: jednotkové testy (Vitest)
+- `npm run lint`, `npm run build`: totéž, co spouští CI (`.github/workflows/ci.yml`) u každého pushe a PR
 
-- **UI and logic are functional**: the working-day calculator in
-  `src/lib/working-days.ts` actually excludes weekends and computes Czech
-  state holidays (including Easter/Good Friday via the Gregorian algorithm),
-  the collision warning in the request modal checks real overlaps, and the
-  manager approve/reject flow updates state live.
-- **Data is mocked** in `src/lib/mock-data.ts` (5 employees, 3 departments,
-  6 sample leave requests) — there's no database yet. Swapping in Supabase
-  means replacing the mock-data reads with queries against the
-  `leave_requests` / `users` / `departments` tables from the spec's data
-  model, and wiring `RequestLeaveModal`'s `handleSubmit` and
-  `PendingApprovals`' `approve`/`reject` to real mutations.
-- **Auth is stubbed**: `currentUser` in mock-data.ts is hardcoded to a
-  manager so both employee and manager views are reachable. Real auth
-  (Supabase email/Google/Microsoft SSO) isn't wired in.
-- **Teams/Slack integration, iCal sync, and daily digest** are not built —
-  those live outside this web portal (Slack Bolt app, Teams Adaptive Cards).
+## Kde co je
 
-## Design decisions worth knowing about
+- `src/app/(app)`: aplikace pro firmy, `src/app/(platform)`: super-admin, `src/app/api`: API a cron úlohy
+- `src/lib`: doménová logika (pracovní dny a svátky, zůstatky, e-mailové šablony, fakturace) s testy vedle souborů
+- `supabase/schema.sql`: zdroj pravdy pro databázi, `supabase/migrations/`: změny pro `supabase db push`
+- `docs/`: bezpečnost dat, e-mailové šablony, Fakturoid, podmínky tarifů
 
-- Deliberately avoided the generic "SaaS card" look (uniform rounded
-  corners + drop shadow on everything) — cards use a single hairline
-  border and no shadow instead.
-- Type pairing: Fraunces (display) + IBM Plex Sans (body/UI) — chosen partly
-  for Plex Sans's clean Czech diacritic rendering.
-- Absence-type colors are semantic, not decorative: teal/rust/moss/violet/
-  amber map 1:1 to vacation/sick/home-office/medical/pending across the
-  calendar, badges, and legend.
+## Nasazení
 
-## Known gaps to resolve before this is production-ready
+Postup, proměnné prostředí a kontrola před spuštěním jsou v [DEPLOY.md](DEPLOY.md).
 
-- No carry-over / expiry rules for unused vacation days.
-- No audit trail entity (who approved/rejected what, when).
-- "Zastupování" (covering colleague) is stored as a flat field on the
-  request — fine for display, but if you'll ever query "who is covering for
-  X" it should be a proper relation.
+Pozor: `xlsx` se instaluje z CDN SheetJS (`cdn.sheetjs.com`), protože na npm je jen stará verze se známými
+zranitelnostmi. Prostředí, které tu doménu blokuje, instalaci nedokončí.
