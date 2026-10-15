@@ -318,6 +318,11 @@ const ALL_FAQS: HelpFaq[] = [
     a: "V Můj účet → Kalendář (iCal) zkopírujte odkaz a přihlaste se k odběru — nové schválené absence se pak promítnou samy.",
   },
   {
+    q: "Co znamená barevné číslo nad kalendářem oddělení?",
+    section: "Týmový kalendář",
+    a: "Při zapnutém „Seskupit podle oddělení“ ukazuje řádek oddělení za každý den, kolik lidí z něj má ten den schválenou absenci (počítá i vás, pokud do oddělení patříte). Bez barvy = nikdo nechybí, šedé = chybí někdo, ale v pořádku, oranžové = chybí aspoň čtvrtina oddělení, růžové/červené = chybí aspoň polovina. Najetím myší uvidíte přesný poměr („chybí X z Y“).",
+  },
+  {
     q: "Jaké klávesové zkratky má kalendář?",
     a: "Šipky ← → posouvají období, T se vrátí na dnešek a M, 2 a W přepínají mezi měsícem, dvěma týdny a týdnem.",
     section: "Týmový kalendář",
@@ -437,13 +442,13 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Proč je některá funkce zamčená (zámek v menu)?",
     section: "Nastavení firmy (admin)",
-    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, Historie změn a nárok podle odpracovaných let jsou od tarifu Team a eskalace schvalování se zástupy od tarifu Pro. Smart HR je v tarifu Pro v ceně, jinak se dá přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): po jeho naplnění nejde přidat, pozvat ani znovu aktivovat další člověk. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Tarif a fakturace.",
+    a: "Některé funkce jsou až od vyššího tarifu. Zamčená funkce má u sebe zámek a po otevření vysvětlí, co dělá a od jakého tarifu je. Exporty (CSV, Excel, mzdový podklad, vyrovnání) a iCal export kalendáře jsou od tarifu Starter, Historie změn a nárok podle odpracovaných let jsou od tarifu Team a eskalace schvalování se zástupy od tarifu Pro. Smart HR je v tarifu Pro v ceně, jinak se dá přikoupit za 200 Kč měsíčně, role Účetní je od tarifu Starter v ceně, u Free se dá přikoupit za 100 Kč. Tarif má také limit počtu aktivních uživatelů (Free 5, Starter 10, Team 15, Pro bez limitu): jednotlivé překročení o jednoho člověka ještě 14 dní povolíme, ať máte čas situaci vyřešit (snížit počet lidí nebo přejít na vyšší tarif) — po uplynutí lhůty, nebo při hromadném importu rovnou nad limit, přidání dalšího člověka zablokujeme. Data zůstávají, po přechodu na vyšší tarif je znovu uvidíte. Tarify a doplňky najdete v Nastavení firmy → Tarif a fakturace.",
     roles: ["admin"],
   },
   {
     q: "Co se stane, když v průběhu roku změním tarif?",
     section: "Nastavení firmy (admin)",
-    a: "Přechod na VYŠŠÍ tarif platí hned po zaplacení: nevyužitá část už zaplaceného tarifu se započítá jako kredit (poměrně podle dnů) a doplatíte jen rozdíl; datum obnovy se nemění. V Nastavení firmy → Tarif a fakturace uvidíte orientační doplatek a tlačítko „Požádat o přechod“. Přechod na NIŽŠÍ tarif platí až po skončení zaplaceného období, peníze se nevrací. Naplánujete ho tlačítkem „Naplánovat přechod“, do dne účinnosti ho můžete zrušit a tři dny předem vám pošleme e-mail. Po přechodu se zamknou funkce, které nižší tarif nemá (data zůstanou), a když je ve firmě víc aktivních uživatelů, než nižší tarif dovoluje, nepůjde přidat další, dokud počet nesnížíte. Platnost tarifu vidíte u „Váš tarif“ („platí do …“).",
+    a: "Přechod na VYŠŠÍ tarif platí hned po potvrzení: nevyužitá část už zaplaceného tarifu se započítá jako kredit (poměrně podle dnů) a doplatíte jen rozdíl; datum obnovy se nemění. V Nastavení firmy → Tarif a fakturace uvidíte doplatek a tlačítkem „Přejít na tento tarif“ ho rovnou potvrdíte — systém vystaví fakturu a tarif se přepne hned po jejím vystavení, bez čekání na nikoho. Přechod na NIŽŠÍ tarif platí až po skončení zaplaceného období, peníze se nevrací. Naplánujete ho tlačítkem „Naplánovat přechod“, do dne účinnosti ho můžete zrušit a tři dny předem vám pošleme e-mail. Po přechodu se zamknou funkce, které nižší tarif nemá (data zůstanou), a když je ve firmě víc aktivních uživatelů, než nižší tarif dovoluje, nepůjde přidat další, dokud počet nesnížíte. Platnost tarifu vidíte u „Váš tarif“ („platí do …“).",
     roles: ["admin"],
   },
   {
@@ -463,6 +468,12 @@ const ALL_FAQS: HelpFaq[] = [
     q: "Jak nastavím roli HR nebo Účetní?",
     a: "V Nastavení firmy → Lidé u člověka klikněte na Upravit a vyberte „Doplňková role“. HR spravuje lidi (oddělení, nadřízený, datum nástupu, nároky, pozvánky), aktivuje a deaktivuje uživatele, zadá absenci za kohokoli ve firmě (i v „Můj tým“, který HR vidí za celou firmu), vidí všechny absence včetně nemoci, Analytiku, Exporty a Historii změn — role HR je zdarma na jakémkoli tarifu. Účetní jen čte absence a nároky pro mzdy (Exporty, Analytika), od tarifu Starter v ceně. Ani jedna role nespravuje firmu, fakturaci ani role (zaměstnanec/manažer/admin) a neschvaluje žádosti.",
     section: "Nastavení firmy (admin)",
+    roles: ["admin"],
+  },
+  {
+    q: "Co znamená „⚠ Admin (záložní)“ ve sloupci Schvaluje?",
+    section: "Nastavení firmy (admin)",
+    a: "Neznamená, že je ten člověk admin — jen že nemá nastaveného ani nadřízeného, ani vedoucího oddělení, takže jeho žádosti dočasně řeší admin firmy. Přiřaďte mu nadřízeného, nebo ho zařaďte do oddělení s vedoucím (Lidé → Upravit), a „⚠ Admin (záložní)“ zmizí.",
     roles: ["admin"],
   },
   {
@@ -516,7 +527,7 @@ const ALL_FAQS: HelpFaq[] = [
   {
     q: "Jak změním tarif?",
     section: "Nastavení firmy (admin)",
-    a: "V Nastavení firmy → Tarif a fakturace vidíte aktuální tarif, počet uživatelů a srovnání tarifů. Tlačítko „Zvolit tarif“ vás pošle e-mailem na obchod. Při překročení limitu uživatelů vás systém upozorní.",
+    a: "V Nastavení firmy → Tarif a fakturace vidíte aktuální tarif, počet uživatelů a srovnání tarifů. U vyššího tarifu tlačítko rovnou spustí přechod: potvrdíte doplatek a systém vystaví fakturu, tarif se přepne hned po jejím vystavení. U nižšího tarifu tlačítko přechod jen naplánuje — platí až po skončení zaplaceného období. Při překročení limitu uživatelů vás systém upozorní.",
     roles: ["admin"],
   },
   {
@@ -564,6 +575,12 @@ const ALL_FAQS: HelpFaq[] = [
     q: "Kdo mi dá vědět, že žádost čeká příliš dlouho?",
     a: "Schvalovatelé dostávají připomínky a po nastavené době se žádost automaticky předá zástupci vedoucího, případně adminům.",
     section: "Oznámení a e-maily",
+  },
+  {
+    q: "Proč mi přišel e-mail s žádostí o hodnocení?",
+    section: "Oznámení a e-maily",
+    a: "Jednou za dobu používání (po měsíci, nebo po 20 schválených žádostech — podle toho, co nastane dřív) se primárního admina zeptáme, jak pravděpodobně by Dodio doporučil, a nabídneme odkaz na hodnocení (Google, Capterra, Firmy.cz) — stejný všem, bez ohledu na odpověď. Přijde jen jednou, nejde vypnout v nastavení e-mailů.",
+    roles: ["admin"],
   },
   {
     q: "Kdy chodí týdenní přehled absencí?",
