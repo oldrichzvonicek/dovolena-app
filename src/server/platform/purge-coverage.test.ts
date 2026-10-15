@@ -12,7 +12,7 @@ const schema = fs.readFileSync(path.resolve(__dirname, "../../../supabase/schema
 // Smaže je Auth API (auth.users → profiles → kaskáda), ne SQL funkce.
 const DELETED_WITH_MEMBERS = ["profiles"];
 // Zůstávají po smazání firmy: účetní doklady a jejich vazby, audit, úlohy a GDPR evidence bez osobních údajů.
-const KEPT = ["company_invoices", "payments", "dunning_events", "data_subject_requests", "platform_audit_log", "platform_jobs", "platform_impersonation_sessions"];
+const KEPT = ["company_invoices", "payments", "dunning_events", "data_subject_requests", "platform_audit_log", "platform_jobs", "platform_impersonation_sessions", "nps_responses"];
 
 function tablesWithCompanyId(): string[] {
   const found = new Set<string>();

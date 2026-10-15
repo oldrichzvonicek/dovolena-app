@@ -12,6 +12,7 @@ import { ONBOARDING_START, planOnboarding, shouldSend, type OnboardingFacts } fr
 import { signupAction } from "@/lib/signup-reminders";
 import { pendingPhrase, planReengagement } from "@/lib/reengagement";
 import { hasFeature } from "@/lib/plans";
+import { newNpsToken } from "@/lib/nps-token";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
   const { data: companies } = await supabase
     .from("companies")
     .select(
-      "id, status, is_test, last_activity_at, created_at, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, default_vacation_days, plan, addons, pending_plan, pending_plan_from, pending_plan_notified, max_carryover_days, carryover_expiry_md"
+      "id, status, is_test, last_activity_at, created_at, review_request_sent_at, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, default_vacation_days, plan, addons, pending_plan, pending_plan_from, pending_plan_notified, max_carryover_days, carryover_expiry_md"
     );
 
   // Naplánované změny tarifu: provést ty, kterým nastal den účinnosti (databázová funkce; chyba se ignoruje, dokud není nasazená).
@@ -120,6 +121,34 @@ export async function GET(req: Request) {
         .map((a) => a.profile_id)
     );
     const admins = people.filter((p) => p.role === "admin");
+
+    // 4) Žádost o hodnocení (NPS) po pozitivním momentu — 30 dní používání NEBO 20 schválených žádostí, cokoli
+    // nastane dřív, jen jednou za firmu. Žádný selektivní filtr podle spokojenosti (viz src/app/hodnoceni).
+    if (!company.is_test && (company.status ?? "active") === "active" && !company.review_request_sent_at) {
+      const ageDays = Math.floor((now.getTime() - new Date(company.created_at).getTime()) / 86_400_000);
+      let qualifies = ageDays >= 30;
+      if (!qualifies) {
+        const { count: approvedCount } = await supabase
+          .from("leave_requests")
+          .select("id, profile:profiles!leave_requests_profile_id_fkey(company_id)", { count: "exact", head: true })
+          .eq("status", "approved")
+          .eq("profile.company_id", company.id);
+        qualifies = (approvedCount ?? 0) >= 20;
+      }
+      if (qualifies) {
+        const primaryAdmin = admins
+          .filter((a) => a.email && a.email_notifications && !a.is_demo && !a.is_external && !a.join_pending)
+          .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))[0];
+        if (primaryAdmin) {
+          const token = newNpsToken(company.id, primaryAdmin.id);
+          const npsUrl = (bucket: string) => `${appUrl()}/api/nps?token=${encodeURIComponent(token)}&bucket=${bucket}`;
+          const t = templateText("nps_request", {});
+          const actions = [`@@action Spíš ne (0–6) | ${npsUrl("detractor")}`, `@@action Jde to (7–8) | ${npsUrl("passive")}`, `@@action Určitě! (9–10) | ${npsUrl("promoter")}`].join("\n");
+          await supabase.from("email_outbox").insert({ company_id: company.id, category: "nps", to_email: primaryAdmin.email!, subject: t.subject, body: `${t.body}\n\n${actions}` });
+        }
+        await supabase.from("companies").update({ review_request_sent_at: now.toISOString() }).eq("id", company.id);
+      }
+    }
 
     // 1) escalation
     type Pending = {

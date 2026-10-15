@@ -16,16 +16,17 @@ export interface ApprovalPayload {
 
 export const APPROVAL_LINK_DAYS = 7;
 
-/** Vlastní tajný klíč (min. 32 znaků). Jen ve vývoji se jako záloha použije service klíč — v produkci nikdy. */
-function secret(): string {
+/** Vlastní tajný klíč (min. 32 znaků). Jen ve vývoji se jako záloha použije service klíč — v produkci nikdy.
+ * Sdílený i s jinými podepsanými e-mailovými odkazy (viz nps-token.ts), ať nevzniká druhý HMAC secret navíc. */
+export function secret(): string {
   const s = process.env.APPROVAL_TOKEN_SECRET;
   if (s && s.length >= 32) return s;
   if (process.env.NODE_ENV !== "production" && process.env.SUPABASE_SERVICE_ROLE_KEY) return process.env.SUPABASE_SERVICE_ROLE_KEY;
   throw new Error("Chybí APPROVAL_TOKEN_SECRET (min. 32 znaků) pro podepisování odkazů.");
 }
 
-const b64 = (buf: Buffer | string) => Buffer.from(buf).toString("base64url");
-const sign = (data: string, key: string) => createHmac("sha256", key).update(data).digest();
+export const b64 = (buf: Buffer | string) => Buffer.from(buf).toString("base64url");
+export const sign = (data: string, key: string) => createHmac("sha256", key).update(data).digest();
 
 export function signApprovalToken(payload: ApprovalPayload, key: string = secret()): string {
   const body = b64(JSON.stringify(payload));

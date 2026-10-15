@@ -88,6 +88,24 @@ export function renderHtml(subject: string, body: string, category?: string | nu
       baseUrl: appUrl(),
     });
   }
+  if (category === "nps") {
+    // Každý řádek "@@action Popisek | https://…" (cron/daily) je jedno tlačítko — tady NPS 0–10 shrnuté do tří tlačítek.
+    const lines = body.split("\n");
+    const actions: { label: string; url: string; kind: "link" }[] = [];
+    const bodyLines: string[] = [];
+    for (const line of lines) {
+      const m = /^@@action (.+?) \| (\S+)$/.exec(line.trim());
+      if (m) actions.push({ label: m[1], url: m[2], kind: "link" });
+      else bodyLines.push(line);
+    }
+    return emailLayout({
+      title: subject,
+      paragraphs: bodyLines.join("\n").split(/\n{2,}/).filter(Boolean),
+      actions,
+      footer: FOOTER_TRANSACTIONAL,
+      baseUrl: appUrl(),
+    });
+  }
   if (category === "signup_reminder") {
     // Poslední řádek těla je jednorázový potvrzovací odkaz (cron/daily) — z něj se stane tlačítko.
     const link = body.match(/\n\n(https?:\/\/\S+)\s*$/);
@@ -131,7 +149,16 @@ function payload(to: string, subject: string, body: string, html: string | undef
     to: [to],
     subject,
     // "## " je značka nadpisu skupiny v HTML (renderParagraph); v textové verzi je zbytečná.
-    text: category === "billing" ? `${body.replace(QR_LINE, "").replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${appUrl()}${CTA_BY_CATEGORY.billing.path}` : category === "onboarding_tips" ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${FOOTER_TIPS}` : category === "signup_reminder" ? `${body}\n\n${FOOTER_SIGNUP}` : `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
+    text:
+      category === "billing"
+        ? `${body.replace(QR_LINE, "").replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${appUrl()}${CTA_BY_CATEGORY.billing.path}`
+        : category === "onboarding_tips"
+          ? `${body.replace(CTA_TRAILER, (_x, label: string, url: string) => `\n\n${label}: ${url}`)}\n\n${FOOTER_TIPS}`
+          : category === "signup_reminder"
+            ? `${body}\n\n${FOOTER_SIGNUP}`
+            : category === "nps"
+              ? `${body.replace(/^@@action (.+?) \| (\S+)$/gm, (_x, label: string, url: string) => `${label}: ${url}`)}\n\n${FOOTER_TRANSACTIONAL}`
+              : `${body.replace(/^## /gm, "")}\n\n${appUrl()}${(category && CTA_BY_CATEGORY[category]?.path) || "/dashboard"}`,
     html: html ?? renderHtml(subject, body, category),
     ...(replyTo ? { reply_to: replyTo } : {}),
   };

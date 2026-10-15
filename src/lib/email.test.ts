@@ -122,6 +122,22 @@ describe("renderHtml – tipy po registraci", () => {
   });
 });
 
+describe("renderHtml – NPS žádost o hodnocení", () => {
+  it("tři řádky @@action se stanou třemi tlačítky a zmizí z textu", async () => {
+    const { renderHtml } = await import("./email");
+    const html = renderHtml(
+      "Jak se vám Dodio osvědčilo?",
+      "Dobrý den,\n\nodpovězte prosím na otázku.\n\n@@action Nespokojen | https://app.dodio.cz/api/nps?token=t&bucket=detractor\n@@action Jde to | https://app.dodio.cz/api/nps?token=t&bucket=passive\n@@action Nadšený! | https://app.dodio.cz/api/nps?token=t&bucket=promoter",
+      "nps"
+    );
+    expect(html).toContain('href="https://app.dodio.cz/api/nps?token=t&amp;bucket=detractor"');
+    expect(html).toContain('href="https://app.dodio.cz/api/nps?token=t&amp;bucket=passive"');
+    expect(html).toContain('href="https://app.dodio.cz/api/nps?token=t&amp;bucket=promoter"');
+    expect(html).toContain("Nadšený!");
+    expect(html).not.toContain("@@action");
+  });
+});
+
 describe("rezervované domény", () => {
   it("na .invalid a .test se neposílá", async () => {
     const { sendEmail } = await import("./email");

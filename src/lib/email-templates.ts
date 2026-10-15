@@ -775,6 +775,21 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     cta: { label: "Otevřít integrace", path: "/admin/settings?sekce=integrations" },
     optOut: false,
   },
+  {
+    key: "nps_request",
+    name: "Žádost o hodnocení (NPS)",
+    when: "Jednou za firmu: 30 dní používání nebo 20 schválených žádostí, cokoli nastane dřív (denní kontrola).",
+    to: "Primární admin firmy",
+    live: true,
+    vars: [],
+    subject: () => "Jak se vám Dodio zatím osvědčilo?",
+    paragraphs: () => [
+      "Dobrý den,",
+      "používáte Dodio už nějakou dobu, a tak by nás zajímalo: jak pravděpodobně byste nás doporučili kolegovi z jiné firmy?",
+    ],
+    // Jednorázový e-mail (jednou za firmu, nikdy znovu) — nemá vlastní přepínač v Nastavení → Notifikace.
+    optOut: false,
+  },
 ];
 
 export const TEMPLATE_SAMPLE: Vars = {
