@@ -271,7 +271,7 @@ export function BillingPanel() {
             </div>
             <h2 className="font-display text-h2">Platební metoda</h2>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3">
             <button
               onClick={() => setPaymentMethod("invoice")}
               className={cn("flex items-start gap-3 rounded border p-4 text-left", (billing.payment_method ?? "invoice") === "invoice" ? "border-teal ring-1 ring-teal" : "border-line hover:bg-paper")}
@@ -282,16 +282,6 @@ export function BillingPanel() {
                 <span className="block text-xs text-muted">Fakturu posíláme na e-mail pro faktury, splatnost podle smlouvy.</span>
               </span>
             </button>
-            <a
-              href={`mailto:${process.env.NEXT_PUBLIC_SALES_EMAIL ?? ""}?subject=${encodeURIComponent("Zájem o platbu kartou v Dodiu")}`}
-              className="flex items-start gap-3 rounded border border-line p-4 text-left hover:bg-paper"
-            >
-              <CreditCard size={18} className="mt-0.5 shrink-0 text-teal-dark" />
-              <span>
-                <span className="block text-sm font-medium">Chcete platit kartou?</span>
-                <span className="block text-xs text-muted">Dejte nám vědět. Až budeme mít platby kartou hotové, ozveme se.</span>
-              </span>
-            </a>
           </div>
         </div>
       )}
