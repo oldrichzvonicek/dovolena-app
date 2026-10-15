@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Sestavení potřebuje adresu a klíč Supabase; pro kontrolu stačí zástupné hodnoty (nikam se nevolá).
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Instaluje i xlsx z CDN SheetJS (odkaz a kontrolní součet jsou v package-lock.json).
+      - name: Instalace závislostí
+        run: npm ci
+
+      - name: Testy
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Sestavení
+        run: npm run build

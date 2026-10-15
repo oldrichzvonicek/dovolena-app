@@ -20,6 +20,10 @@
 | `NEXT_PUBLIC_SALES_EMAIL` | kam míří tlačítko „Přejít na vyšší tarif“ (mailto) |
 | `CRON_SECRET` | libovolný dlouhý náhodný řetězec; Vercel ho posílá cron úlohám jako `Authorization: Bearer …` |
 | `APPROVAL_TOKEN_SECRET` | min. 32 náhodných znaků; podepisuje odkazy „Schválit / Zamítnout“ v e-mailech (v produkci je povinný) |
+| `NEXT_PUBLIC_TERMS_URL`, `NEXT_PUBLIC_PRIVACY_URL` | adresy obchodních podmínek a zásad zpracování osobních údajů, se kterými se souhlasí při založení firmy; bez nich se názvy dokumentů zobrazí jen jako text (před ostrým provozem povinné) |
+| `NEXT_PUBLIC_LEGAL_VERSION` | označení znění právních dokumentů, uloží se u souhlasu; výchozí `1`, při změně dokumentů zvyšte |
+| `SENTRY_AUTH_TOKEN` | volitelné; nahrává source mapy do Sentry při sestavení (čitelnější chyby). Sledování chyb běží i bez něj, DSN je v `sentry.*.config.ts` |
+| `FAKTUROID_*` | automatické fakturování, seznam a postup v [docs/FAKTUROID.md](docs/FAKTUROID.md); bez nich je integrace vypnutá |
 
 ## 3. Vercel
 1. Importujte repozitář, framework Next.js, `npm run build`.
@@ -36,7 +40,7 @@ on conflict (key) do update set value = excluded.value;
 Ověření, že úloha běží: `select jobid, jobname, schedule, active from cron.job;` a `select status, start_time, return_message from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'dodio-process-emails') order by start_time desc limit 5;`.
 
 ## 4. Kontrola před spuštěním
-- `npm test` (jednotkové testy zůstatků, pracovních dnů, formátování) a `npm run build` musí projít.
+- `npm test`, `npm run lint` a `npm run build` musí projít (GitHub Actions je spouští u každého pushe a PR, viz `.github/workflows/ci.yml`).
 - Ručně ověřte přihlášení, žádost → schválení → e-mail, a reset hesla na produkční doméně.
 - Pravidelně zálohujte databázi (Supabase → Database → Backups).
 
