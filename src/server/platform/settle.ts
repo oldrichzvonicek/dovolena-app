@@ -2,7 +2,7 @@ import { templateText } from "@/lib/email-templates";
 import { platformDb, writeAudit, type PlatformContext } from "./auth";
 import { todayIso } from "./billing";
 import { companyLabel } from "./companies";
-import { SIGNATURE, queueCompanyEmail } from "./email";
+import { SIGNATURE, invoicePdfLink, pdfTrailer, queueCompanyEmail } from "./email";
 
 export interface SettleInput {
   invoiceId: string;
@@ -23,7 +23,7 @@ export type SettleResult = { ok: true; restored: boolean } | { ok: false; code: 
  */
 export async function settleInvoicePaid(opts: SettleInput): Promise<SettleResult> {
   const db = platformDb();
-  const { data: invoice } = await db.from("company_invoices").select("id, company_id, number, amount, status, period_to").eq("id", opts.invoiceId).maybeSingle();
+  const { data: invoice } = await db.from("company_invoices").select("id, company_id, number, amount, status, period_to, file_url").eq("id", opts.invoiceId).maybeSingle();
   if (!invoice) return { ok: false, code: "not_found", message: "Faktura nebyla nalezena." };
   if (invoice.status !== "issued") {
     return { ok: false, code: "bad_state", message: invoice.status === "paid" ? "Faktura je už zaplacená." : "Fakturu ve stavu storno nelze zaplatit." };
@@ -65,8 +65,16 @@ export async function settleInvoicePaid(opts: SettleInput): Promise<SettleResult
     }
   }
   await writeAudit(opts.actor, { action: "invoice.paid", companyId: company.id, companyLabel: companyLabel(company), details });
-  const paid = templateText("payment_received", { cislo: invoice.number, castka: `${Math.round(Number(invoice.amount)).toLocaleString("cs-CZ")} Kč` });
-  await queueCompanyEmail(company.id, paid.subject, `${paid.body}${SIGNATURE}`);
+  const cz = (iso: string | null | undefined) => (iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString("cs-CZ", { timeZone: "UTC" }) : "");
+  const pdf = await invoicePdfLink(invoice.file_url);
+  const paid = templateText("payment_received", {
+    cislo: invoice.number,
+    castka: `${Math.round(Number(invoice.amount)).toLocaleString("cs-CZ")} Kč`,
+    datum: cz(opts.receivedAt),
+    plati_do: cz((details.plan_paid_until as { to: string } | undefined)?.to ?? company.plan_paid_until),
+    pdf: pdf ? "ano" : "ne",
+  });
+  await queueCompanyEmail(company.id, paid.subject, `${paid.body}${SIGNATURE}${pdfTrailer(pdf)}`);
   if (restored) {
     const back = templateText("account_restored", {});
     await queueCompanyEmail(company.id, back.subject, `${back.body}${SIGNATURE}`);
