@@ -126,9 +126,15 @@ export function NotificationBell() {
     };
   }, []);
 
-  if (!profile) return null;
-
   const unreadCount = items.filter((n) => !n.read_at).length;
+
+  // Otevření zvonečku = uživatel notifikace viděl — nemá smysl nutit proklikat každou zvlášť, ať odznak zmizí.
+  useEffect(() => {
+    if (open && profile && unreadCount > 0) markAllNotificationsRead(profile.id).then(load);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  if (!profile) return null;
 
   async function handleMarkAllRead() {
     if (!profile) return;
