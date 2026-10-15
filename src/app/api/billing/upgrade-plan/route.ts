@@ -5,12 +5,28 @@ import { allowRequest, tooManyRequests } from "@/lib/rate-limit";
 import { PLAN_ORDER, planByKey } from "@/lib/plans";
 import { addDaysIso, changeKind, overLimitBy, quoteUpgrade } from "@/lib/plan-change";
 import { templateText } from "@/lib/email-templates";
-import { extendPaidUntil, formatCzDate, periodAmount, todayIso } from "@/server/platform/billing";
-import { BANK_ACCOUNT, SIGNATURE, invoicePdfLink, pdfTrailer, queueCompanyEmail, variableSymbol } from "@/server/platform/email";
-import { createInvoice, downloadPdf, ensureSubject, fakturoidConfig, isVatPayer } from "@/server/platform/fakturoid";
-import { writeAudit } from "@/server/platform/auth";
+import { extendPaidUntil, formatCzDate, periodAmount, todayIso } from "@/server/billing";
+import { BANK_ACCOUNT, SIGNATURE, invoicePdfLink, pdfTrailer, queueCompanyEmail, variableSymbol } from "@/server/email";
+import { createInvoice, downloadPdf, ensureSubject, fakturoidConfig, isVatPayer } from "@/server/fakturoid";
 
 export const dynamic = "force-dynamic";
+
+/** Stejný tvar řádku jako writeAudit() v server/platform/auth.ts — ten se sem kvůli no-restricted-imports
+ * importovat nesmí (zákaznická appka), takže se zapisuje přímo stejnou service-role instancí. */
+async function logAudit(db: ReturnType<typeof createAdminClient>, entry: { action: string; result?: "ok" | "error"; companyId: string; companyLabel: string; actorUserId: string; actorLabel: string; details: Record<string, unknown> }) {
+  const { error } = await db.from("platform_audit_log").insert({
+    actor_type: "admin",
+    via_impersonation: false,
+    actor_id: entry.actorUserId,
+    actor_label: entry.actorLabel,
+    action: entry.action,
+    result: entry.result ?? "ok",
+    company_id: entry.companyId,
+    company_label: entry.companyLabel,
+    details: entry.details,
+  });
+  if (error) console.error("platform audit:", error.message);
+}
 
 /**
  * Samoobslužné zvýšení tarifu: firemní admin žádá rovnou tady (dřív jen mailto na obchod a provozovatel to
@@ -69,11 +85,12 @@ export async function POST(req: NextRequest) {
 
   async function applyPlan(invoiceNumber: string | null) {
     await db.from("companies").update({ plan: toPlan.key, billing_period: period, plan_paid_until: newPaidUntil, pending_plan: null, pending_plan_from: null, pending_plan_notified: false }).eq("id", company.id);
-    await writeAudit(null, {
+    await logAudit(db, {
       action: "plan.change",
       companyId: company.id,
       companyLabel: company.name,
-      actor: { userId, label: callerLabel, actorType: "admin" },
+      actorUserId: userId,
+      actorLabel: callerLabel,
       details: { from: fromPlan.key, to: toPlan.key, period, amount, invoice: invoiceNumber },
     });
   }
@@ -138,12 +155,12 @@ export async function POST(req: NextRequest) {
       qr: `${inv.total || amount}|${(inv.variableSymbol || variableSymbol(inv.number)).replace(/\D/g, "")}`,
     });
     await queueCompanyEmail(company.id, mail.subject, `${mail.body}${SIGNATURE}${pdfTrailer(await invoicePdfLink(path))}`);
-    await writeAudit(null, { action: "invoice.create", companyId: company.id, companyLabel: company.name, details: { number: inv.number, amount: inv.total || amount, source: "fakturoid", kind: "upgrade" } });
+    await logAudit(db, { action: "invoice.create", companyId: company.id, companyLabel: company.name, actorUserId: userId, actorLabel: callerLabel, details: { number: inv.number, amount: inv.total || amount, source: "fakturoid", kind: "upgrade" } });
 
     return NextResponse.json({ ok: true, plan: toPlan.key, amount: inv.total || amount, invoiceNumber: inv.number });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await writeAudit(null, { action: "invoice.create", result: "error", companyId: company.id, companyLabel: company.name, details: { source: "fakturoid", kind: "upgrade", error: message } });
+    await logAudit(db, { action: "invoice.create", result: "error", companyId: company.id, companyLabel: company.name, actorUserId: userId, actorLabel: callerLabel, details: { source: "fakturoid", kind: "upgrade", error: message } });
     return NextResponse.json({ error: "Fakturu se nepodařilo vystavit, zkuste to prosím později nebo nám napište." }, { status: 502 });
   }
 }
