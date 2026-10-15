@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, PlayCircle, Search, UserCog, UserRound, Users } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, BookOpen, PlayCircle, Search, UserCog, UserRound, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Header } from "@/components/layout/Header";
 import { START_TOUR_EVENT } from "@/components/layout/ProductTour";
@@ -124,10 +125,13 @@ export default function HelpPage() {
               ),
             }))}
           />
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             <Button variant="ghost" onClick={() => window.dispatchEvent(new Event(START_TOUR_EVENT))}>
               <PlayCircle size={16} /> Spustit rychlého průvodce aplikací
             </Button>
+            <Link href="/help/navody" className="inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-medium text-teal-dark hover:bg-white">
+              <BookOpen size={16} /> Návody podle role
+            </Link>
           </div>
         </div>
 

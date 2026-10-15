@@ -3,17 +3,35 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
+  Calculator,
   Clock,
   LayoutDashboard,
   ListChecks,
   Plus,
   Settings,
+  UserCheck,
   UserCircle,
+  UserCog,
+  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
 
 export type HelpRole = "employee" | "manager" | "admin";
+
+/** Krátké "začínající" průvodce pro jednotlivé role — na rozdíl od faqs níže nejde o otázku/odpověď, ale
+ * o pořadí kroků pro první dny v roli. Doplňkové role (HR, Účetní) se přidávají k základní roli zaměstnanec
+ * nebo manažer (profile.staff_role), proto mají vlastní klíč mimo HelpRole. */
+export type GuideAudience = HelpRole | "hr" | "accountant";
+
+export interface HelpGuide {
+  audience: GuideAudience;
+  title: string;
+  icon: LucideIcon;
+  color: HelpSection["color"];
+  intro: string;
+  steps: { title: string; text: string }[];
+}
 
 // undefined roles = visible to everyone. A section/FAQ tagged with roles is
 // only shown to someone whose profile.role is in that list — "manager" here
@@ -624,6 +642,80 @@ const ALL_FAQS: HelpFaq[] = [
 // Otázky o integracích do chatů se v první fázi nezobrazují (viz CHAT_INTEGRATIONS_ENABLED v plans.ts).
 const CHAT_QUESTIONS = new Set(["Jak propojím Dodio se Slackem nebo Teams?"]);
 export const faqs: HelpFaq[] = CHAT_INTEGRATIONS_ENABLED ? ALL_FAQS : ALL_FAQS.filter((f) => !CHAT_QUESTIONS.has(f.q));
+
+export const guides: HelpGuide[] = [
+  {
+    audience: "employee",
+    title: "Zaměstnanec — první kroky",
+    icon: UserRound,
+    color: "teal",
+    intro: "Dodio eviduje vaši dovolenou, sick days, home office a další absence na jednom místě. Tady je, co si projít jako první.",
+    steps: [
+      { title: "Zkontrolujte zůstatek", text: "Na nástěnce uvidíte karty Dovolená, Sick Days a Home Office — kolik vám letos zbývá, co je už naplánované a co vyčerpané." },
+      { title: "Podejte první žádost", text: "Tlačítkem „+ Nová žádost“ nebo rychlým čipem u dané karty. Víkendy a státní svátky se do dnů nepočítají samy." },
+      { title: "Sledujte stav v Moje žádosti", text: "Čekající, schválené, zamítnuté i zrušené na jednom místě. Čekající žádost jde ještě upravit nebo zrušit." },
+      { title: "Než zvolíte termín, mrkněte do Týmového kalendáře", text: "Uvidíte, kdo z vašeho oddělení už v tom termínu chybí." },
+      { title: "Nastavte si Můj účet", text: "E-mailová upozornění, dvoufázové ověření a odkaz pro přihlášení kalendáře do Google nebo Outlooku (iCal)." },
+    ],
+  },
+  {
+    audience: "manager",
+    title: "Manažer — první kroky",
+    icon: Users,
+    color: "plum",
+    intro: "Ke všemu, co umí zaměstnanec, navíc schvalujete žádosti svého týmu a vidíte, kdo kdy chybí.",
+    steps: [
+      { title: "Ke schválení", text: "Nová položka v menu — žádosti vašich přímých podřízených jsou nahoře s odznakem „Váš tým“. Zaškrtnutím víc žádostí je vyřídíte najednou." },
+      { title: "Všímejte si varování", text: "U každé žádosti se zobrazí záporný zůstatek žadatele, překročená kapacita oddělení nebo konflikt s kolegou ve stejném termínu." },
+      { title: "Nastavte si zástup", text: "V Můj tým nebo v Nastavení firmy přiřaďte sobě i lidem výchozího zástupce — až budete sami na dovolené, žádosti po vás převezme." },
+      { title: "Projděte si Můj tým", text: "Přehled lidí, zadání absence za zaměstnance (např. nemoc oznámenou telefonem) a upozornění na riziko vyhoření." },
+      { title: "Počítejte s týdenním přehledem", text: "Každé pondělí ráno vám e-mailem přijde souhrn absencí za tým a počet žádostí čekajících na vás." },
+    ],
+  },
+  {
+    audience: "admin",
+    title: "Admin — první kroky",
+    icon: UserCog,
+    color: "sage",
+    intro: "Nejširší role: nastavujete firmu, lidi, pravidla i fakturaci. Tohle pořadí dává smysl projít při zakládání firmy.",
+    steps: [
+      { title: "Firma a fakturace", text: "Nastavení firmy → Firma (název, logo) a → Tarif a fakturace (fakturační údaje, jde načíst z ARES podle IČO)." },
+      { title: "Pozvěte lidi", text: "Lidé → pozvánka e-mailem, registrační odkaz, nebo hromadný import z mzdového systému (Excel/CSV)." },
+      { title: "Oddělení a schvalování", text: "Přiřaďte vedoucí a zástupce oddělení, nastavte kapacitní varování a případně eskalaci schvalování." },
+      { title: "Typy absencí", text: "Zkontrolujte výchozí sadu (dovolená, sick days, home office…), barvy, pořadí a kódy pro mzdový export." },
+      { title: "Nároky, pravidla a kalendář", text: "Nároky a zůstatky (roční nárok, převod do dalšího roku), Pravidla žádostí (předstih, zpětné zadávání) a Pracovní kalendář (blokované termíny)." },
+      { title: "Bezpečnost a soukromí", text: "Dvoufázové ověření pro citlivé role, kdo vidí jaký typ absence kolegů." },
+      { title: "Sledujte limit tarifu", text: "V Tarif a fakturace vidíte počet aktivních uživatelů oproti limitu — přechod na vyšší tarif je od teď samoobslužný, bez čekání na e-mail." },
+    ],
+  },
+  {
+    audience: "hr",
+    title: "HR — první kroky",
+    icon: UserCheck,
+    color: "moss",
+    intro: "Doplňková role HR se přidá existujícímu zaměstnanci nebo manažerovi (Lidé → Upravit → Doplňková role) a je zdarma na jakémkoli tarifu.",
+    steps: [
+      { title: "Spravujte lidi", text: "Oddělení, nadřízený, roční nároky a pozvánky — i bez role admin. Aktivujete a deaktivujete uživatele." },
+      { title: "Zadejte absenci za kohokoli", text: "Na rozdíl od manažera (jen za svůj tým) HR zadá absenci za kohokoli ve firmě, i v Můj tým, který HR vidí za celou firmu." },
+      { title: "Analytika a Smart HR", text: "Kapacita oddělení, nemocnost (jen souhrnně, nikdy po jménech), riziko vyhoření, nevyčerpaná dovolená." },
+      { title: "Exporty", text: "Mzdové podklady a vyrovnání při odchodu zaměstnance." },
+      { title: "Co HR nedělá", text: "Nespravuje fakturaci, tarif ani role zaměstnanec/manažer/admin a neschvaluje žádosti o absenci." },
+    ],
+  },
+  {
+    audience: "accountant",
+    title: "Účetní — první kroky",
+    icon: Calculator,
+    color: "rust",
+    intro: "Doplňková role Účetní je čistě na čtení — mzdové podklady a přehledy, bez možnosti cokoli v appce měnit.",
+    steps: [
+      { title: "Exporty → Detail pro mzdy", text: "Zvolte měsíc a stáhněte CSV nebo Excel s jedním řádkem na každou schválenou absenci (osobní číslo, dny, hodiny, kód pro mzdy)." },
+      { title: "Uzavřete měsíc", text: "Po odeslání podkladů jde měsíc uzavřít — schválené absence v něm pak nejde přidat, změnit ani smazat, dokud ho admin, HR nebo účetní znovu neotevře." },
+      { title: "Vyrovnání při ukončení", text: "Pro odcházející zaměstnance spočítá poměrný nárok, převod z minulého roku a výsledné vyrovnání (orientačně, bez částky)." },
+      { title: "Analytika", text: "Přehled absencí podle období a oddělení, i export do CSV nebo tisku." },
+    ],
+  },
+];
 
 export const colorIcon: Record<HelpSection["color"], string> = {
   teal: "bg-teal-light text-teal-dark",
