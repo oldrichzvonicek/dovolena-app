@@ -4,7 +4,7 @@ import { CheckIcon } from "./icons";
 import { DodioMark } from "./DodioLogo";
 import { SIGNUP_URL } from "@/lib/dodio-links";
 
-const BENEFITS = ["Čeština", "Česká pravidla", "Exporty"];
+const BENEFITS = ["Čeština", "Česká pravidla", "Exporty", "Appka na plochu (PWA)"];
 
 function ApprovalChatCard({ className = "" }: { className?: string }) {
   // Illustrative app preview, not a real control surface — the whole card
@@ -221,7 +221,7 @@ export function Hero() {
               <span>Nastavení za pár minut</span>
             </div>
           </div>
-          <div className="hidden flex-wrap gap-6 text-sm text-dodio-ink-muted lg:flex">
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-dodio-ink-muted lg:gap-6">
             {BENEFITS.map((benefit) => (
               <span key={benefit} className="flex items-center gap-2">
                 <CheckIcon />

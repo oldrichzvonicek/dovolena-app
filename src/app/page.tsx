@@ -7,6 +7,7 @@ import { TeamCalendar } from "@/components/marketing/TeamCalendar";
 import { SmartHR } from "@/components/marketing/SmartHR";
 import { Integrations } from "@/components/marketing/Integrations";
 import { Security } from "@/components/marketing/Security";
+import { CostCalculator } from "@/components/marketing/CostCalculator";
 import { Pricing } from "@/components/marketing/Pricing";
 import { FAQ } from "@/components/marketing/FAQ";
 import { FinalCTA } from "@/components/marketing/FinalCTA";
@@ -44,6 +45,7 @@ export default function LandingPage() {
         <TeamCalendar />
         <SmartHR />
         <Security />
+        <CostCalculator />
         <Pricing />
         <FAQ />
         <FinalCTA />

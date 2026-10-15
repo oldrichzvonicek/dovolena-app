@@ -57,6 +57,15 @@ function ApprovalIllustration() {
       aria-hidden="true"
       className="flex w-full max-w-[440px] flex-col gap-3 rounded-dodio-lg border border-dodio-border bg-dodio-surface-card p-5 shadow-[0_20px_40px_-24px_rgba(44,44,42,0.25)]"
     >
+      <div className="flex items-center gap-2 border-b border-[#EFEDE6] pb-3 text-[13px] text-dodio-ink-muted">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0">
+          <rect x="1.5" y="3" width="13" height="10" rx="1.5" fill="none" stroke="#5F5E5A" strokeWidth="1.3" />
+          <path d="M2 4l6 4.5L14 4" fill="none" stroke="#5F5E5A" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span>
+          Dodio <span className="text-dodio-ink-muted/80">&lt;noreply@dodio.cz&gt;</span>
+        </span>
+      </div>
       <div className="flex items-center gap-2 text-sm font-semibold">
         Čeká na vaše schválení
         <span className="rounded-dodio-sm bg-dodio-coral px-1.5 py-0.5 text-[11px] font-bold text-dodio-coral-dark">
@@ -79,6 +88,7 @@ function ApprovalIllustration() {
           </div>
         </div>
       ))}
+      <div className="text-[11px] text-dodio-ink-muted">Funguje přímo z tohoto e-mailu — bez přihlášení.</div>
     </div>
   );
 }
@@ -189,6 +199,7 @@ export function Features() {
             illustration={<ApprovalIllustration />}
             reverse
             points={[
+              "Schválení jedním kliknutím přímo z e-mailu — manažer nemusí být u počítače ani přihlášený do appky.",
               "Kapacitní varování — Dodio upozorní, než by schválení nechalo tým pod minimem lidí.",
               "Přehled absencí celého týmu v kalendáři.",
               "Zástupce pro dobu vlastní nepřítomnosti v tarifu Pro, ať schvalování nestojí.",

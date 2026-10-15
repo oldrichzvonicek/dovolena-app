@@ -30,11 +30,11 @@ const CATEGORIES = [
       },
       {
         q: "Jak funguje schválení, když manažer není u počítače?",
-        a: "Dodio pošle e-mailové upozornění, že čeká žádost ke schválení. Manažer se přihlásí do appky — funguje i z mobilu, stačí prohlížeč — a žádost schválí nebo zamítne na pár kliknutí.",
+        a: "Dodio pošle e-mail s žádostí o schválení. Manažer klikne na Schválit nebo Zamítnout přímo v e-mailu, bez přihlašování do appky — odkaz je zabezpečený jedinečným tokenem, takže ho nejde zneužít ani spustit pouhým náhledem e-mailu.",
       },
       {
         q: "Potřebujeme něco instalovat?",
-        a: "Ne. Dodio běží celé v prohlížeči — funguje z počítače, tabletu i mobilu bez instalace.",
+        a: "Ne. Dodio běží celé v prohlížeči — funguje z počítače, tabletu i mobilu bez instalace. Pokud chcete appku i jako ikonu na ploše mobilu nebo počítače, stačí v prohlížeči kliknout na „Přidat na plochu“ (PWA) — žádný App Store ani instalace navíc.",
       },
       {
         q: "Jak dlouho trvá zavedení Dodia ve firmě?",
