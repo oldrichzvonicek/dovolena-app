@@ -15,8 +15,6 @@ interface PlanDefinition {
   usersLabel: string;
   monthlyPrice: number;
   forWhom: string;
-  /** Upper employee count this plan's base price covers — the boundary used to pick a plan by headcount. */
-  maxUsers: number;
   /** Per-extra-user monthly surcharge above the plan's user cap (Pro only — it has no cap otherwise). */
   extraUserMonthlyPrice?: number;
   /** User count used only for the Pro example calculation. */
@@ -27,14 +25,13 @@ interface PlanDefinition {
 const YEARLY_MONTHS = 10;
 
 const PLAN_DEFINITIONS: PlanDefinition[] = [
-  { id: "free", name: "Free", usersLabel: "Do 5 lidí", monthlyPrice: 0, forWhom: "Úplný začátek", maxUsers: 5 },
+  { id: "free", name: "Free", usersLabel: "Do 5 lidí", monthlyPrice: 0, forWhom: "Úplný začátek" },
   {
     id: "starter",
     name: "Starter",
     usersLabel: "Do 10 lidí",
     monthlyPrice: 290,
     forWhom: "Malý tým, podklady pro mzdy",
-    maxUsers: 10,
   },
   {
     id: "team",
@@ -42,7 +39,6 @@ const PLAN_DEFINITIONS: PlanDefinition[] = [
     usersLabel: "Do 15 lidí",
     monthlyPrice: 590,
     forWhom: "Rostoucí firma",
-    maxUsers: 15,
     recommended: true,
   },
   {
@@ -51,25 +47,10 @@ const PLAN_DEFINITIONS: PlanDefinition[] = [
     usersLabel: "Do 30 lidí",
     monthlyPrice: 1190,
     forWhom: "Firma, která lidi opravdu řídí",
-    maxUsers: 30,
     extraUserMonthlyPrice: 39,
     exampleUserCount: 50,
   },
 ];
-
-/** Monthly Kč price of the cheapest plan whose base price covers the given headcount. */
-export function getMonthlyPriceForEmployees(employeeCount: number): number {
-  const count = Math.max(1, Math.round(employeeCount));
-  const proPlan = PLAN_DEFINITIONS[PLAN_DEFINITIONS.length - 1];
-  const coveringPlan = PLAN_DEFINITIONS.find((plan) => count <= plan.maxUsers);
-
-  if (coveringPlan) {
-    return coveringPlan.monthlyPrice;
-  }
-
-  const overage = count - proPlan.maxUsers;
-  return proPlan.monthlyPrice + overage * (proPlan.extraUserMonthlyPrice ?? 0);
-}
 
 /** Formats an integer amount the Czech way: space as thousands separator, "Kč" suffix. */
 export function formatKc(amount: number): string {
@@ -134,7 +115,7 @@ export function getPlanPricing(period: BillingPeriod): PlanPricing[] {
     if (plan.id === "pro") {
       const extraMonthly = plan.extraUserMonthlyPrice ?? 0;
       const exampleUsers = plan.exampleUserCount ?? 50;
-      const exampleOverage = exampleUsers - plan.maxUsers;
+      const exampleOverage = exampleUsers - 30;
       const exampleTotal = priceForPeriod(monthly, period) + exampleOverage * priceForPeriod(extraMonthly, period);
       const note =
         period === "yearly"
