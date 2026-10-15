@@ -63,9 +63,9 @@ export const EMAIL_CATEGORIES: EmailCategory[] = [
   {
     key: "onboarding_tips",
     label: "Tipy a nápověda",
-    description: "Krátké tipy po registraci: jak pozvat kolegy, nastavit pravidla, schvalovat z e-mailu a číst přehledy. Posílají se jen prvních 14 dní nového účtu, adminům pět a zaměstnancům dva.",
+    description: "Krátké tipy po registraci: jak pozvat kolegy, nastavit pravidla, schvalovat z e-mailu a číst přehledy. Posílají se jen prvních 14 dní nového účtu, adminům pět a zaměstnancům dva. Adminům se navíc ozveme, když se ve firmě 14 a 30 dní nikdo nepřihlásí.",
     hrCanChange: false,
-    templates: ["onboarding_invite", "onboarding_rules", "onboarding_approval", "onboarding_calendar", "onboarding_export", "onboarding_employee_1", "onboarding_employee_2"],
+    templates: ["onboarding_invite", "onboarding_rules", "onboarding_approval", "onboarding_calendar", "onboarding_export", "onboarding_employee_1", "onboarding_employee_2", "reengage_14", "reengage_30"],
   },
   {
     key: "join_pending",

@@ -10,6 +10,7 @@ import { DEFAULT_WORK_DAYS, formatRange } from "@/lib/working-days";
 import { templateByKey, templateText } from "@/lib/email-templates";
 import { ONBOARDING_START, planOnboarding, shouldSend, type OnboardingFacts } from "@/lib/onboarding";
 import { signupAction } from "@/lib/signup-reminders";
+import { pendingPhrase, planReengagement } from "@/lib/reengagement";
 import { hasFeature } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
   const { data: companies } = await supabase
     .from("companies")
     .select(
-      "id, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, default_vacation_days, plan, addons, pending_plan, pending_plan_from, pending_plan_notified, max_carryover_days, carryover_expiry_md"
+      "id, status, is_test, last_activity_at, created_at, approval_reminder_hours, digest_last_sent, integration_digest_last, capacity_warning_percent, work_days, email_settings, default_vacation_days, plan, addons, pending_plan, pending_plan_from, pending_plan_notified, max_carryover_days, carryover_expiry_md"
     );
 
   // Naplánované změny tarifu: provést ty, kterým nastal den účinnosti (databázová funkce; chyba se ignoruje, dokud není nasazená).
@@ -232,6 +233,30 @@ export async function GET(req: Request) {
             }
             if (records.length > 0) await supabase.from("onboarding_emails").upsert(records, { onConflict: "profile_id,step" });
           }
+        }
+      }
+    }
+
+    // 1a3) neaktivní firma: po 14 a 30 dnech bez přihlášení a žádostí e-mail adminům (stejný přepínač jako tipy; testovací a pozastavené firmy ne).
+    // Bez nasazené migrace (tabulka onboarding_emails) se krok přeskočí.
+    {
+      const co = company as { email_settings?: Record<string, boolean> | null; status?: string; is_test?: boolean; last_activity_at?: string | null; created_at?: string };
+      const base = co.last_activity_at ?? co.created_at;
+      const recipients = admins.filter((a) => a.email && a.email_notifications && !a.join_pending && !a.is_demo && !a.is_external);
+      if (base && !co.is_test && co.status === "active" && (co.email_settings ?? {}).onboarding_tips !== false && recipients.length > 0) {
+        const { data: doneRows, error: doneErr } = await supabase.from("onboarding_emails").select("profile_id, step").in("profile_id", recipients.map((a) => a.id)).like("step", "reengage_%");
+        if (!doneErr) {
+          const waiting = ((pending as unknown as { profile: { company_id: string } | null }[]) ?? []).filter((r) => r.profile?.company_id === company.id).length;
+          const records: { profile_id: string; step: string; skipped: boolean }[] = [];
+          for (const a of recipients) {
+            const done = new Set((doneRows ?? []).filter((r) => r.profile_id === a.id).map((r) => r.step as string));
+            const next = planReengagement(base, now, done);
+            if (!next) continue;
+            const t = templateText(next.step, { cekajici: pendingPhrase(waiting) });
+            await supabase.from("email_outbox").insert({ company_id: company.id, category: "onboarding_tips", to_email: a.email!, subject: t.subject, body: `${t.body}\n\n@@cta Otevřít Dodio | ${appUrl()}/dashboard` });
+            records.push({ profile_id: a.id, step: next.key, skipped: false });
+          }
+          if (records.length > 0) await supabase.from("onboarding_emails").upsert(records, { onConflict: "profile_id,step" });
         }
       }
     }
