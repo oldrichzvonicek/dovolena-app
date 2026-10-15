@@ -89,12 +89,32 @@ export function PlanCard({ planKey, billing, onChanged }: { planKey: string | nu
       onChanged?.();
       return;
     }
-    const quote = kind === "upgrade" && billing ? quoteUpgrade({ from: plan, to: target, users, period, paidUntil, today }) : null;
+    if (kind === "upgrade") {
+      const quote = billing ? quoteUpgrade({ from: plan, to: target, users, period, paidUntil, today }) : null;
+      const text = quote
+        ? `Přejít na tarif ${target.name}? Vystavíme fakturu na doplatek ${formatKc(quote.toPay)} (kredit za nevyužité období ${formatKc(quote.credit)}) a tarif se změní hned po jejím vystavení.`
+        : `Přejít na tarif ${target.name}? Vystavíme fakturu na ${priceOf(target)} a tarif se změní hned po jejím vystavení.`;
+      if (!(await confirmDialog(text, { confirmLabel: "Přejít a vystavit fakturu" }))) return;
+      setChanging(true);
+      const res = await fetch("/api/billing/upgrade-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: target.key, period }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setChanging(false);
+      if (!res.ok) {
+        showToast(data.error ?? "Přechod na vyšší tarif se nezdařil.", "error");
+        return;
+      }
+      showToast(data.invoiceNumber ? `Přechod na ${target.name} je hotový, faktura ${data.invoiceNumber} je na cestě e-mailem.` : `Přechod na ${target.name} je hotový.`);
+      onChanged?.();
+      return;
+    }
     const subject = encodeURIComponent(`Změna tarifu Dodio: ${plan.name} → ${target.name}`);
     const body = encodeURIComponent(
       `Dobrý den,\n\nchceme přejít z tarifu ${plan.name} na ${target.name} (${period === "yearly" ? "roční" : "měsíční"} platba).\nAktuální počet uživatelů: ${employees ?? "?"}.` +
         (paidUntil ? `\nAktuální tarif máme zaplacený do ${czDate(paidUntil)}.` : "") +
-        (quote ? `\nOrientační doplatek podle podmínek (kredit za nevyužité období ${formatKc(quote.credit)}): ${formatKc(quote.toPay)}.` : "") +
         "\n\nDěkujeme."
     );
     window.location.href = `mailto:${salesEmail}?subject=${subject}&body=${body}`;
@@ -249,7 +269,7 @@ export function PlanCard({ planKey, billing, onChanged }: { planKey: string | nu
                   <Button
                     className="mt-4 w-full justify-center"
                     variant={p.recommended ? "primary" : "secondary"}
-                    disabled={changing || isPending || (fits && !(kind === "downgrade" && paidUntil) && !salesEmail)}
+                    disabled={changing || isPending || (fits && kind === "downgrade" && !paidUntil && !salesEmail)}
                     title={!fits ? `Tarif je určen pro maximálně ${p.employeeLimit} uživatelů. Kliknutím uvidíte, co je potřeba udělat.` : undefined}
                     onClick={() => (!fits ? setBlockedPlan(p) : choose(p))}
                   >
@@ -260,13 +280,13 @@ export function PlanCard({ planKey, billing, onChanged }: { planKey: string | nu
                         : !fits
                           ? "Změnit tarif"
                           : kind === "upgrade"
-                            ? "Požádat o přechod"
+                            ? "Přejít na tento tarif"
                             : "Zvolit tarif"}
                   </Button>
                 )}
                 {kind === "upgrade" && quote && (
                   <p className="mt-2 text-[11px] text-muted">
-                    Orientační doplatek při přechodu dnes: <strong>{formatKc(quote.toPay)}</strong> (kredit za nevyužité období {formatKc(quote.credit)}).
+                    Doplatek při přechodu dnes: <strong>{formatKc(quote.toPay)}</strong> (kredit za nevyužité období {formatKc(quote.credit)}).
                   </p>
                 )}
                 {kind === "downgrade" && paidUntil && !current && <p className="mt-2 text-[11px] text-muted">Platí až od {czDate(downgradeEffectiveDate(paidUntil, today)!)}, bez vrácení peněz.</p>}
@@ -349,8 +369,7 @@ export function PlanCard({ planKey, billing, onChanged }: { planKey: string | nu
           )}
         </div>
 
-        {!salesEmail && <p className="mt-2 text-xs text-warning-dark">Kontaktní e-mail pro objednávku není nastaven (NEXT_PUBLIC_SALES_EMAIL).</p>}
-        <p className="mt-2 text-xs text-muted">Volba tarifu otevře e-mail s předvyplněnou objednávkou — tarif se po potvrzení změní na naší straně.</p>
+        <p className="mt-2 text-xs text-muted">Zvýšení tarifu platí hned po potvrzení, vystavíme fakturu na doplatek za zbývající období. Snížení platí až od konce zaplaceného období, bez vrácení peněz.</p>
       </div>
     </div>
   );
