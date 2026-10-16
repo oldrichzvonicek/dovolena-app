@@ -89,19 +89,19 @@ export function renderHtml(subject: string, body: string, category?: string | nu
     });
   }
   if (category === "nps") {
-    // Každý řádek "@@action Popisek | https://…" (cron/daily) je jedno tlačítko — tady NPS 0–10 shrnuté do tří tlačítek.
-    const lines = body.split("\n");
-    const actions: { label: string; url: string; kind: "link" }[] = [];
-    const bodyLines: string[] = [];
-    for (const line of lines) {
-      const m = /^@@action (.+?) \| (\S+)$/.exec(line.trim());
-      if (m) actions.push({ label: m[1], url: m[2], kind: "link" });
-      else bodyLines.push(line);
-    }
+    // Řádek "@@nps https://…/api/nps?token=…" (cron/daily) se stane řadou čísel 0–10; klik připojí &score=N.
+    const m = /^@@nps (\S+)$/m.exec(body);
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const cell = (n: number) =>
+      `<td style="padding:0 2px"><a href="${esc(`${m![1]}&score=${n}`)}" style="display:block;text-align:center;text-decoration:none;border:1px solid #D3D1C7;border-radius:6px;padding:10px 0;font-size:14px;font-weight:bold;color:#085041">${n}</a></td>`;
+    const scale = m
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 0"><tr>${Array.from({ length: 11 }, (_, n) => cell(n)).join("")}</tr></table>` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 4px;font-size:12px;color:#5F5E5A"><tr><td align="left">0 = určitě ne</td><td align="right">10 = určitě ano</td></tr></table>`
+      : "";
     return emailLayout({
       title: subject,
-      paragraphs: bodyLines.join("\n").split(/\n{2,}/).filter(Boolean),
-      actions,
+      paragraphs: body.replace(/^@@nps .*$/m, "").split(/\n{2,}/).filter((p) => p.trim()),
+      afterBody: scale,
       footer: FOOTER_TRANSACTIONAL,
       baseUrl: appUrl(),
     });

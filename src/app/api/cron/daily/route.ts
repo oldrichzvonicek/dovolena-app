@@ -141,10 +141,8 @@ export async function GET(req: Request) {
           .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))[0];
         if (primaryAdmin) {
           const token = newNpsToken(company.id, primaryAdmin.id);
-          const npsUrl = (bucket: string) => `${appUrl()}/api/nps?token=${encodeURIComponent(token)}&bucket=${bucket}`;
           const t = templateText("nps_request", {});
-          const actions = [`@@action Spíš ne (0–6) | ${npsUrl("detractor")}`, `@@action Jde to (7–8) | ${npsUrl("passive")}`, `@@action Určitě! (9–10) | ${npsUrl("promoter")}`].join("\n");
-          await supabase.from("email_outbox").insert({ company_id: company.id, category: "nps", to_email: primaryAdmin.email!, subject: t.subject, body: `${t.body}\n\n${actions}` });
+          await supabase.from("email_outbox").insert({ company_id: company.id, category: "nps", to_email: primaryAdmin.email!, subject: t.subject, body: `${t.body}\n\n@@nps ${appUrl()}/api/nps?token=${encodeURIComponent(token)}` });
         }
         await supabase.from("companies").update({ review_request_sent_at: now.toISOString() }).eq("id", company.id);
       }
@@ -276,8 +274,12 @@ export async function GET(req: Request) {
         const { data: doneRows, error: doneErr } = await supabase.from("onboarding_emails").select("profile_id, step").in("profile_id", recipients.map((a) => a.id)).like("step", "reengage_%");
         if (!doneErr) {
           const waiting = ((pending as unknown as { profile: { company_id: string } | null }[]) ?? []).filter((r) => r.profile?.company_id === company.id).length;
+          // Víc než jeden „nebyznysový“ e-mail denně jednomu člověku nechceme (tipy, hodnocení): připomínka počká na další den.
+          const { data: recent } = await supabase.from("email_outbox").select("to_email").eq("company_id", company.id).in("category", ["nps", "onboarding_tips"]).gte("created_at", new Date(now.getTime() - 20 * 3_600_000).toISOString());
+          const mailedToday = new Set((recent ?? []).map((r) => (r.to_email as string).toLowerCase()));
           const records: { profile_id: string; step: string; skipped: boolean }[] = [];
           for (const a of recipients) {
+            if (mailedToday.has(a.email!.toLowerCase())) continue;
             const done = new Set((doneRows ?? []).filter((r) => r.profile_id === a.id).map((r) => r.step as string));
             const next = planReengagement(base, now, done);
             if (!next) continue;

@@ -786,6 +786,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     paragraphs: () => [
       "Dobrý den,",
       "používáte Dodio už nějakou dobu, a tak by nás zajímalo: jak pravděpodobně byste nás doporučili kolegovi z jiné firmy?",
+      "Stačí jedno kliknutí na číslo níže, zabere to pár vteřin.",
     ],
     // Jednorázový e-mail (jednou za firmu, nikdy znovu) — nemá vlastní přepínač v Nastavení → Notifikace.
     optOut: false,

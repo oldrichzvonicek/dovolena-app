@@ -122,22 +122,6 @@ describe("renderHtml – tipy po registraci", () => {
   });
 });
 
-describe("renderHtml – NPS žádost o hodnocení", () => {
-  it("tři řádky @@action se stanou třemi tlačítky a zmizí z textu", async () => {
-    const { renderHtml } = await import("./email");
-    const html = renderHtml(
-      "Jak se vám Dodio osvědčilo?",
-      "Dobrý den,\n\nodpovězte prosím na otázku.\n\n@@action Nespokojen | https://app.dodio.cz/api/nps?token=t&bucket=detractor\n@@action Jde to | https://app.dodio.cz/api/nps?token=t&bucket=passive\n@@action Nadšený! | https://app.dodio.cz/api/nps?token=t&bucket=promoter",
-      "nps"
-    );
-    expect(html).toContain('href="https://app.dodio.cz/api/nps?token=t&amp;bucket=detractor"');
-    expect(html).toContain('href="https://app.dodio.cz/api/nps?token=t&amp;bucket=passive"');
-    expect(html).toContain('href="https://app.dodio.cz/api/nps?token=t&amp;bucket=promoter"');
-    expect(html).toContain("Nadšený!");
-    expect(html).not.toContain("@@action");
-  });
-});
-
 describe("rezervované domény", () => {
   it("na .invalid a .test se neposílá", async () => {
     const { sendEmail } = await import("./email");
@@ -193,5 +177,16 @@ describe("renderHtml – QR platba", () => {
     expect(html).toContain("/api/qr?am=1346&vs=1260001");
     expect(html).toContain("QR platba");
     expect(html).not.toContain("@@qr");
+  });
+});
+
+describe("renderHtml – NPS", () => {
+  it("řádek @@nps se stane stupnicí 0–10 s odkazy na skóre a nezůstane v textu", async () => {
+    const { renderHtml } = await import("./email");
+    const html = renderHtml("Hodnocení", "Dobrý den,\n\nOtázka.\n\n@@nps https://app.dodio.cz/api/nps?token=abc", "nps");
+    expect(html).toContain("https://app.dodio.cz/api/nps?token=abc&amp;score=0");
+    expect(html).toContain("score=10");
+    expect(html.match(/&amp;score=/g)).toHaveLength(11);
+    expect(html).not.toContain("@@nps");
   });
 });

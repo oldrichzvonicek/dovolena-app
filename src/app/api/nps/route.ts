@@ -17,7 +17,9 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const payload = verifyNpsToken(searchParams.get("token") ?? "");
-  const bucket = searchParams.get("bucket") ?? "";
+  // Nové e-maily posílají skóre 0–10, starší (už odeslané) přímo skupinu.
+  const score = /^(10|\d)$/.test(searchParams.get("score") ?? "") ? Number(searchParams.get("score")) : null;
+  const bucket = score === null ? (searchParams.get("bucket") ?? "") : score >= 9 ? "promoter" : score >= 7 ? "passive" : "detractor";
   if (!payload || !(BUCKETS as readonly string[]).includes(bucket)) return NextResponse.redirect(dest, 303);
 
   await createAdminClient()
